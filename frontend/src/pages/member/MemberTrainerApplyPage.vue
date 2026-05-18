@@ -1,10 +1,11 @@
 <template>
-  <div class="page-container">
-    <div class="page-header">
-      <h1 class="page-title">Daftar Sebagai Trainer</h1>
-      <p class="page-subtitle">Lengkapi formulir untuk mengajukan diri sebagai trainer</p>
-    </div>
-
+  <WorkspaceLayout
+    role="member"
+    sidebar-title="Member"
+    title="Daftar Sebagai Trainer"
+    subtitle="Lengkapi formulir untuk mengajukan diri sebagai trainer"
+    :sidebar-items="memberSidebarItems"
+  >
     <div class="content-card">
       <form @submit.prevent="onSubmit" class="form-grid">
         <div class="form-field">
@@ -74,7 +75,7 @@
         </p>
 
         <div class="form-actions">
-          <button type="button" class="button button-ghost" @click="$router.back()">
+          <button type="button" class="button button-ghost" @click="$router.push('/member/hire-trainer')">
             Kembali
           </button>
           <button type="submit" class="button button-primary" :disabled="submitting">
@@ -83,12 +84,14 @@
         </div>
       </form>
     </div>
-  </div>
+  </WorkspaceLayout>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import { trainerApplicationApi } from '../../api/trainerApplicationApi'
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
+import { memberSidebarItems } from '../../components/layout/sidebarItems'
 
 const submitting = ref(false)
 const error = ref('')
@@ -141,28 +144,6 @@ async function onSubmit() {
 </script>
 
 <style scoped>
-.page-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-}
-
-.page-header {
-  margin-bottom: 2rem;
-}
-
-.page-title {
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 0.5rem;
-}
-
-.page-subtitle {
-  color: #666;
-  font-size: 1rem;
-}
-
 .content-card {
   background: white;
   border-radius: 12px;

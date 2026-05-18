@@ -24,6 +24,7 @@ export const memberSidebarItems = [
       { label: 'Daftar Jadi Trainer', to: '/trainer/daftar', icon: '⭐' },
     ]
   },
+  { label: 'Schedule', to: '/member/schedule', icon: '🗓️' },
   { label: 'Chat', to: '/member/chat', icon: '💬' },
   { label: 'Memberships', to: '/member/memberships', icon: '💳' },
   { label: 'Profile', to: '/member/profile', icon: '👤' },

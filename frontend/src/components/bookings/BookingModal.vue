@@ -136,6 +136,8 @@ async function onSubmit() {
       member_notes: form.value.member_notes,
       total_price: estimatedPrice.value,
     })
+    
+    alert('✅ Booking berhasil dibuat!\n\nPermintaan Anda telah dikirim ke trainer. Mohon menunggu konfirmasi dari trainer.\n\nAnda dapat melihat status booking di halaman Schedule.')
     emit('booked')
   } catch (e: any) {
     error.value = e?.message || 'Gagal membuat booking.'
