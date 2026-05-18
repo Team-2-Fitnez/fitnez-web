@@ -66,7 +66,7 @@ Docker:
 docker compose up --build
 ```
 
-## Cara jalankan project
+## Cara jalankan projectt
 
 - Pertama, masuk ke tempat kalian simpan project fitnez (saya sarankan simpan di WSL kalian masing masing).
 - Buka terminal WSL Debian kalian, arahkan ke folder project ulang, lalu silahkan jalankan perintah ini buat matikan container lama: docker compose down --remove-orphans 
