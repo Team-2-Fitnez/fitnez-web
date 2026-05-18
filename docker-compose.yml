@@ -1,15 +1,14 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: docker/php/Dockerfile
+      context: ./docker/php
+      dockerfile: Dockerfile
     container_name: fitnez-app
     working_dir: /var/www/html
     volumes:
       - ./backend:/var/www/html
       - fitnez_storage:/var/www/html/storage
       - fitnez_bootstrap_cache:/var/www/html/bootstrap/cache
-    command: fitnez-entrypoint
     depends_on:
       - db
     networks:
