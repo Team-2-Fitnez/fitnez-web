@@ -28,6 +28,9 @@ use App\Http\Controllers\OtpController;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\JwtAuthenticate;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\CookieConsentController;
+
+Route::post('/cookie-consents', [CookieConsentController::class, 'store']);
 Route::get('/landing',[LandingController::class,'index']);
 Route::get('/membership-packages',[MembershipPackageController::class,'index']);
 Route::get('/manual-payment-methods',[ManualPaymentMethodController::class,'index']);

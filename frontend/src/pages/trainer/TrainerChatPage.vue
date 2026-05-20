@@ -4,10 +4,8 @@ import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import { useChatStore } from '../../stores/chatStore'
-import { useAuthStore } from '../../stores/authStore'
 
 const chat = useChatStore()
-const auth = useAuthStore()
 const newMessage = ref('')
 const messagesEnd = ref<HTMLElement | null>(null)
 

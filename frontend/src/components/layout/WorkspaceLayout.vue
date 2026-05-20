@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { http as api } from '../../api/http'
 import { RouterLink } from 'vue-router'
 import WorkspaceSidebar from './WorkspaceSidebar.vue'
 
@@ -8,6 +9,26 @@ type MenuItem = {
   to?: string
   icon?: string
   submenu?: Array<{ label: string; to: string; icon?: string }>
+}
+
+type ToastState = {
+  message: string
+  type: FitnezToastType
+} | null
+
+type UnreadCountResponse = {
+  count?: number
+}
+
+type NotificationItem = {
+  id?: number
+  title?: string
+  body?: string
+  is_read?: boolean
+}
+
+type NotificationListResponse = {
+  data?: NotificationItem[]
 }
 
 const props = defineProps<{
@@ -29,11 +50,12 @@ const notificationLink = computed(() => {
 const mobileOpen = ref(false)
 const isCollapsed = ref(false)
 const showPermissionPrompt = ref(false)
-const activeToast = ref(null)
 
+const activeToast = ref<ToastState>(null)
 
-window.showFitnezToast = (message, type = 'success') => {
+window.showFitnezToast = (message: string, type: FitnezToastType = 'success') => {
   activeToast.value = { message, type }
+
   setTimeout(() => {
     activeToast.value = null
   }, 4000)
@@ -82,26 +104,28 @@ const dismissPrompt = () => {
 const lastNotifCount = ref(0)
 const pollNotifications = async () => {
   try {
-    const { data } = await api.get('/notifications/unread-count')
+    const { data } = await api.get<UnreadCountResponse>('/notifications/unread-count')
     const currentCount = data.count || 0
-    
+
     if (currentCount > lastNotifCount.value) {
+      const resp = await api.get<NotificationListResponse | NotificationItem[]>('/notifications?perPage=1')
 
+      const latest = Array.isArray(resp.data)
+        ? resp.data[0]
+        : resp.data.data?.[0]
 
-      const resp = await api.get('/notifications?perPage=1')
-      const latest = Array.isArray(resp.data) ? resp.data[0] : (resp.data?.data?.[0])
-      
       if (latest && !latest.is_read) {
-        window.showFitnezToast(`🔔 ${latest.title}: ${latest.body}`, 'info')
+        window.showFitnezToast(`🔔 ${latest.title || 'Notifikasi'}: ${latest.body || ''}`, 'info')
       }
     }
+
     lastNotifCount.value = currentCount
   } catch (error) {
-
+    console.error('Failed to poll notifications:', error)
   }
 }
 
-let pollInterval = null
+let pollInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
 
@@ -121,10 +145,10 @@ onMounted(() => {
   }
 })
 
-import { onUnmounted } from 'vue'
 onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval)
+  if (pollInterval !== null) clearInterval(pollInterval)
 })
+
 </script>
 
 <template>

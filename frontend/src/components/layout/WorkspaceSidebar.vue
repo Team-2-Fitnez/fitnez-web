@@ -14,6 +14,7 @@ defineProps<{
   role: 'admin' | 'member' | 'trainer'
   title: string
   items: MenuItem[]
+  collapsed?: boolean
 }>()
 
 const emit = defineEmits(['close'])

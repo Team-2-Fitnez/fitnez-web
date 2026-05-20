@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import PrivacyCookiePolicy from '../pages/PrivacyCookiePolicy.vue'
 
 import LandingPage from '../pages/LandingPage.vue'
 import RegisterProspectiveMemberPage from '../pages/RegisterProspectiveMemberPage.vue'
@@ -11,9 +12,6 @@ import ProspectiveMemberReviewPage from '../pages/admin/ProspectiveMemberReviewP
 import LandingVisitReportPage from '../pages/admin/LandingVisitReportPage.vue'
 import AuthActivityReportPage from '../pages/admin/AuthActivityReportPage.vue'
 import MemberPaymentAttendanceReportPage from '../pages/admin/MemberPaymentAttendanceReportPage.vue'
-import UserManagementPage from '../pages/admin/UserManagementPage.vue'
-import TrainerManagementPage from '../pages/admin/TrainerManagementPage.vue'
-import ScheduleManagementPage from '../pages/admin/ScheduleManagementPage.vue'
 import TrainerApplicationReviewPage from '../pages/admin/TrainerApplicationReviewPage.vue'
 import AdminNutritionMonitoringPage from '../pages/admin/AdminNutritionMonitoringPage.vue'
 import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage.vue'
@@ -42,6 +40,7 @@ import { useAuthStore } from '../stores/authStore'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/privacy-cookie-policy',  name: 'privacy-cookie-policy',  component: PrivacyCookiePolicy },
     { path: '/', name: 'landing', component: LandingPage },
     { path: '/register', name: 'register', component: RegisterProspectiveMemberPage },
     { path: '/registration-status', name: 'registration-status', component: RegistrationStatusPage },
@@ -52,9 +51,6 @@ const router = createRouter({
     { path: '/admin/dashboard', name: 'admin-dashboard', component: AdminDashboardPage, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/prospective-members', name: 'admin-prospective-members', component: ProspectiveMemberReviewPage, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/trainer-applications', name: 'admin-trainer-applications', component: TrainerApplicationReviewPage, meta: { requiresAuth: true, role: 'admin' } },
-    { path: '/admin/users', name: 'admin-users', component: UserManagementPage, meta: { requiresAuth: true, role: 'admin' } },
-    { path: '/admin/trainers', name: 'admin-trainers', component: TrainerManagementPage, meta: { requiresAuth: true, role: 'admin' } },
-    { path: '/admin/schedules', name: 'admin-schedules', component: ScheduleManagementPage, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/landing-visits', name: 'admin-landing-visits', component: LandingVisitReportPage, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/auth-activity', name: 'admin-auth-activity', component: AuthActivityReportPage, meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/member-reports', name: 'admin-member-reports', component: MemberPaymentAttendanceReportPage, meta: { requiresAuth: true, role: 'admin' } },

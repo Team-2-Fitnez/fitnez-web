@@ -2,12 +2,9 @@ export const adminSidebarItems = [
   { label: 'Dashboard', to: '/admin/dashboard', icon: '📊' },
   { label: 'Payment Review', to: '/admin/prospective-members', icon: '🧾' },
   { label: 'Trainer Applications', to: '/admin/trainer-applications', icon: '📄' },
-  { label: 'Users', to: '/admin/users', icon: '👥' },
-  { label: 'Trainers', to: '/admin/trainers', icon: '🏋️' },
-  { label: 'Schedules', to: '/admin/schedules', icon: '🗓️' },
   { label: 'Landing Visitors', to: '/admin/landing-visits', icon: '👀' },
   { label: 'Auth Activity', to: '/admin/auth-activity', icon: '🔐' },
-  { label: 'Member Reports', to: '/admin/member-reports', icon: '📈' },
+  { label: 'Admin Reports', to: '/admin/member-reports', icon: '📈' },
   { label: 'Nutrition Monitoring', to: '/admin/nutrition-monitoring', icon: '🥗' },
   { label: 'Notifications', to: '/admin/notifications', icon: '🔔' },
 ]
@@ -20,8 +17,8 @@ export const memberSidebarItems = [
     label: 'Hire a Trainer',
     icon: '🤝',
     submenu: [
-      { label: 'Sewa Trainer', to: '/member/hire-trainer', icon: '🤝' },
-      { label: 'Daftar Jadi Trainer', to: '/trainer/daftar', icon: '⭐' },
+      { label: 'Hire Trainer', to: '/member/hire-trainer', icon: '🤝' },
+      { label: 'Register as Trainer', to: '/trainer/daftar', icon: '⭐' },
     ]
   },
   { label: 'Schedule', to: '/member/schedule', icon: '🗓️' },
@@ -37,7 +34,7 @@ export const trainerSidebarItems = [
   { label: 'Classes', to: '/trainer/classes', icon: '🏃' },
   { label: 'Members', to: '/trainer/members', icon: '👥' },
   { label: 'Chat', to: '/trainer/chat', icon: '💬' },
-  { label: 'Rent History', to: '/trainer/rent-history', icon: '💰' },
+  { label: 'Trainer Reports', to: '/trainer/rent-history', icon: '💰' },
   { label: 'Notifications', to: '/trainer/notifications', icon: '🔔' },
   { label: 'Profile', to: '/trainer/profile', icon: '👤' },
 ]

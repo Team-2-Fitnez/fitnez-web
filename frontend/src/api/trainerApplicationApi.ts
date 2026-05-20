@@ -39,6 +39,10 @@ export const trainerApplicationApi = {
     return http.get<TrainerApplicationStatusResult>('/trainer/application')
   },
 
+  apply(payload: Record<string, unknown>) {
+    return http.post('/trainer/application', payload)
+  },
+
   submit(cv: File, certificate: File) {
     const form = new FormData()
     form.append('cv', cv)

@@ -6,7 +6,11 @@ import StatusBadge from '../../components/ui/StatusBadge.vue'
 import { useBookingStore } from '../../stores/bookingStore'
 
 const store = useBookingStore()
-const filter = ref<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all')
+
+type BookingFilter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'
+
+const filters: BookingFilter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled']
+const filter = ref<BookingFilter>('all')
 
 const filteredBookings = computed(() => {
   if (filter.value === 'all') return store.bookings
@@ -24,12 +28,12 @@ function formatDate(date: string) {
   })
 }
 
-function formatPrice(n: number) {
+function formatPrice(n: number | string | null | undefined) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(n)
+  }).format(Number(n || 0))
 }
 
 onMounted(() => store.loadBookings())
@@ -62,7 +66,7 @@ onMounted(() => store.loadBookings())
     <div class="card" style="margin-bottom: 1.25rem; padding: 1rem;">
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
         <button
-          v-for="f in ['all', 'pending', 'confirmed', 'completed', 'cancelled']"
+          v-for="f in filters"
           :key="f"
           :class="['filter-btn', filter === f && 'filter-btn-active']"
           @click="filter = f"
@@ -73,7 +77,7 @@ onMounted(() => store.loadBookings())
     </div>
 
     <!-- Loading -->
-    <div v-if="store.bookingsLoading" class="card" style="padding: 3rem; text-align: center;">
+    <div v-if="store.loading" class="card" style="padding: 3rem; text-align: center;">
       <p class="text-muted">Memuat jadwal...</p>
     </div>
 
@@ -105,7 +109,7 @@ onMounted(() => store.loadBookings())
               </div>
             </div>
           </div>
-          <StatusBadge :status="booking.status" />
+          <StatusBadge :status="booking.status || 'pending'" />
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">

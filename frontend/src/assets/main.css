@@ -1069,3 +1069,77 @@ textarea {
     opacity: 1;
   }
 }
+
+.button-landing-orange {
+  background: var(--color-orange);
+  color: var(--color-white);
+  border: 1px solid var(--color-orange);
+}
+
+.button-landing-orange:hover {
+  background: var(--color-orange-dark);
+  color: var(--color-white);
+}
+
+.button-white-orange {
+  background: var(--color-white);
+  color: var(--color-orange-dark);
+  border: 1px solid var(--color-white);
+}
+
+.button-white-orange:hover {
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--color-orange-dark);
+}
+
+.landing-orange-card {
+  background: var(--color-orange);
+  color: var(--color-white);
+}
+
+.landing-orange-card .title-md,
+.landing-orange-card p {
+  color: var(--color-white) !important;
+}
+
+.landing-blue-card {
+  color: var(--color-white);
+}
+
+.landing-blue-card .title-md,
+.landing-blue-card p {
+  color: var(--color-white) !important;
+  font-weight: 600;
+}
+
+.landing-package-card {
+  background: var(--color-orange);
+  color: var(--color-white);
+}
+
+.landing-package-card .title-md,
+.landing-package-card .stat-value,
+.landing-package-card p,
+.landing-package-card li {
+  color: var(--color-white) !important;
+}
+
+.landing-package-card .status {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-white);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.landing-step-card {
+  background: var(--color-blue);
+  color: var(--color-white);
+}
+
+.landing-step-card .title-md,
+.landing-step-card p {
+  color: var(--color-white) !important;
+}
+
+.landing-step-card .eyebrow-light {
+  color: rgba(255, 255, 255, 0.78);
+}
