@@ -3,7 +3,7 @@
     role="admin"
     title="Notifikasi"
     subtitle="Monitoring pendaftaran baru dan statistik pengguna aktif"
-    sidebarTitle="Admin Dashboard"
+    sidebarTitle="Admin"
     :sidebarItems="adminSidebarItems"
   >
     <div class="admin-content-wrapper">
