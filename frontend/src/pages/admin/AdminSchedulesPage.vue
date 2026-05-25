@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import RoleLayout from '../../components/layout/RoleLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
+import ExcelImportModal from '../../components/shared/ExcelImportModal.vue'
+import FitnezButton from '../../components/ui/FitnezButton.vue'
+
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -14,10 +19,19 @@ import StatCard from '../../components/ui/StatCard.vue'
     </div>
 
     <FitnezCard class="mt-5">
-      <h2 class="text-2xl font-black">Schedules Module</h2>
-      <p class="mt-3 max-w-3xl text-sm font-semibold leading-6 text-black/55">
-        This page is intentionally prepared as a clean UI placeholder. Connect tables, filters, forms, and API logic when the feature backend is finalized.
-      </p>
+      <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2 class="text-2xl font-black">Schedules Module</h2>
+          <p class="mt-3 max-w-3xl text-sm font-semibold leading-6 text-black/55">
+            Import jadwal latihan, data member, atau workout plan dari file Excel/CSV.
+          </p>
+        </div>
+        <FitnezButton @click="showImportModal = true">
+          Import Excel
+        </FitnezButton>
+      </div>
     </FitnezCard>
+
+    <ExcelImportModal v-if="showImportModal" @done="showImportModal = false" />
   </RoleLayout>
 </template>

@@ -115,7 +115,7 @@ export default {
         this.pendingMemberCount = data.pendingMemberCount || 0;
         this.pendingTrainerCount = data.pendingTrainerCount || 0;
       } catch (error) {
-        console.error("Gagal mengambil data admin:", error);
+        window.showFitnezToast('Gagal mengambil data admin.', 'error');
       }
     },
     formatTime(dateStr) {
@@ -136,7 +136,6 @@ export default {
         this.activeUsers++;
         window.showFitnezToast('Pendaftaran berhasil disetujui', 'success');
       } catch (error) {
-        console.error("Gagal menyetujui pendaftaran:", error);
         window.showFitnezToast('Gagal menyetujui pendaftaran', 'error');
       }
     },
@@ -146,13 +145,9 @@ export default {
         this.notifications = this.notifications.filter(n => n.id !== id);
         window.showFitnezToast('Pendaftaran telah ditolak', 'success');
       } catch (error) {
-        console.error("Gagal menolak pendaftaran:", error);
         window.showFitnezToast('Gagal menolak pendaftaran', 'error');
       }
     },
-    logout() {
-      console.log("Admin logging out...");
-    }
   }
 };
 </script>

@@ -346,7 +346,7 @@ export default {
         const response = await api.get('/workout-plans');
         this.workouts = response.data;
       } catch (error) {
-        console.error("Failed to load workouts:", error);
+        window.showFitnezToast('Gagal memuat jadwal latihan.', 'error');
       }
     },
 
@@ -413,7 +413,7 @@ export default {
         });
         await this.fetchWorkouts();
       } catch (error) {
-        console.error("Toggle failed:", error);
+        window.showFitnezToast('Gagal memperbarui status latihan.', 'error');
       }
     },
 

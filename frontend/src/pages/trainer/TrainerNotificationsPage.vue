@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
+import SkeletonList from '../../components/ui/SkeletonList.vue'
 import { useNotificationStore } from '../../stores/notificationStore'
 
 const store = useNotificationStore()
@@ -62,9 +63,7 @@ onMounted(async () => {
     </div>
 
     <!-- Loading -->
-    <FitnezCard v-if="store.loading && store.items.length === 0" style="padding: 3rem; text-align: center;">
-      <p class="text-muted">Memuat notifikasi...</p>
-    </FitnezCard>
+    <SkeletonList v-if="store.loading && store.items.length === 0" :rows="8" />
 
     <!-- Empty -->
     <FitnezCard v-else-if="store.items.length === 0" style="padding: 3rem; text-align: center;">

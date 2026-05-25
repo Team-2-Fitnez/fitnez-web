@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
+import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import { useBookingStore } from '../../stores/bookingStore'
 import type { PublicTrainer } from '../../api/bookingsApi'
 
 const store = useBookingStore()
+const router = useRouter()
 const search = ref('')
 const selectedTrainer = ref<PublicTrainer | null>(null)
+
+function onBooked() {
+  selectedTrainer.value = null
+  router.push('/member/schedule?booking=success')
+}
 
 const filteredTrainers = computed(() => {
   const q = search.value.toLowerCase()
@@ -75,8 +83,8 @@ onMounted(() => store.loadTrainers())
     </div>
 
     <!-- Loading -->
-    <div v-if="store.trainersLoading" class="card" style="padding: 3rem; text-align: center;">
-      <p class="text-muted">Memuat daftar trainer...</p>
+    <div v-if="store.trainersLoading" class="feature-grid">
+      <SkeletonCard v-for="n in 3" :key="n" heading :lines="2" actions />
     </div>
 
     <!-- Empty -->
@@ -142,7 +150,7 @@ onMounted(() => store.loadTrainers())
     <!-- Booking Modal -->
     <Teleport to="body">
       <div v-if="selectedTrainer" class="modal-backdrop" @click.self="selectedTrainer = null">
-        <BookingModal :trainer="selectedTrainer" @close="selectedTrainer = null" @booked="selectedTrainer = null" />
+        <BookingModal :trainer="selectedTrainer" @close="selectedTrainer = null" @booked="onBooked" />
       </div>
     </Teleport>
   </WorkspaceLayout>

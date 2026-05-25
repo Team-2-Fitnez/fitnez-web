@@ -19,10 +19,11 @@
         <div class="notification-sections">
           <section class="mb-10">
             <h3 class="eyebrow eyebrow-accent mb-4">Hari Ini</h3>
-            <div v-if="todayTrainerNotifs.length === 0" class="empty-state card">
+            <SkeletonList v-if="loading" :rows="8" />
+            <div v-else-if="todayTrainerNotifs.length === 0" class="empty-state card">
               <p>Tidak ada notifikasi baru hari ini.</p>
             </div>
-            <div class="grid gap-4">
+            <div v-else class="grid gap-4">
               <div v-for="item in todayTrainerNotifs" :key="item.id" 
                    :class="['notif-card card', { 'unread-notif': !item.is_read }]">
                 <div class="flex gap-4">
@@ -50,7 +51,8 @@
 
           <section>
             <h3 class="eyebrow mb-4">Sebelumnya</h3>
-            <div class="grid gap-4">
+            <SkeletonList v-if="loading" :rows="5" />
+            <div v-else class="grid gap-4">
               <div v-for="item in earlierTrainerNotifs" :key="item.id" 
                    :class="['notif-card card', { 'unread-notif': !item.is_read }]">
                 <div class="flex gap-4 opacity-75">
@@ -89,8 +91,9 @@
             
             <section class="mb-8">
               <h3 class="eyebrow eyebrow-accent mb-3">Besok</h3>
-              <div v-if="besok.length === 0" class="empty-state-sm card p-4 text-center text-muted text-sm">Tidak ada jadwal untuk besok</div>
-              <div class="grid gap-3">
+              <SkeletonList v-if="loading" :rows="3" />
+              <div v-else-if="besok.length === 0" class="empty-state-sm card p-4 text-center text-muted text-sm">Tidak ada jadwal untuk besok</div>
+              <div v-else class="grid gap-3">
                 <div v-for="item in besok" :key="item.id" class="notif-item-premium card p-4">
                   <div class="flex items-center gap-4">
                     <div class="flex-1">
@@ -105,8 +108,9 @@
 
             <section class="mb-8">
               <h3 class="eyebrow mb-3">Hari Ini</h3>
-              <div v-if="hariIni.length === 0" class="empty-state-sm card p-4 text-center text-muted text-sm">Tidak ada latihan hari ini</div>
-              <div class="grid gap-3">
+              <SkeletonList v-if="loading" :rows="5" />
+              <div v-else-if="hariIni.length === 0" class="empty-state-sm card p-4 text-center text-muted text-sm">Tidak ada latihan hari ini</div>
+              <div v-else class="grid gap-3">
                 <div v-for="item in hariIni" :key="item.id" :class="['notif-item-premium card p-4', { 'unread': !item.is_read }]">
                   <div class="flex items-center gap-4">
                     <div class="flex-1">
@@ -122,8 +126,9 @@
             
             <section>
               <h3 class="eyebrow mb-3">Selesai (Riwayat)</h3>
-              <div v-if="kemarin.length === 0" class="empty-state-sm card p-4 text-center text-muted text-sm">Tidak ada riwayat</div>
-              <div class="grid gap-3">
+              <SkeletonList v-if="loading" :rows="4" />
+              <div v-else-if="kemarin.length === 0" class="empty-state-sm card p-4 text-center text-muted text-sm">Tidak ada riwayat</div>
+              <div v-else class="grid gap-3">
                 <div v-for="item in kemarin" :key="item.id" class="notif-item-premium card p-4 opacity-75">
                   <div class="flex items-center gap-4">
                     <div class="flex-1">
@@ -143,11 +148,12 @@
               <button v-if="realNotifications.length > 0" @click="markAllReadMember" class="text-blue-500 text-xs font-bold hover:underline">Tandai Semua Dibaca</button>
             </div>
             
-            <div v-if="realNotifications.length === 0" class="empty-state-sm card p-6 text-center text-muted text-sm">
+            <SkeletonList v-if="loading" :rows="8" />
+            <div v-else-if="realNotifications.length === 0" class="empty-state-sm card p-6 text-center text-muted text-sm">
               Tidak ada notifikasi baru.
             </div>
             
-            <div class="grid gap-3">
+            <div v-else class="grid gap-3">
               <div v-for="item in realNotifications" :key="item.id" 
                    class="notif-item-premium card p-4 flex gap-4 transition-colors"
                    :class="!item.is_read ? 'bg-blue-50/50 border-blue-100' : ''">
@@ -175,13 +181,15 @@
 <script>
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems, trainerSidebarItems } from '../../components/layout/sidebarItems'
+import SkeletonList from '../../components/ui/SkeletonList.vue'
 import api from '@/api/axios';
 
 export default {
   name: "NotificationView",
-  components: { WorkspaceLayout },
+  components: { WorkspaceLayout, SkeletonList },
   data() {
     return {
+      loading: true,
       memberSidebarItems,
       trainerSidebarItems,
       realNotifications: [],
@@ -260,7 +268,9 @@ export default {
           this.groupWorkoutReminders(reminders);
         }
       } catch (error) {
-        console.error("Gagal load notifikasi:", error);
+        window.showFitnezToast('Gagal memuat notifikasi.', 'error');
+      } finally {
+        this.loading = false;
       }
     },
 
@@ -335,7 +345,7 @@ export default {
         await api.patch(`/notifications/${id}/read`);
         await this.fetchNotifications();
       } catch (error) {
-        console.error("Gagal update status baca:", error);
+        window.showFitnezToast('Gagal memperbarui status.', 'error');
       }
     },
 
@@ -352,7 +362,7 @@ export default {
         await api.patch('/notifications/read-all');
         await this.fetchNotifications();
       } catch (error) {
-        console.error("Gagal update status baca trainer:", error);
+        window.showFitnezToast('Gagal update status baca.', 'error');
       }
     },
 
@@ -362,7 +372,7 @@ export default {
         await api.patch('/notifications/read-all');
         await this.fetchNotifications();
       } catch (e) {
-        console.error(e);
+        window.showFitnezToast('Gagal update status baca.', 'error');
       }
     }
   }

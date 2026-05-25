@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, nextTick, watch } from 'vue'
+import { onMounted, onUnmounted, ref, nextTick, watch } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -39,6 +39,7 @@ function formatTime(iso: string) {
 watch(() => chat.messages.length, scrollToBottom)
 
 onMounted(() => chat.loadContacts())
+onUnmounted(() => chat.stopPolling())
 </script>
 
 <template>

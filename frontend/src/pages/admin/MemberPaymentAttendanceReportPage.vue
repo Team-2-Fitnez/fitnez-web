@@ -4,6 +4,8 @@ import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
+import ExcelImportModal from '../../components/ExcelImportModal.vue'
+import { http } from '../../api/http'
 import { useMemberPaymentAttendanceReportStore } from '../../stores/memberPaymentAttendanceReportStore'
 
 const store = useMemberPaymentAttendanceReportStore()
@@ -46,6 +48,11 @@ onMounted(() => {
     subtitle="View all member payment data and attendance history in one admin report."
     :sidebar-items="adminSidebarItems"
   >
+    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.75rem;">
+      <a :href="http.url('/admin/export/payments')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Payments</a>
+      <a :href="http.url('/admin/export/attendance')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Attendance</a>
+      <ExcelImportModal import-type="schedules" label="Import Excel" />
+    </div>
     <div class="report-stat-grid">
       <StatCard label="Payments" :value="store.summary?.total_payments || 0" hint="All payment rows" />
       <StatCard label="Payment Amount" :value="currency(store.summary?.total_payment_amount || 0)" hint="Total recorded amount" />

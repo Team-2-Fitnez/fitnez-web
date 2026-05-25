@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { http as api } from '../../api/http'
 import { RouterLink } from 'vue-router'
+import { connectSocket, getSocket, disconnectSocket } from '../../services/socket'
+import { useAuthStore } from '../../stores/authStore'
+import { usePushNotifications } from '../../composables/usePushNotifications'
 import WorkspaceSidebar from './WorkspaceSidebar.vue'
 
 type MenuItem = {
@@ -15,10 +18,6 @@ type ToastState = {
   message: string
   type: FitnezToastType
 } | null
-
-type UnreadCountResponse = {
-  count?: number
-}
 
 type NotificationItem = {
   id?: number
@@ -69,19 +68,6 @@ const toggleSidebar = () => {
   }
 }
 
-onMounted(() => {
-
-  if (typeof window !== 'undefined' && 'Notification' in window) {
-    const hasAsked = localStorage.getItem('fitnez_notif_asked')
-    if (Notification.permission === 'default' && !hasAsked) {
-
-      setTimeout(() => {
-        showPermissionPrompt.value = true
-      }, 2000)
-    }
-  }
-})
-
 const requestPermission = async () => {
   if ('Notification' in window) {
     const permission = await Notification.requestPermission()
@@ -89,8 +75,11 @@ const requestPermission = async () => {
     showPermissionPrompt.value = false
     
     if (permission === 'granted') {
-      console.log('Notification permission granted.')
-
+      try {
+        await push.subscribe()
+      } catch {
+        // push subscription failed silently
+      }
     }
   }
 }
@@ -100,40 +89,46 @@ const dismissPrompt = () => {
   showPermissionPrompt.value = false
 }
 
+const push = usePushNotifications()
 
-const lastNotifCount = ref(0)
+function loadSeenNotifIds(): Set<number> {
+  try {
+    const raw = localStorage.getItem('fitnez_seen_notif_ids')
+    return new Set<number>(raw ? JSON.parse(raw) : [])
+  } catch {
+    return new Set<number>()
+  }
+}
+function saveSeenNotifIds(ids: Set<number>) {
+  localStorage.setItem('fitnez_seen_notif_ids', JSON.stringify([...ids]))
+}
+
+let seenNotifIds = loadSeenNotifIds()
 const pollNotifications = async () => {
   try {
-    const { data } = await api.get<UnreadCountResponse>('/notifications/unread-count')
-    const currentCount = data.count || 0
+    const resp = await api.get<NotificationListResponse | NotificationItem[]>('/notifications?perPage=5')
+    const items = Array.isArray(resp.data) ? resp.data : (resp.data.data ?? [])
 
-    if (currentCount > lastNotifCount.value) {
-      const resp = await api.get<NotificationListResponse | NotificationItem[]>('/notifications?perPage=1')
+    for (const item of items) {
+      if (item.id == null) continue
+      if (item.is_read) continue
+      if (seenNotifIds.has(item.id)) continue
 
-      const latest = Array.isArray(resp.data)
-        ? resp.data[0]
-        : resp.data.data?.[0]
-
-      if (latest && !latest.is_read) {
-        window.showFitnezToast(`🔔 ${latest.title || 'Notifikasi'}: ${latest.body || ''}`, 'info')
-      }
+      seenNotifIds = new Set([...seenNotifIds, item.id])
+      saveSeenNotifIds(seenNotifIds)
+      window.showFitnezToast(`🔔 ${item.title || 'Notifikasi'}: ${item.body || ''}`, 'info')
     }
-
-    lastNotifCount.value = currentCount
-  } catch (error) {
-    console.error('Failed to poll notifications:', error)
+  } catch {
+    window.showFitnezToast('Gagal memuat notifikasi.', 'error')
   }
 }
 
 let pollInterval: ReturnType<typeof setInterval> | null = null
+let socketIoCleanup: (() => void) | null = null
 
 onMounted(() => {
-
   pollNotifications()
-  
-
   pollInterval = setInterval(pollNotifications, 15000)
-
 
   if (typeof window !== 'undefined' && 'Notification' in window) {
     const hasAsked = localStorage.getItem('fitnez_notif_asked')
@@ -143,10 +138,37 @@ onMounted(() => {
       }, 2000)
     }
   }
+
+  push.init()
+
+  const authStore = useAuthStore()
+  const userId = authStore.user?.id
+  const token = authStore.token || localStorage.getItem('fitnez_access_token')
+
+  if (userId && token) {
+    try {
+      const socket = getSocket() || connectSocket(token)
+
+      const handler = (e: { id: number; title: string; body: string }) => {
+        if (seenNotifIds.has(e.id)) return
+        seenNotifIds = new Set([...seenNotifIds, e.id])
+        saveSeenNotifIds(seenNotifIds)
+        window.showFitnezToast(`🔔 ${e.title}: ${e.body}`, 'info')
+      }
+
+      socket.on(`notifications-${userId}-new-notification`, handler)
+      socketIoCleanup = () => {
+        socket.off(`notifications-${userId}-new-notification`, handler)
+      }
+    } catch {
+      // Socket.io not available; polling will catch notifications
+    }
+  }
 })
 
 onUnmounted(() => {
   if (pollInterval !== null) clearInterval(pollInterval)
+  if (socketIoCleanup) socketIoCleanup()
 })
 
 </script>

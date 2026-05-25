@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref, nextTick, watch } from 'vue'
+import { onMounted, onUnmounted, ref, nextTick, watch } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
+import SkeletonList from '../../components/ui/SkeletonList.vue'
+import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import { useChatStore } from '../../stores/chatStore'
 
 const chat = useChatStore()
@@ -39,6 +41,7 @@ function formatTime(iso: string) {
 watch(() => chat.messages.length, scrollToBottom)
 
 onMounted(() => chat.loadContacts())
+onUnmounted(() => chat.stopPolling())
 </script>
 
 <template>
@@ -57,8 +60,8 @@ onMounted(() => chat.loadContacts())
           <p class="stat-label">Kontak</p>
         </div>
 
-        <div v-if="chat.contactsLoading" style="padding: 2rem; text-align: center;">
-          <p class="text-muted" style="font-size: 0.8rem;">Memuat...</p>
+        <div v-if="chat.contactsLoading">
+          <SkeletonList :rows="6" />
         </div>
         <div v-else-if="chat.contacts.length === 0" style="padding: 2rem; text-align: center;">
           <p class="text-muted" style="font-size: 0.8rem;">Belum ada kontak. Kontak muncul setelah Anda booking trainer.</p>
@@ -86,7 +89,10 @@ onMounted(() => chat.loadContacts())
 
       <!-- Messages -->
       <FitnezCard style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
-        <div v-if="!chat.activeContact" style="flex: 1; display: grid; place-items: center; padding: 2rem;">
+        <div v-if="!chat.activeContact && chat.contactsLoading" style="flex: 1; padding: 1rem;">
+          <SkeletonCard heading :lines="2" />
+        </div>
+        <div v-else-if="!chat.activeContact" style="flex: 1; display: grid; place-items: center; padding: 2rem;">
           <p class="text-muted">Pilih kontak untuk mulai chat.</p>
         </div>
 
@@ -104,9 +110,7 @@ onMounted(() => chat.loadContacts())
 
           <!-- Messages area -->
           <div style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 300px; max-height: 400px;">
-            <div v-if="chat.messagesLoading" style="text-align: center; padding: 2rem;">
-              <p class="text-muted" style="font-size: 0.8rem;">Memuat pesan...</p>
-            </div>
+            <SkeletonList v-if="chat.messagesLoading" :rows="8" :avatar="false" />
             <div v-else-if="chat.messages.length === 0" style="text-align: center; padding: 2rem;">
               <p class="text-muted" style="font-size: 0.8rem;">Belum ada pesan. Mulai chat!</p>
             </div>

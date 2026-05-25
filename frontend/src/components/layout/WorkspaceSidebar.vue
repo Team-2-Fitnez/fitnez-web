@@ -7,6 +7,7 @@ type MenuItem = {
   label: string
   to?: string
   icon?: string
+  external?: boolean
   submenu?: Array<{ label: string; to: string; icon?: string }>
 }
 
@@ -85,6 +86,15 @@ async function logout() {
         </div>
 
         <!-- Menu biasa tanpa submenu -->
+        <a
+          v-else-if="item.external"
+          :href="item.to!"
+          class="sidebar-link"
+          @click="close"
+        >
+          <span>{{ item.icon || '•' }}</span>
+          <span>{{ item.label }}</span>
+        </a>
         <RouterLink
           v-else
           :to="item.to!"

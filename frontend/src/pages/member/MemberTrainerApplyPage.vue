@@ -10,7 +10,7 @@
       <form @submit.prevent="onSubmit" class="form-grid">
         <div class="form-field">
           <label class="form-label">Bidang Keahlian / Spesialisasi</label>
-          <select v-model="form.specialization" class="form-input" required>
+          <select v-model="values.specialization" class="form-input" :class="{ 'input-error': errors.specialization }">
             <option value="">Pilih bidang keahlian...</option>
             <option value="Yoga">Yoga</option>
             <option value="Aerobics">Aerobics</option>
@@ -20,7 +20,8 @@
             <option value="Functional Fitness">Functional Fitness</option>
             <option value="General Fitness">General Fitness</option>
           </select>
-          <p class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
+          <p v-if="errors.specialization" class="field-error">{{ errors.specialization }}</p>
+          <p v-else class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
             Pilih bidang keahlian utama Anda
           </p>
         </div>
@@ -28,15 +29,16 @@
         <div class="form-field">
           <label class="form-label">Pengalaman (Tahun)</label>
           <input
-            v-model.number="form.experience_years"
+            v-model.number="values.experience_years"
             type="number"
             min="0"
             max="50"
             placeholder="Contoh: 5"
             class="form-input"
-            required
+            :class="{ 'input-error': errors.experience_years }"
           />
-          <p class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
+          <p v-if="errors.experience_years" class="field-error">{{ errors.experience_years }}</p>
+          <p v-else class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
             Berapa tahun pengalaman Anda sebagai trainer?
           </p>
         </div>
@@ -48,7 +50,6 @@
             accept=".pdf"
             @change="onCvChange"
             class="form-input"
-            required
           />
           <p v-if="cvFile" class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
             ✓ {{ cvFile.name }}
@@ -62,14 +63,12 @@
             accept=".pdf"
             @change="onCertificateChange"
             class="form-input"
-            required
           />
           <p v-if="certificateFile" class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
             ✓ {{ certificateFile.name }}
           </p>
         </div>
 
-        <p v-if="error" class="alert alert-error">{{ error }}</p>
         <p v-if="success" class="alert alert-success">
           Pendaftaran berhasil dikirim! Admin akan meninjau aplikasi Anda.
         </p>
@@ -78,8 +77,8 @@
           <button type="button" class="button button-ghost" @click="$router.push('/member/hire-trainer')">
             Kembali
           </button>
-          <button type="submit" class="button button-primary" :disabled="submitting">
-            {{ submitting ? 'Mengirim...' : 'Kirim Pendaftaran' }}
+          <button type="submit" class="button button-primary" :disabled="isSubmitting">
+            {{ isSubmitting ? 'Mengirim...' : 'Kirim Pendaftaran' }}
           </button>
         </div>
       </form>
@@ -89,19 +88,28 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
+import { z } from 'zod'
 import { trainerApplicationApi } from '../../api/trainerApplicationApi'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 
-const submitting = ref(false)
-const error = ref('')
 const success = ref(false)
 const cvFile = ref<File | null>(null)
 const certificateFile = ref<File | null>(null)
 
-const form = ref({
-  specialization: '',
-  experience_years: 0,
+const schema = toTypedSchema(z.object({
+  specialization: z.string().min(1, 'Pilih bidang keahlian Anda.'),
+  experience_years: z.number({ invalid_type_error: 'Isi tahun pengalaman.' }).min(0, 'Tidak boleh negatif.'),
+}))
+
+const { handleSubmit, errors, values, isSubmitting, setFieldError } = useForm({
+  validationSchema: schema,
+  initialValues: {
+    specialization: '',
+    experience_years: 0,
+  },
 })
 
 function onCvChange(event: Event) {
@@ -114,33 +122,23 @@ function onCertificateChange(event: Event) {
   certificateFile.value = target.files?.[0] || null
 }
 
-async function onSubmit() {
-  error.value = ''
-  success.value = false
-
+const onSubmit = handleSubmit(async () => {
   if (!cvFile.value || !certificateFile.value) {
-    error.value = 'Mohon upload CV dan Sertifikat.'
+    setFieldError('specialization', 'Mohon upload CV dan Sertifikat.')
     return
   }
 
-  if (!form.value.specialization || form.value.experience_years < 0) {
-    error.value = 'Mohon lengkapi bidang keahlian dan pengalaman.'
-    return
-  }
-
-  submitting.value = true
   try {
     await trainerApplicationApi.submit(cvFile.value, certificateFile.value)
     success.value = true
     cvFile.value = null
     certificateFile.value = null
-    form.value = { specialization: '', experience_years: 0 }
+    values.specialization = ''
+    values.experience_years = 0
   } catch (e: any) {
-    error.value = e?.message || 'Gagal mengirim pendaftaran.'
-  } finally {
-    submitting.value = false
+    setFieldError('specialization', e?.message || 'Gagal mengirim pendaftaran.')
   }
-}
+})
 </script>
 
 <style scoped>
@@ -239,4 +237,6 @@ async function onSubmit() {
 .text-muted {
   color: #666;
 }
+.input-error { border-color: #e53e3e !important; }
+.field-error { color: #e53e3e; font-size: 0.75rem; margin-top: 0.25rem; }
 </style>

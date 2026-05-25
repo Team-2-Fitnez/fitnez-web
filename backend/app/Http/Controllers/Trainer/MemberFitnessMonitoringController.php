@@ -89,7 +89,7 @@ class MemberFitnessMonitoringController extends Controller
             ->with(['workoutExercises' => function ($query) {
                 $query->with('exercise')->orderBy('day_of_week')->orderBy('id');
             }])
-            ->orderByDesc(DB::raw('COALESCE(start_date, created_at::date)'))
+            ->orderByDesc('date')
             ->limit(10)
             ->get();
 
@@ -109,7 +109,7 @@ class MemberFitnessMonitoringController extends Controller
         $mealPlans = MealPlan::query()
             ->where('user_id', $member->id)
             ->with('meals')
-            ->orderByDesc('plan_date')
+            ->orderByDesc('created_at')
             ->limit(10)
             ->get();
 

@@ -253,5 +253,14 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </section>
+
+    <footer style="border-top: 1px solid var(--color-border); background: white;">
+      <div class="page-container" style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; padding: 1.5rem 1rem;">
+        <RouterLink to="/" style="color: var(--color-muted); text-decoration: none; font-weight: 600; font-size: 0.875rem;">Home</RouterLink>
+        <RouterLink to="/faq" style="color: var(--color-muted); text-decoration: none; font-weight: 600; font-size: 0.875rem;">FAQ</RouterLink>
+        <RouterLink to="/privacy-cookie-policy" style="color: var(--color-muted); text-decoration: none; font-weight: 600; font-size: 0.875rem;">Privacy & Cookie Policy</RouterLink>
+        <span style="color: var(--color-muted); font-size: 0.875rem;">&copy; {{ new Date().getFullYear() }} Fitnez</span>
+      </div>
+    </footer>
   </main>
 </template>

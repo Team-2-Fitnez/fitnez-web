@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NewChatMessage;
 use App\Models\ChatMessage;
 use App\Models\TrainerBooking;
 use App\Models\User;
@@ -101,6 +102,13 @@ class ChatController extends Controller
             'receiver_id' => $data['receiver_id'],
             'message'     => $data['message'],
         ]);
+
+        try {
+            broadcast(new NewChatMessage($msg));
+        } catch (\Throwable $e) {
+            // Broadcasting is optional; log failure silently
+            logger()->warning('Broadcast failed: ' . $e->getMessage());
+        }
 
         return ApiResponse::success('Message sent.', [
             'id'          => $msg->id,

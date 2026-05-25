@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NewNotification;
 use App\Models\Notification;
 use App\Models\TrainerBooking;
 use App\Support\ApiResponse;
@@ -73,13 +74,25 @@ class BookingController extends Controller
             $memberName = $booking->member?->full_name ?? 'Member';
             $date = $booking->booking_date?->format('d M Y') ?? '';
 
-            Notification::create([
+            $notif = Notification::create([
                 'user_id'           => $booking->trainer_id,
                 'title'             => 'Permintaan sesi baru',
                 'body'              => "{$memberName} memesan sesi pada {$date} pukul {$booking->start_time}–{$booking->end_time}. Tinjau di Jadwal Melatih.",
                 'notification_type' => 'booking_request',
                 'is_read'           => false,
             ]);
+
+            try {
+                broadcast(new NewNotification($notif));
+            } catch (\Throwable $e) {
+                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+            }
+
+            try {
+                \App\Support\PushNotifier::send($notif->user_id, $notif->title, $notif->body);
+            } catch (\Throwable $e) {
+                logger()->warning('Push notification send failed: ' . $e->getMessage());
+            }
 
             return $booking;
         });
@@ -120,13 +133,25 @@ class BookingController extends Controller
             $date = $booking->booking_date?->format('d M Y') ?? '';
             $price = number_format((int) $booking->total_price, 0, ',', '.');
 
-            Notification::create([
+            $notifConfirm = Notification::create([
                 'user_id'           => $booking->trainer_id,
                 'title'             => 'Sesi dikonfirmasi & pembayaran',
                 'body'              => "Sesi dengan {$memberName} pada {$date} telah dikonfirmasi. Total pembayaran Rp {$price}.",
                 'notification_type' => 'payment_in',
                 'is_read'           => false,
             ]);
+
+            try {
+                broadcast(new NewNotification($notifConfirm));
+            } catch (\Throwable $e) {
+                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+            }
+
+            try {
+                \App\Support\PushNotifier::send($notifConfirm->user_id, $notifConfirm->title, $notifConfirm->body);
+            } catch (\Throwable $e) {
+                logger()->warning('Push notification send failed: ' . $e->getMessage());
+            }
         }
 
         return ApiResponse::success('Booking status updated.', $booking->fresh());

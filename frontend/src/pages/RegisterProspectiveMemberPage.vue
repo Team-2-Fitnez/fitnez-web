@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
+import { z } from 'zod'
 import { manualRegistrationApi } from '../api/manualRegistrationApi'
 import type { ManualPaymentMethod, MembershipPackage, ProspectiveRegistration } from '../types/membership'
 import FitnezButton from '../components/ui/FitnezButton.vue'
@@ -15,17 +18,37 @@ const selectedMethodId = ref<number | null>(null)
 const registration = ref<ProspectiveRegistration | null>(null)
 const proofFile = ref<File | null>(null)
 
-const fullName = ref('')
-const email = ref('')
-const phone = ref('')
-const password = ref('')
-const passwordConfirmation = ref('')
 const loading = ref(false)
 const message = ref('')
-const error = ref('')
 
 const selectedPackage = computed(() => packages.value.find((item) => item.id === selectedPackageId.value))
 const selectedMethod = computed(() => methods.value.find((item) => item.id === selectedMethodId.value))
+
+const schema = toTypedSchema(z.object({
+  fullName: z.string().min(3, 'Full name must be at least 3 characters.'),
+  email: z.string().email('Email format is not valid.'),
+  phone: z.string().optional().default(''),
+  password: z.string()
+    .min(16, 'Password must be at least 16 characters.')
+    .regex(/[A-Z]/, 'Must contain one uppercase letter.')
+    .regex(/[a-z]/, 'Must contain one lowercase letter.')
+    .regex(/[^A-Za-z0-9]/, 'Must contain one special character.'),
+  passwordConfirmation: z.string(),
+}).refine(data => data.password === data.passwordConfirmation, {
+  message: 'Password confirmation does not match.',
+  path: ['passwordConfirmation'],
+}))
+
+const { handleSubmit, errors, values, isSubmitting, setFieldError } = useForm({
+  validationSchema: schema,
+  initialValues: {
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    passwordConfirmation: '',
+  },
+})
 
 onMounted(async () => {
   const [packageResponse, methodResponse] = await Promise.all([
@@ -39,38 +62,26 @@ onMounted(async () => {
   selectedMethodId.value = methodResponse.data[0]?.id || null
 })
 
-function validate() {
-  if (fullName.value.trim().length < 3) return 'Full name must be at least 3 characters.'
-  if (!email.value.includes('@')) return 'Email format is not valid.'
-  if (password.value.length < 16) return 'Password must be at least 16 characters.'
-  if (!/[A-Z]/.test(password.value)) return 'Password must contain one uppercase letter.'
-  if (!/[a-z]/.test(password.value)) return 'Password must contain one lowercase letter.'
-  if (!/[^A-Za-z0-9]/.test(password.value)) return 'Password must contain one special character.'
-  if (password.value !== passwordConfirmation.value) return 'Password confirmation does not match.'
-  if (!selectedPackageId.value) return 'Please choose a package.'
-  if (!selectedMethodId.value) return 'Please choose a payment method.'
-  return ''
-}
-
-async function startRegistration() {
-  error.value = ''
-  message.value = ''
-
-  const validationError = validate()
-  if (validationError) {
-    error.value = validationError
+const startRegistration = handleSubmit(async (formValues) => {
+  if (!selectedPackageId.value) {
+    setFieldError('fullName', 'Please choose a package.')
+    return
+  }
+  if (!selectedMethodId.value) {
+    setFieldError('fullName', 'Please choose a payment method.')
     return
   }
 
   loading.value = true
+  message.value = ''
 
   try {
     const response = await manualRegistrationApi.start({
-      full_name: fullName.value.trim(),
-      email: email.value.trim().toLowerCase(),
-      phone: phone.value.trim(),
-      password: password.value,
-      password_confirmation: passwordConfirmation.value,
+      full_name: formValues.fullName.trim(),
+      email: formValues.email.trim().toLowerCase(),
+      phone: formValues.phone.trim(),
+      password: formValues.password,
+      password_confirmation: formValues.passwordConfirmation,
       membership_package_id: Number(selectedPackageId.value),
       manual_payment_method_id: Number(selectedMethodId.value),
     })
@@ -80,11 +91,11 @@ async function startRegistration() {
     localStorage.setItem('fitnez_last_registration_email', response.data.email)
     message.value = 'Registration created. Complete payment and upload proof.'
   } catch (e: any) {
-    error.value = e?.message || 'Failed to create registration.'
+    setFieldError('fullName', e?.message || 'Failed to create registration.')
   } finally {
     loading.value = false
   }
-}
+})
 
 function onProofChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -93,11 +104,11 @@ function onProofChange(event: Event) {
 
 async function uploadProof() {
   if (!registration.value || !proofFile.value) {
-    error.value = 'Please choose payment proof image.'
+    message.value = ''
+    setFieldError('fullName', 'Please choose payment proof image.')
     return
   }
 
-  error.value = ''
   message.value = ''
   loading.value = true
 
@@ -113,7 +124,7 @@ async function uploadProof() {
     localStorage.setItem('fitnez_last_registration_email', response.data.email)
     message.value = 'Payment proof uploaded. Please wait for admin approval.'
   } catch (e: any) {
-    error.value = e?.message || 'Failed to upload proof.'
+    setFieldError('fullName', e?.message || 'Failed to upload proof.')
   } finally {
     loading.value = false
   }
@@ -143,15 +154,11 @@ async function uploadProof() {
               <h2 class="title-md">Personal data</h2>
             </div>
 
-            <FitnezInput v-model="fullName" label="Full Name" />
-            <FitnezInput v-model="email" label="Email" type="email" />
-            <FitnezInput v-model="phone" label="Phone" />
-            <FitnezInput v-model="password" label="Password" type="password" />
-            <FitnezInput v-model="passwordConfirmation" label="Confirm Password" type="password" />
-
-            <p class="alert alert-info">
-              Password must be minimum 16 characters and include uppercase, lowercase, and one special character.
-            </p>
+            <FitnezInput v-model="values.fullName" label="Full Name" :error="errors.fullName" />
+            <FitnezInput v-model="values.email" label="Email" type="email" :error="errors.email" />
+            <FitnezInput v-model="values.phone" label="Phone" />
+            <FitnezInput v-model="values.password" label="Password" type="password" :error="errors.password" />
+            <FitnezInput v-model="values.passwordConfirmation" label="Confirm Password" type="password" :error="errors.passwordConfirmation" />
           </div>
         </FitnezCard>
 
@@ -200,9 +207,9 @@ async function uploadProof() {
             </div>
           </FitnezCard>
 
-          <p v-if="error" class="alert alert-error">{{ error }}</p>
+          <p v-if="errors.fullName" class="alert alert-error">{{ errors.fullName }}</p>
 
-          <FitnezButton size="lg" :disabled="loading" style="width: 100%;" @click="startRegistration">
+          <FitnezButton size="lg" :disabled="loading || isSubmitting" style="width: 100%;" @click="startRegistration">
             {{ loading ? 'Creating...' : 'Create Registration & Show Payment Info' }}
           </FitnezButton>
         </div>
@@ -269,7 +276,7 @@ async function uploadProof() {
           </div>
 
           <p v-if="message" class="alert alert-success">{{ message }}</p>
-          <p v-if="error" class="alert alert-error">{{ error }}</p>
+          <p v-if="errors.fullName" class="alert alert-error">{{ errors.fullName }}</p>
         </FitnezCard>
       </div>
     </div>

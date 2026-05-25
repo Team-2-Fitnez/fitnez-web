@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkoutPlan extends Model
 {
@@ -20,6 +21,7 @@ class WorkoutPlan extends Model
         'reps',
         'duration',
         'completed',
+        'status',
     ];
 
     protected $casts = [
@@ -34,5 +36,10 @@ class WorkoutPlan extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function workoutExercises(): HasMany
+    {
+        return $this->hasMany(WorkoutExercise::class);
     }
 }

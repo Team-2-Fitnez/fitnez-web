@@ -68,6 +68,10 @@ class TrainerApplicationController extends Controller
             'certificate_document_url' => $certificatePath,
             'status' => 'pending',
             'submitted_at' => now(),
+            'admin_notes' => json_encode([
+                'specialization' => $data['specialization'] ?? null,
+                'experience_years' => $data['experience_years'] ?? null,
+            ]),
         ]);
 
         return ApiResponse::success('Trainer application submitted.', $application->load('user.role'), 201);

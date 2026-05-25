@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
+import ExcelImportModal from '../../components/ExcelImportModal.vue'
+import { http } from '../../api/http'
 import { mealPlanApi } from '../../api/mealPlanApi'
 
 interface MemberNutrition {
@@ -50,6 +52,10 @@ function getStatus(total: number, limit: number) {
         subtitle="Pantau konsumsi kalori harian seluruh member."
         :sidebar-items="adminSidebarItems"
     >
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <a :href="http.url('/admin/export/nutrition-monitoring')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Excel</a>
+            <ExcelImportModal import-type="workouts" label="Import Excel" />
+        </div>
         <!-- Summary Cards -->
         <div class="feature-grid">
             <FitnezCard>

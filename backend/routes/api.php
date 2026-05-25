@@ -1,5 +1,6 @@
 <?php
 use App\Http\Controllers\Admin\AuthActivityReportController;
+use App\Http\Controllers\SseController;
 use App\Http\Controllers\Admin\MemberPaymentAttendanceReportController;
 use App\Http\Controllers\Trainer\IncomingRentHistoryController;
 use App\Http\Controllers\Trainer\MemberFitnessMonitoringController;
@@ -16,6 +17,8 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\BrowserTrackingController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExcelImportController;
+use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\ManualPaymentMethodController;
 use App\Http\Controllers\ManualProspectiveRegistrationController;
@@ -25,6 +28,10 @@ use App\Http\Controllers\TrainerApplicationController;
 use App\Http\Controllers\TrainerBookingController;
 use App\Http\Controllers\WorkoutPlanController;
 use App\Http\Controllers\OtpController;
+use App\Http\Controllers\FaqController;
+use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\MemberPaymentController;
+use App\Http\Controllers\MemberClassesController;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\JwtAuthenticate;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +39,8 @@ use App\Http\Controllers\Api\CookieConsentController;
 
 Route::post('/cookie-consents', [CookieConsentController::class, 'store']);
 Route::get('/landing',[LandingController::class,'index']);
+Route::get('/faqs', [FaqController::class, 'index']);
+Route::get('/faqs/categories', [FaqController::class, 'categories']);
 Route::get('/membership-packages',[MembershipPackageController::class,'index']);
 Route::get('/manual-payment-methods',[ManualPaymentMethodController::class,'index']);
 Route::prefix('analytics')->group(function(){ Route::post('/landing-visit',[LandingVisitController::class,'store']); });
@@ -76,6 +85,9 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::post('/messages',[ChatController::class,'send']);
     });
 
+    Route::post('/push/subscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'store']);
+    Route::delete('/push/unsubscribe', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy']);
+
     Route::prefix('trainer')->middleware(EnsureTrainerWorkspaceAccess::class)->group(function(){
         Route::get('/member-monitoring/summary',[MemberFitnessMonitoringController::class,'summary']); Route::get('/member-monitoring/members',[MemberFitnessMonitoringController::class,'members']); Route::get('/member-monitoring/members/{member}',[MemberFitnessMonitoringController::class,'show']);
         Route::get('/incoming-rent-history/summary',[IncomingRentHistoryController::class,'summary']); Route::get('/incoming-rent-history',[IncomingRentHistoryController::class,'index']);
@@ -107,5 +119,44 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::get('/notifications', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'index']);
         Route::post('/approve/{id}', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'approve']);
         Route::post('/reject/{id}', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'reject']);
+
+        // Excel Export
+        Route::prefix('export')->group(function(){
+            Route::get('/landing-visits', [ExcelExportController::class, 'landingVisits']);
+            Route::get('/auth-activity', [ExcelExportController::class, 'authActivity']);
+            Route::get('/payments', [ExcelExportController::class, 'payments']);
+            Route::get('/attendance', [ExcelExportController::class, 'attendance']);
+            Route::get('/nutrition-monitoring', [ExcelExportController::class, 'nutritionMonitoring']);
+            Route::get('/users', [ExcelExportController::class, 'users']);
+        });
+    });
+
+    // SSE
+    Route::get('/sse/{jobId}', [SseController::class, 'stream'])->name('sse.stream');
+
+    // Excel Import
+    Route::post('/excel/import', [ExcelImportController::class, 'upload']);
+
+    // Attendance / Absen
+    Route::prefix('attendance')->group(function(){
+        Route::post('/check-in', [AttendanceController::class, 'checkIn']);
+        Route::post('/check-out', [AttendanceController::class, 'checkOut']);
+        Route::get('/history', [AttendanceController::class, 'myHistory']);
+    });
+
+    // Member Payments (own payments)
+    Route::prefix('member/payments')->group(function(){
+        Route::get('/', [MemberPaymentController::class, 'index']);
+        Route::get('/summary', [MemberPaymentController::class, 'summary']);
+        Route::post('/pay', [MemberPaymentController::class, 'pay']);
+        Route::post('/simulate-create', [MemberPaymentController::class, 'simulateCreate']);
+        Route::post('/simulate-pay', [MemberPaymentController::class, 'simulatePay']);
+    });
+
+    // Member Classes
+    Route::prefix('member/classes')->group(function(){
+        Route::get('/', [MemberClassesController::class, 'index']);
+        Route::post('/{id}/join', [MemberClassesController::class, 'join']);
+        Route::get('/my', [MemberClassesController::class, 'myClasses']);
     });
 });

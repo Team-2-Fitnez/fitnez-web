@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
+import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import { useBookingStore } from '../../stores/bookingStore'
 
 const store = useBookingStore()
+const route = useRoute()
 
 type BookingFilter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'
 
@@ -36,7 +39,21 @@ function formatPrice(n: number | string | null | undefined) {
   }).format(Number(n || 0))
 }
 
-onMounted(() => store.loadBookings())
+async function cancelBooking(id: number) {
+  try {
+    await store.updateStatus(id, 'cancelled')
+    window.showFitnezToast('Booking berhasil dibatalkan.', 'success')
+  } catch {
+    window.showFitnezToast('Gagal membatalkan booking.', 'error')
+  }
+}
+
+onMounted(() => {
+  store.loadBookings()
+  if (route.query.booking === 'success') {
+    window.showFitnezToast('Booking berhasil! Cek jadwal di menu Schedule.', 'success')
+  }
+})
 </script>
 
 <template>
@@ -77,8 +94,8 @@ onMounted(() => store.loadBookings())
     </div>
 
     <!-- Loading -->
-    <div v-if="store.loading" class="card" style="padding: 3rem; text-align: center;">
-      <p class="text-muted">Memuat jadwal...</p>
+    <div v-if="store.loading" style="display: grid; gap: 1rem;">
+      <SkeletonCard v-for="n in 3" :key="n" heading :lines="2" wide actions />
     </div>
 
     <!-- Empty -->
@@ -157,10 +174,13 @@ onMounted(() => store.loadBookings())
         </div>
 
         <!-- Actions -->
-        <div v-if="booking.status === 'confirmed'" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-          <router-link :to="`/member/chat?contact=${booking.trainer_id}`" class="button button-primary button-small">
+        <div v-if="booking.status === 'confirmed' || booking.status === 'pending'" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+          <router-link v-if="booking.status === 'confirmed'" :to="`/member/chat?contact=${booking.trainer_id}`" class="button button-primary button-small">
             💬 Chat Trainer
           </router-link>
+          <button class="button button-danger-ghost button-small" @click="cancelBooking(booking.id)">
+            Batalkan Sesi
+          </button>
         </div>
       </div>
     </div>

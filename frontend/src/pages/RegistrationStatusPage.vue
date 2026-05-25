@@ -16,22 +16,33 @@ const error = ref('')
 
 async function checkStatus() {
   error.value = ''
+
+  if (!registrationCode.value.trim() || !email.value.trim()) {
+    error.value = 'Registration code and email are required.'
+    return
+  }
+
   loading.value = true
 
   try {
-    const response = await manualRegistrationApi.status(registrationCode.value, email.value)
+    const response = await manualRegistrationApi.status(registrationCode.value.trim(), email.value.trim())
     registration.value = response.data
-    localStorage.setItem('fitnez_last_registration_code', registrationCode.value)
-    localStorage.setItem('fitnez_last_registration_email', email.value)
+    localStorage.setItem('fitnez_last_registration_code', registrationCode.value.trim())
+    localStorage.setItem('fitnez_last_registration_email', email.value.trim())
   } catch (e: any) {
-    error.value = e?.message || 'Registration status not found'
+    if (e?.status === 422) {
+      const messages = e?.payload?.errors ? Object.values(e.payload.errors).flat().join('; ') : null
+      error.value = messages || 'Invalid registration code or email.'
+    } else {
+      error.value = e?.message || 'Registration status not found.'
+    }
   } finally {
     loading.value = false
   }
 }
 
 onMounted(() => {
-  if (registrationCode.value && email.value) checkStatus()
+  if (registrationCode.value.trim() && email.value.trim()) checkStatus()
 })
 </script>
 
