@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { chatApi, type ChatContact, type ChatMsg } from '../api/chatApi'
-import { connectSocket, getSocket, disconnectSocket } from '../services/socket'
+import { chatApi, type ChatContact, type ChatMsg, type ChatMessagesResponse } from '../api/chatApi'
+import { connectSocket, getSocket } from '../services/socket'
 import { useAuthStore } from './authStore'
 
 export const useChatStore = defineStore('chat', {
@@ -10,7 +10,10 @@ export const useChatStore = defineStore('chat', {
     activeContactId: null as number | null,
     contactsLoading: false,
     messagesLoading: false,
+    hasMoreMessages: false,
+    oldestMessageId: null as number | null,
     pollingInterval: null as ReturnType<typeof setInterval> | null,
+    contactsRefreshInterval: null as ReturnType<typeof setInterval> | null,
     socketConnected: false,
   }),
 
@@ -33,27 +36,47 @@ export const useChatStore = defineStore('chat', {
     async loadMessages(contactId: number) {
       this.activeContactId = contactId
       this.messagesLoading = true
+      this.hasMoreMessages = false
+      this.oldestMessageId = null
       try {
         const response = await chatApi.messages(contactId)
-        this.messages = response.data
+        const result = response.data as ChatMessagesResponse
+        this.messages = result.data
+        this.hasMoreMessages = result.has_more
+        this.oldestMessageId = result.oldest_id
       } finally {
         this.messagesLoading = false
       }
       this.connectSocketIo(contactId)
       this.startPolling(contactId)
+      this.startContactsRefresh()
+    },
+
+    async loadMoreMessages() {
+      if (!this.activeContactId || !this.hasMoreMessages || !this.oldestMessageId) return
+      this.messagesLoading = true
+      try {
+        const response = await chatApi.messages(this.activeContactId, this.oldestMessageId)
+        const result = response.data as ChatMessagesResponse
+        this.messages = [...result.data, ...this.messages]
+        this.hasMoreMessages = result.has_more
+        this.oldestMessageId = result.oldest_id
+      } finally {
+        this.messagesLoading = false
+      }
     },
 
     connectSocketIo(contactId: number) {
-      const authStore = useAuthStore()
-      const token = authStore.token || localStorage.getItem('fitnez_access_token')
+      const token = localStorage.getItem('fitnez_access_token')
       if (!token) return
 
       try {
-        const socket = getSocket() || connectSocket(token)
+        const socket = getSocket() || connectSocket()
         this.socketConnected = true
 
-        socket.off(`chat-${contactId}-new-message`)
-        socket.on(`chat-${contactId}-new-message`, (e: { id: number; sender_id: number; receiver_id: number; message: string; created_at: string; sender_name: string; is_read: boolean }) => {
+        socket.off('new-message')
+        socket.on('new-message', (e: { id: number; sender_id: number; receiver_id: number; message: string; created_at: string; sender_name: string; is_read: boolean }) => {
+          if (e.sender_id !== contactId && e.receiver_id !== contactId) return
           const exists = this.messages.some((m) => m.id === e.id)
           if (!exists) {
             this.messages.push({
@@ -76,7 +99,7 @@ export const useChatStore = defineStore('chat', {
     stopSocket() {
       const socket = getSocket()
       if (socket) {
-        socket.off(`chat-${this.activeContactId}-new-message`)
+        socket.off('new-message')
       }
     },
 
@@ -85,7 +108,12 @@ export const useChatStore = defineStore('chat', {
       this.pollingInterval = setInterval(async () => {
         try {
           const response = await chatApi.messages(contactId)
-          this.messages = response.data
+          const result = response.data as ChatMessagesResponse
+          const existingIds = new Set(this.messages.map((m) => m.id))
+          const newMessages = result.data.filter((m) => !existingIds.has(m.id))
+          if (newMessages.length > 0) {
+            this.messages = [...this.messages, ...newMessages]
+          }
         } catch {
           // Ignore polling errors
         }
@@ -99,15 +127,43 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
+    startContactsRefresh() {
+      this.stopContactsRefresh()
+      this.contactsRefreshInterval = setInterval(async () => {
+        try {
+          const response = await chatApi.contacts()
+          const currentIds = new Set(this.contacts.map((c) => c.id))
+          const hasNew = response.data.some((c) => !currentIds.has(c.id))
+          if (hasNew) {
+            this.contacts = response.data
+          }
+        } catch {
+          // Ignore refresh errors
+        }
+      }, 30000)
+    },
+
+    stopContactsRefresh() {
+      if (this.contactsRefreshInterval) {
+        clearInterval(this.contactsRefreshInterval)
+        this.contactsRefreshInterval = null
+      }
+    },
+
     async sendMessage(message: string) {
       if (!this.activeContactId) return
-      const response = await chatApi.send(this.activeContactId, message)
-      this.messages.push(response.data)
+      try {
+        const response = await chatApi.send(this.activeContactId, message)
+        this.messages.push(response.data)
+      } catch {
+        window.showFitnezToast('Gagal mengirim pesan. Coba lagi.', 'error')
+      }
     },
 
     resetChat() {
       this.stopPolling()
       this.stopSocket()
+      this.stopContactsRefresh()
       this.messages = []
       this.activeContactId = null
     },

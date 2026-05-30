@@ -11,7 +11,7 @@ const checkInStatus = ref<'none' | 'checked_in' | 'checked_out'>('none')
 
 async function loadHistory() {
   try {
-    const res = await http.get('/attendance/history?per_page=10')
+    const res = await http.get<{ data: any[] }>('/attendance/history?per_page=10')
     history.value = res.data.data || []
     const active = history.value.find((a: any) => !a.check_out_time)
     checkInStatus.value = active ? 'checked_in' : 'checked_out'

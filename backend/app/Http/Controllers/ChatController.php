@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Events\NewChatMessage;
+use App\Events\NewNotification;
 use App\Models\ChatMessage;
+use App\Models\Notification;
 use App\Models\TrainerBooking;
 use App\Models\User;
 use App\Support\ApiResponse;
@@ -46,37 +48,71 @@ class ChatController extends Controller
                 'role' => $u->role?->name ?? 'member',
             ]);
 
+        // Add unread counts per contact
+        $unreadCounts = ChatMessage::where('receiver_id', $uid)
+            ->where('is_read', false)
+            ->groupBy('sender_id')
+            ->selectRaw('sender_id, count(*) as count')
+            ->pluck('count', 'sender_id');
+
+        $contacts = $contacts->map(function ($contact) use ($unreadCounts) {
+            $contact['unread_count'] = $unreadCounts[$contact['id']] ?? 0;
+            return $contact;
+        });
+
         return ApiResponse::success('Contacts loaded.', $contacts);
     }
 
     /**
      * List chat messages between authenticated user and a given contact.
+     * Supports cursor-based pagination with `before` (message ID) and `limit`.
      */
     public function messages(Request $request)
     {
-        $request->validate(['contact_id' => 'required|integer|exists:users,id']);
+        $request->validate([
+            'contact_id' => 'required|integer|exists:users,id',
+            'before'     => 'nullable|integer|exists:chat_messages,id',
+            'limit'      => 'nullable|integer|min:1|max:200',
+        ]);
 
         $uid = $request->user()->id;
         $contactId = $request->integer('contact_id');
+        $limit = $request->integer('limit', 100);
 
-        $messages = ChatMessage::where(function ($q) use ($uid, $contactId) {
+        $query = ChatMessage::where(function ($q) use ($uid, $contactId) {
             $q->where('sender_id', $uid)->where('receiver_id', $contactId);
         })->orWhere(function ($q) use ($uid, $contactId) {
             $q->where('sender_id', $contactId)->where('receiver_id', $uid);
-        })
-        ->with(['sender:id,full_name'])
-        ->orderBy('created_at')
-        ->get()
-        ->map(fn(ChatMessage $m) => [
-            'id'          => $m->id,
-            'sender_id'   => $m->sender_id,
-            'receiver_id' => $m->receiver_id,
-            'message'     => $m->message,
-            'created_at'  => $m->created_at?->toISOString(),
-            'sender_name' => $m->sender?->full_name ?? '',
-            'is_read'     => $m->is_read,
-            'isMe'        => $m->sender_id === $uid,
-        ]);
+        });
+
+        // Cursor pagination: load messages older than `before`
+        if ($before = $request->integer('before')) {
+            $query->where('id', '<', $before);
+        }
+
+        $messages = $query
+            ->with(['sender:id,full_name'])
+            ->orderByDesc('id')
+            ->limit($limit + 1)
+            ->get();
+
+        $hasMore = $messages->count() > $limit;
+        $messages = $messages->take($limit)->reverse()->values();
+
+        $result = [
+            'data' => $messages->map(fn(ChatMessage $m) => [
+                'id'          => $m->id,
+                'sender_id'   => $m->sender_id,
+                'receiver_id' => $m->receiver_id,
+                'message'     => $m->message,
+                'created_at'  => $m->created_at?->toISOString(),
+                'sender_name' => $m->sender?->full_name ?? '',
+                'is_read'     => $m->is_read,
+                'isMe'        => $m->sender_id === $uid,
+            ]),
+            'has_more' => $hasMore,
+            'oldest_id' => $messages->first()?->id,
+        ];
 
         // Mark incoming messages as read
         ChatMessage::where('sender_id', $contactId)
@@ -84,7 +120,7 @@ class ChatController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        return ApiResponse::success('Messages loaded.', $messages);
+        return ApiResponse::success('Messages loaded.', $result);
     }
 
     /**
@@ -103,11 +139,27 @@ class ChatController extends Controller
             'message'     => $data['message'],
         ]);
 
+        $senderName = $request->user()->full_name ?? 'User';
+
+        // Also dispatch a notification to the receiver so they get a push/toast
+        $notif = Notification::create([
+            'user_id'           => $data['receiver_id'],
+            'title'             => 'Pesan baru dari ' . $senderName,
+            'body'              => mb_substr($data['message'], 0, 120),
+            'notification_type' => 'chat_message',
+            'is_read'           => false,
+        ]);
+
         try {
             broadcast(new NewChatMessage($msg));
         } catch (\Throwable $e) {
-            // Broadcasting is optional; log failure silently
             logger()->warning('Broadcast failed: ' . $e->getMessage());
+        }
+
+        try {
+            broadcast(new NewNotification($notif));
+        } catch (\Throwable $e) {
+            logger()->warning('Broadcast NewNotification for chat failed: ' . $e->getMessage());
         }
 
         return ApiResponse::success('Message sent.', [

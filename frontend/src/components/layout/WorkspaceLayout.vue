@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { http as api } from '../../api/http'
 import { RouterLink } from 'vue-router'
-import { connectSocket, getSocket, disconnectSocket } from '../../services/socket'
+import { connectSocket, getSocket } from '../../services/socket'
 import { useAuthStore } from '../../stores/authStore'
 import { usePushNotifications } from '../../composables/usePushNotifications'
 import WorkspaceSidebar from './WorkspaceSidebar.vue'
@@ -143,11 +143,11 @@ onMounted(() => {
 
   const authStore = useAuthStore()
   const userId = authStore.user?.id
-  const token = authStore.token || localStorage.getItem('fitnez_access_token')
+  const token = localStorage.getItem('fitnez_access_token')
 
   if (userId && token) {
     try {
-      const socket = getSocket() || connectSocket(token)
+      const socket = getSocket() || connectSocket()
 
       const handler = (e: { id: number; title: string; body: string }) => {
         if (seenNotifIds.has(e.id)) return
@@ -156,9 +156,9 @@ onMounted(() => {
         window.showFitnezToast(`🔔 ${e.title}: ${e.body}`, 'info')
       }
 
-      socket.on(`notifications-${userId}-new-notification`, handler)
+      socket.on('new-notification', handler)
       socketIoCleanup = () => {
-        socket.off(`notifications-${userId}-new-notification`, handler)
+        socket.off('new-notification', handler)
       }
     } catch {
       // Socket.io not available; polling will catch notifications

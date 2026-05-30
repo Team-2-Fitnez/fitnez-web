@@ -1,3 +1,4 @@
+// @ts-expect-error - laravel-echo not installed; kept for legacy reference
 import Echo from 'laravel-echo'
 
 let echo: Echo<'pusher'> | null = null

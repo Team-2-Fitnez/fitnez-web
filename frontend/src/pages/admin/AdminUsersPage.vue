@@ -103,7 +103,7 @@ onMounted(() => {
             <option value="inactive">Inactive</option>
           </select>
         </div>
-        <a :href="http.url('/admin/export/users')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Excel</a>
+        <button class="button button-ghost" style="font-size: 0.85rem;" @click="http.downloadBlob('/admin/export/users', 'users.xlsx')">Export Excel</button>
         <button class="button button-primary" @click="openCreate">+ Tambah User</button>
       </div>
 

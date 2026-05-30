@@ -18,6 +18,19 @@ class TrainerBooking extends Model
     const STATUS_CANCELLED = 'cancelled';
     const STATUS_REJECTED = 'rejected';
 
+    const STATUS_TRANSITIONS = [
+        self::STATUS_PENDING   => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED, self::STATUS_REJECTED],
+        self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
+        self::STATUS_COMPLETED => [],
+        self::STATUS_CANCELLED => [],
+        self::STATUS_REJECTED  => [],
+    ];
+
+    public function canTransitionTo(string $newStatus): bool
+    {
+        return in_array($newStatus, self::STATUS_TRANSITIONS[$this->status] ?? [], true);
+    }
+
     protected $fillable = [
         'member_id',
         'trainer_id',

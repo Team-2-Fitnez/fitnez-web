@@ -51,7 +51,8 @@
             @change="onCvChange"
             class="form-input"
           />
-          <p v-if="cvFile" class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
+          <p v-if="cvError" class="field-error">{{ cvError }}</p>
+          <p v-else-if="cvFile" class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
             ✓ {{ cvFile.name }}
           </p>
         </div>
@@ -64,7 +65,8 @@
             @change="onCertificateChange"
             class="form-input"
           />
-          <p v-if="certificateFile" class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
+          <p v-if="certificateError" class="field-error">{{ certificateError }}</p>
+          <p v-else-if="certificateFile" class="text-muted" style="font-size: 0.875rem; margin-top: 0.5rem;">
             ✓ {{ certificateFile.name }}
           </p>
         </div>
@@ -98,6 +100,10 @@ import { memberSidebarItems } from '../../components/layout/sidebarItems'
 const success = ref(false)
 const cvFile = ref<File | null>(null)
 const certificateFile = ref<File | null>(null)
+const cvError = ref('')
+const certificateError = ref('')
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024
 
 const schema = toTypedSchema(z.object({
   specialization: z.string().min(1, 'Pilih bidang keahlian Anda.'),
@@ -112,31 +118,49 @@ const { handleSubmit, errors, values, isSubmitting, setFieldError } = useForm({
   },
 })
 
+function validateFile(file: File | null): string {
+  if (!file) return ''
+  if (file.type !== 'application/pdf') return 'Hanya file PDF yang diperbolehkan.'
+  if (file.size > MAX_FILE_SIZE) return 'Ukuran file maksimal 5 MB.'
+  return ''
+}
+
 function onCvChange(event: Event) {
   const target = event.target as HTMLInputElement
-  cvFile.value = target.files?.[0] || null
+  const file = target.files?.[0] || null
+  cvFile.value = file
+  cvError.value = validateFile(file)
+  if (cvError.value) cvFile.value = null
 }
 
 function onCertificateChange(event: Event) {
   const target = event.target as HTMLInputElement
-  certificateFile.value = target.files?.[0] || null
+  const file = target.files?.[0] || null
+  certificateFile.value = file
+  certificateError.value = validateFile(file)
+  if (certificateError.value) certificateFile.value = null
 }
 
 const onSubmit = handleSubmit(async () => {
+  cvError.value = validateFile(cvFile.value)
+  certificateError.value = validateFile(certificateFile.value)
+
   if (!cvFile.value || !certificateFile.value) {
-    setFieldError('specialization', 'Mohon upload CV dan Sertifikat.')
+    setFieldError('specialization', 'Mohon upload CV dan Sertifikat (PDF, maks 5 MB).')
     return
   }
 
+  if (cvError.value || certificateError.value) return
+
   try {
-    await trainerApplicationApi.submit(cvFile.value, certificateFile.value)
+    await trainerApplicationApi.submit(cvFile.value, certificateFile.value, values.specialization!, values.experience_years!)
     success.value = true
     cvFile.value = null
     certificateFile.value = null
     values.specialization = ''
     values.experience_years = 0
   } catch (e: any) {
-    setFieldError('specialization', e?.message || 'Gagal mengirim pendaftaran.')
+    window.showFitnezToast(e?.message || 'Gagal mengirim pendaftaran.', 'error')
   }
 })
 </script>

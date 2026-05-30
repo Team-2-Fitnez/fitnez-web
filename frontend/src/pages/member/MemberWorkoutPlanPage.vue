@@ -342,46 +342,52 @@ export default {
 
   methods: {
     async fetchWorkouts() {
+      this.loading = true;
       try {
         const response = await api.get('/workout-plans');
         this.workouts = response.data;
       } catch (error) {
         window.showFitnezToast('Gagal memuat jadwal latihan.', 'error');
+      } finally {
+        this.loading = false;
       }
     },
 
     onDateChange() {
-      if (!this.formData.date) return;
-      const parts = this.formData.date.split("-");
-      const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-      this.formData.day = daftarHari[dateObj.getDay()];
+      if (this.formData.date) {
+        const d = new Date(this.formData.date + 'T00:00:00');
+        this.formData.day = daftarHari[d.getDay()];
+      }
     },
 
     onCategoryChange() {
-
-      this.formData.name = "";
+      this.formData.name = '';
     },
 
     async handleSubmit() {
-      if (!this.formData.name || !this.formData.date) {
-        alert("Pilih tanggal dan gerakan latihan!");
-        return;
-      }
+      if (!this.formData.date || !this.formData.name || !this.formData.category) return;
 
       this.loading = true;
+      const payload = {
+        date: this.formData.date,
+        day: this.formData.day,
+        category: this.formData.category,
+        name: this.formData.name,
+        set: parseInt(this.formData.set) || 0,
+        weight: parseFloat(this.formData.weight) || 0,
+        reps: parseInt(this.formData.reps) || 0,
+        duration: parseInt(this.formData.duration) || 0,
+      };
+
       try {
         if (this.editId !== null) {
-          await api.put(`/workout-plans/${this.editId}`, this.formData);
-          window.showFitnezToast('Jadwal latihan berhasil diperbarui!');
-          this.editId = null;
+          await api.put(`/workout-plans/${this.editId}`, payload);
         } else {
-          await api.post('/workout-plans', this.formData);
-          window.showFitnezToast('Jadwal latihan baru telah ditambahkan!');
+          await api.post('/workout-plans', payload);
         }
         await this.fetchWorkouts();
         this.resetForm();
       } catch (error) {
-        console.error("Save failed:", error);
         window.showFitnezToast('Gagal menyimpan jadwal latihan.', 'error');
       } finally {
         this.loading = false;
@@ -399,18 +405,14 @@ export default {
         reps: "",
         duration: ""
       };
+      this.editId = null;
     },
 
     async toggleWorkout(id) {
       const item = this.workouts.find(w => w.id === id);
       if (!item) return;
-      
-      const newCompletedState = !item.completed;
-      
       try {
-        await api.put(`/workout-plans/${id}`, {
-          completed: newCompletedState
-        });
+        await api.put(`/workout-plans/${id}`, { completed: !item.completed });
         await this.fetchWorkouts();
       } catch (error) {
         window.showFitnezToast('Gagal memperbarui status latihan.', 'error');
@@ -419,25 +421,22 @@ export default {
 
     async deleteWorkout(id) {
       if (!confirm("Hapus jadwal ini?")) return;
-      
       try {
         await api.delete(`/workout-plans/${id}`);
         window.showFitnezToast('Jadwal latihan telah dihapus.', 'success');
         await this.fetchWorkouts();
       } catch (error) {
-        console.error("Delete failed:", error);
         window.showFitnezToast('Gagal menghapus jadwal.', 'error');
       }
     },
-    
+
     async clearAllWorkouts() {
       if (!confirm("Hapus seluruh jadwal latihan Anda?")) return;
       try {
         await api.delete('/workout-plans/clear-all');
-        window.showFitnezToast('Seluruh jadwal latihan telah dihapus.');
+        window.showFitnezToast('Seluruh jadwal latihan telah dihapus.', 'success');
         await this.fetchWorkouts();
       } catch (error) {
-        console.error("Clear all failed:", error);
         window.showFitnezToast('Gagal menghapus semua jadwal.', 'error');
       }
     },

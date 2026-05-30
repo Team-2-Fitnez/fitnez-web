@@ -26,7 +26,7 @@ async function loadTrainerStatus() {
       auth.user.trainer_status = response.data.status
       auth.user.can_access_trainer_workspace = response.data.can_access_trainer_workspace
     }
-  } catch {
+  } catch (e) {
     status.value = null
   }
 }
@@ -51,7 +51,7 @@ async function submitTrainerApplication() {
   loading.value = true
 
   try {
-    await trainerApplicationApi.submit(cv.value, certificate.value)
+    await trainerApplicationApi.submit(cv.value, certificate.value, '', 0)
     message.value = 'Trainer application submitted. Please wait for admin review.'
     showDialog.value = false
     cv.value = null

@@ -30,7 +30,7 @@ const dayNames: Record<string, string> = {
 async function loadClasses() {
   loading.value = true
   try {
-    const res = await http.get('/member/classes')
+    const res = await http.get<ClassItem[]>('/member/classes')
     classes.value = res.data || []
   } catch {
     window.showFitnezToast('Gagal memuat jadwal kelas.', 'error')

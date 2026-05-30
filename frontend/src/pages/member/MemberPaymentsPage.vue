@@ -23,7 +23,7 @@ function formatDate(val?: string | null) {
 
 async function loadSummary() {
   try {
-    const res = await http.get('/member/payments/summary')
+    const res = await http.get<{ total_payments: number; total_amount: number; paid_count: number; pending_count: number }>('/member/payments/summary')
     summary.value = res.data
   } catch {}
 }
@@ -31,7 +31,7 @@ async function loadSummary() {
 async function loadPayments() {
   loading.value = true
   try {
-    const res = await http.get('/member/payments?per_page=50')
+    const res = await http.get<{ data: any[] }>('/member/payments?per_page=50')
     payments.value = res.data.data || []
   } catch {
     window.showFitnezToast('Gagal memuat riwayat pembayaran.', 'error')

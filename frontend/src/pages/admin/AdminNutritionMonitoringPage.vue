@@ -53,7 +53,7 @@ function getStatus(total: number, limit: number) {
         :sidebar-items="adminSidebarItems"
     >
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.75rem;">
-            <a :href="http.url('/admin/export/nutrition-monitoring')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Excel</a>
+            <button class="button button-ghost" style="font-size: 0.85rem;" @click="http.downloadBlob('/admin/export/nutrition-monitoring', 'nutrition-monitoring.xlsx')">Export Excel</button>
             <ExcelImportModal import-type="workouts" label="Import Excel" />
         </div>
         <!-- Summary Cards -->

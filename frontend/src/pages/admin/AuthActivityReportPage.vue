@@ -55,7 +55,7 @@ onMounted(() => {
     :sidebar-items="adminSidebarItems"
   >
     <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.75rem;">
-      <a :href="http.url('/admin/export/auth-activity')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Excel</a>
+      <button class="button button-ghost" style="font-size: 0.85rem;" @click="http.downloadBlob('/admin/export/auth-activity', 'auth-activity.xlsx')">Export Excel</button>
       <ExcelImportModal import-type="members" label="Import Excel" />
     </div>
     <div class="report-stat-grid">

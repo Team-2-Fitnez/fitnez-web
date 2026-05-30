@@ -36,7 +36,7 @@
             :key="type"
             type="button"
             :class="['choice-card', values.session_type === type && 'choice-card-active']"
-            @click="values.session_type = type"
+            @click="values.session_type = type as 'online' | 'offline'"
           >
             <p style="font-weight: 900; text-transform: capitalize;">{{ type }}</p>
             <p class="text-muted" style="font-size: 0.75rem;">

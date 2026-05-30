@@ -25,7 +25,6 @@ use App\Http\Controllers\ManualProspectiveRegistrationController;
 use App\Http\Controllers\MembershipPackageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\TrainerApplicationController;
-use App\Http\Controllers\TrainerBookingController;
 use App\Http\Controllers\WorkoutPlanController;
 use App\Http\Controllers\OtpController;
 use App\Http\Controllers\FaqController;
@@ -113,7 +112,7 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::get('/auth-activity/summary',[AuthActivityReportController::class,'summary']); Route::get('/auth-activity/logs',[AuthActivityReportController::class,'logs']); Route::get('/auth-activity/registrations',[AuthActivityReportController::class,'registrations']);
         Route::get('/member-reports/summary',[MemberPaymentAttendanceReportController::class,'summary']); Route::get('/member-reports/payments',[MemberPaymentAttendanceReportController::class,'payments']); Route::get('/member-reports/attendance',[MemberPaymentAttendanceReportController::class,'attendance']);
         Route::get('/prospective-members',[ProspectiveMemberReviewController::class,'index']); Route::post('/prospective-members/{registration}/approve',[ProspectiveMemberReviewController::class,'approve']); Route::post('/prospective-members/{registration}/reject',[ProspectiveMemberReviewController::class,'reject']);
-        Route::get('/trainer-applications',[TrainerApplicationReviewController::class,'index']); Route::post('/trainer-applications/{application}/approve',[TrainerApplicationReviewController::class,'approve']); Route::post('/trainer-applications/{application}/reject',[TrainerApplicationReviewController::class,'reject']); Route::get('/trainer-applications/{application}/documents/{type}',[TrainerApplicationReviewController::class,'download'])->whereIn('type',['cv','certificate']);
+        Route::get('/trainer-applications',[TrainerApplicationReviewController::class,'index']); Route::post('/trainer-applications/{application}/approve',[TrainerApplicationReviewController::class,'approve']); Route::post('/trainer-applications/{application}/reject',[TrainerApplicationReviewController::class,'reject']); Route::get('/trainer-applications/{application}/documents/{type}',[TrainerApplicationReviewController::class,'download'])->whereIn('type',['cv','certificate']); Route::get('/trainer-applications/{application}/documents/{type}/stream',[TrainerApplicationReviewController::class,'stream'])->whereIn('type',['cv','certificate']);
         Route::apiResource('users',UserManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('trainers',TrainerManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('schedules',ScheduleManagementController::class)->parameters(['schedules'=>'schedule'])->only(['index','store','update','destroy']);
         
         Route::get('/notifications', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'index']);
@@ -148,7 +147,6 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
     Route::prefix('member/payments')->group(function(){
         Route::get('/', [MemberPaymentController::class, 'index']);
         Route::get('/summary', [MemberPaymentController::class, 'summary']);
-        Route::post('/pay', [MemberPaymentController::class, 'pay']);
         Route::post('/simulate-create', [MemberPaymentController::class, 'simulateCreate']);
         Route::post('/simulate-pay', [MemberPaymentController::class, 'simulatePay']);
     });

@@ -86,6 +86,25 @@ export class HttpClient {
   delete<T>(path: string): Promise<ApiResponse<T>> {
     return this.request<T>(path, { method: 'DELETE' })
   }
+
+  async downloadBlob(path: string, defaultFilename = 'export.xlsx'): Promise<void> {
+    const token = this.token()
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const response = await fetch(`${this.baseUrl}${path}`, { headers })
+    if (!response.ok) throw new Error('Download failed')
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = defaultFilename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 }
 
 export const http = new HttpClient(import.meta.env.VITE_API_BASE_URL || '/api')

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import FitnezCard from './ui/FitnezCard.vue'
 import { http } from '../api/http'
 
 const props = withDefaults(defineProps<{
@@ -37,11 +36,9 @@ async function upload() {
   formData.append('type', props.importType)
 
   try {
-    const res = await http.post('/excel/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    const res = await http.post<{ job_id: string }>('/excel/import', formData)
 
-    const jobId = res.job_id
+    const jobId = res.data.job_id
     status.value = 'processing'
 
     eventSource = new EventSource(`/api/sse/${jobId}`)
@@ -94,7 +91,7 @@ function close() {
               <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.25rem;">.xlsx, .xls, .csv (max 10MB)</p>
             </label>
 
-            <div v-if="status === 'uploading' || status === 'processing'" style="margin-top: 0.5rem;">
+            <div v-if="status === 'uploading'" style="margin-top: 0.5rem;">
               <div class="progress-bar-track">
                 <div class="progress-bar-fill" :style="{ width: progress + '%' }"></div>
               </div>

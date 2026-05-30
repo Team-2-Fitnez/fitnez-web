@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Notification;
 use App\Models\Role;
 use App\Models\TrainerApplication;
 use App\Models\TrainerDetail;
@@ -56,7 +57,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        User::query()->updateOrCreate(
+        $member = User::query()->updateOrCreate(
             ['email' => 'member@fitnez.test'],
             [
                 'full_name' => 'Fitnez Member',
@@ -90,5 +91,38 @@ class DatabaseSeeder extends Seeder
                 'avg_rating' => 4.8,
             ]
         );
+
+        // Seed some sample notifications for testing
+        Notification::query()->create([
+            'user_id' => $trainerUser->id,
+            'title' => 'Permintaan sesi baru',
+            'body' => 'Fitnez Member memesan sesi pada 01 Jun 2026 pukul 09:00–10:00. Tinjau di Jadwal Melatih.',
+            'notification_type' => 'booking_request',
+            'is_read' => false,
+        ]);
+
+        Notification::query()->create([
+            'user_id' => $trainerUser->id,
+            'title' => 'Sesi dikonfirmasi & pembayaran',
+            'body' => 'Sesi dengan Fitnez Member pada 31 Mei 2026 telah dikonfirmasi. Total pembayaran Rp 150.000.',
+            'notification_type' => 'payment_in',
+            'is_read' => true,
+        ]);
+
+        Notification::query()->create([
+            'user_id' => $member->id,
+            'title' => 'Selamat datang di Fitnez!',
+            'body' => 'Terima kasih telah bergabung. Mulai perjalanan fitness Anda sekarang.',
+            'notification_type' => 'welcome',
+            'is_read' => false,
+        ]);
+
+        Notification::query()->create([
+            'user_id' => $admin->id,
+            'title' => 'Pendaftaran Trainer Baru',
+            'body' => 'Ada aplikasi trainer baru yang perlu direview.',
+            'notification_type' => 'trainer_application',
+            'is_read' => false,
+        ]);
     }
 }

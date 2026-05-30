@@ -71,7 +71,7 @@
 <script>
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
-import api from '@/api/axios';
+import { http } from '../../api/http';
 
 export default {
   name: "AdminNotificationView",
@@ -109,11 +109,11 @@ export default {
     },
     async fetchAdminData() {
       try {
-        const { data } = await api.get('/admin/notifications');
-        this.notifications = data.notifications || [];
-        this.activeUsers = data.activeUsers || 0;
-        this.pendingMemberCount = data.pendingMemberCount || 0;
-        this.pendingTrainerCount = data.pendingTrainerCount || 0;
+        const res = await http.get<any>('/admin/notifications')
+        this.notifications = res.data.notifications || [];
+        this.activeUsers = res.data.activeUsers || 0;
+        this.pendingMemberCount = res.data.pendingMemberCount || 0;
+        this.pendingTrainerCount = res.data.pendingTrainerCount || 0;
       } catch (error) {
         window.showFitnezToast('Gagal mengambil data admin.', 'error');
       }
@@ -131,7 +131,7 @@ export default {
     },
     async approve(id) {
       try {
-        await api.post(`/admin/approve/${id}`);
+        await http.post(`/admin/approve/${id}`);
         this.notifications = this.notifications.filter(n => n.id !== id);
         this.activeUsers++;
         window.showFitnezToast('Pendaftaran berhasil disetujui', 'success');
@@ -141,7 +141,7 @@ export default {
     },
     async reject(id) {
       try {
-        await api.post(`/admin/reject/${id}`);
+        await http.post(`/admin/reject/${id}`);
         this.notifications = this.notifications.filter(n => n.id !== id);
         window.showFitnezToast('Pendaftaran telah ditolak', 'success');
       } catch (error) {

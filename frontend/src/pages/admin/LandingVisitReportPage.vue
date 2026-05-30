@@ -24,7 +24,7 @@ onMounted(() => {
 <template>
   <WorkspaceLayout role="admin" sidebar-title="Admin" title="Landing Visitors" subtitle="Monitor visitors opening the landing page." :sidebar-items="adminSidebarItems">
     <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.75rem;">
-      <a :href="http.url('/admin/export/landing-visits')" class="button button-ghost" style="font-size: 0.85rem; text-decoration: none;">Export Excel</a>
+      <button class="button button-ghost" style="font-size: 0.85rem;" @click="http.downloadBlob('/admin/export/landing-visits', 'landing-visits.xlsx')">Export Excel</button>
       <ExcelImportModal import-type="schedules" label="Import Excel" />
     </div>
     <div class="feature-grid">

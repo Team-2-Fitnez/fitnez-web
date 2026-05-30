@@ -28,10 +28,10 @@
                    :class="['notif-card card', { 'unread-notif': !item.is_read }]">
                 <div class="flex gap-4">
                   <div class="notif-icon-circle">
-                    <span v-if="item.notification_type === 'rent'">💰</span>
+                    <span v-if="item.notification_type === 'payment_in'">💰</span>
+                    <span v-else-if="item.notification_type === 'booking_request'">📋</span>
                     <span v-else-if="item.notification_type === 'hire'">🤝</span>
-                    <span v-else-if="item.notification_type === 'schedule'">⏰</span>
-                    <span v-else-if="item.notification_type === 'classes'">🏋️</span>
+                    <span v-else-if="item.notification_type === 'trainer_application'">✅</span>
                     <span v-else>🔔</span>
                   </div>
                   <div class="flex-1">
@@ -232,15 +232,8 @@ export default {
       try {
         if (this.isTrainerWorkspace) {
           const { data } = await api.get('/trainer/notifications');
-          if (!data || data.length === 0) {
-            this.trainerNotifications = [
-              { id: 't1', notification_type: 'rent', title: 'Uang Sewa Masuk', body: 'Pembayaran sewa sebesar Rp 250.000 telah diterima.', created_at: new Date().toISOString(), is_read: false },
-              { id: 't2', notification_type: 'hire', title: 'Disewa Member Baru', body: 'Member "Budi Santoso" telah memilih Anda sebagai trainer.', created_at: new Date().toISOString(), is_read: false },
-              { id: 't3', notification_type: 'schedule', title: 'Update Jadwal', body: 'Latihan besok pukul 08.00 dengan Member "Siska".', created_at: new Date().toISOString(), is_read: true }
-            ];
-          } else {
-            this.trainerNotifications = data;
-          }
+          const rawData = Array.isArray(data) ? data : (data?.data || []);
+          this.trainerNotifications = rawData || [];
         } else {
 
           const respNotif = await api.get('/notifications');
@@ -304,10 +297,10 @@ export default {
 
     getTrainerLabel(type) {
       const labels = { 
-        rent: 'Uang Sewa Masuk', 
-        hire: 'Disewa Member', 
-        schedule: 'Jadwal Latihan',
-        classes: 'Reminder Kelas'
+        booking_request: 'Permintaan Booking', 
+        payment_in: 'Pembayaran Masuk', 
+        hire: 'Disewa Member',
+        trainer_application: 'Status Trainer'
       };
       return labels[type] || 'Notifikasi';
     },
