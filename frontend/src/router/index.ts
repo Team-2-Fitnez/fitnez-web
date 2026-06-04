@@ -1,13 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { installGuard } from '../router-guard'
-import PrivacyCookiePolicy from '../pages/PrivacyCookiePolicy.vue'
-import LandingPage from '../pages/LandingPage.vue'
-
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/privacy-cookie-policy',  name: 'privacy-cookie-policy',  component: PrivacyCookiePolicy },
-    { path: '/', name: 'landing', component: LandingPage },
+    { path: '/privacy-cookie-policy',  name: 'privacy-cookie-policy',  component: () => import('../pages/PrivacyCookiePolicy.vue') },
+    { path: '/', name: 'landing', component: () => import('../pages/LandingPage.vue') },
     { path: '/faq', name: 'faq', component: () => import('../pages/FaqPage.vue') },
     { path: '/register', name: 'register', component: () => import('../pages/RegisterProspectiveMemberPage.vue') },
     { path: '/registration-status', name: 'registration-status', component: () => import('../pages/RegistrationStatusPage.vue') },
@@ -52,6 +49,7 @@ const router = createRouter({
     { path: '/trainer/members', name: 'trainer-members', component: () => import('../pages/trainer/TrainerMembersPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/chat', name: 'trainer-chat', component: () => import('../pages/trainer/TrainerChatPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/rent-history', name: 'trainer-rent-history', component: () => import('../pages/trainer/TrainerRentHistoryPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
+    { path: '/trainer/attendance', name: 'trainer-attendance', component: () => import('../pages/trainer/TrainerAttendancePage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/notifications', name: 'trainer-notifications', component: () => import('../pages/trainer/TrainerNotificationsPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/profile', name: 'trainer-profile', component: () => import('../pages/trainer/TrainerProfilePage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
 

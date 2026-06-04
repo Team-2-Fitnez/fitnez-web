@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TrainerApplication extends Model
 {
+    use HasFactory;
     protected $table = 'trainer_applications';
 
     const CREATED_AT = 'submitted_at';

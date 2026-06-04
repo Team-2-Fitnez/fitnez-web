@@ -21,6 +21,9 @@ backend/storage/app/public/*
 backend/storage/app/private/*
 backend/bootstrap/cache/*.php
 
+# PRD docs
+PRD/
+
 # Databases / generated files
 backend/database/*.sqlite
 *.sqlite

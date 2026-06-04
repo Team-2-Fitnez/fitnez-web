@@ -38,6 +38,7 @@ export const memberSidebarItems = [
 export const trainerSidebarItems = [
   { label: 'Home', to: '/', icon: '🌐', external: true },
   { label: 'Dashboard', to: '/trainer/dashboard', icon: '📊' },
+  { label: 'Attendance', to: '/trainer/attendance', icon: '✅' },
   { label: 'Schedule', to: '/trainer/schedule', icon: '🗓️' },
   { label: 'Classes', to: '/trainer/classes', icon: '🏃' },
   { label: 'Members', to: '/trainer/members', icon: '👥' },

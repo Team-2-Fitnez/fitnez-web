@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -11,7 +11,7 @@ type MenuItem = {
   submenu?: Array<{ label: string; to: string; icon?: string }>
 }
 
-defineProps<{
+const props = defineProps<{
   role: 'admin' | 'member' | 'trainer'
   title: string
   items: MenuItem[]
@@ -22,14 +22,32 @@ const emit = defineEmits(['close'])
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const openSubmenu = ref<string | null>(null)
+
+function findParentForRoute(): string | null {
+  for (const item of props.items) {
+    if (item.submenu) {
+      for (const sub of item.submenu) {
+        if (route.path === sub.to) return item.label
+      }
+    }
+  }
+  return null
+}
+
+const manualToggle = ref<string | null>(null)
+
+const openSubmenu = computed(() => {
+  const routeParent = findParentForRoute()
+  if (routeParent) return routeParent
+  return manualToggle.value
+})
 
 function close() {
   emit('close')
 }
 
 function toggleSubmenu(label: string) {
-  openSubmenu.value = openSubmenu.value === label ? null : label
+  manualToggle.value = manualToggle.value === label ? null : label
 }
 
 async function logout() {

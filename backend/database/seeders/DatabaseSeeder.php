@@ -2,10 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Attendance;
 use App\Models\Notification;
+use App\Models\Payment;
 use App\Models\Role;
 use App\Models\TrainerApplication;
+use App\Models\TrainerBooking;
 use App\Models\TrainerDetail;
+use App\Models\TrainerEarning;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -124,5 +128,79 @@ class DatabaseSeeder extends Seeder
             'notification_type' => 'trainer_application',
             'is_read' => false,
         ]);
+
+        // Sample bookings for testing
+        $sampleBooking = TrainerBooking::query()->updateOrCreate(
+            ['member_id' => $member->id, 'trainer_id' => $trainerUser->id, 'booking_date' => now()->addDays(1)->toDateString()],
+            [
+                'start_time' => '09:00',
+                'end_time' => '10:00',
+                'session_type' => 'online',
+                'location' => 'Zoom',
+                'status' => 'confirmed',
+                'total_price' => 150000,
+            ]
+        );
+
+        $pastBooking = TrainerBooking::query()->updateOrCreate(
+            ['member_id' => $member->id, 'trainer_id' => $trainerUser->id, 'booking_date' => now()->subDays(2)->toDateString()],
+            [
+                'start_time' => '14:00',
+                'end_time' => '15:00',
+                'session_type' => 'offline',
+                'location' => 'Fitnez Gym',
+                'status' => 'completed',
+                'total_price' => 150000,
+            ]
+        );
+
+        // Sample attendance for trainer
+        Attendance::query()->create([
+            'user_id' => $trainerUser->id,
+            'check_in_time' => now()->subDays(1)->setHour(8)->setMinute(0),
+            'check_out_time' => now()->subDays(1)->setHour(17)->setMinute(0),
+            'attendance_type' => 'trainer_checkin',
+        ]);
+
+        Attendance::query()->create([
+            'user_id' => $trainerUser->id,
+            'check_in_time' => now()->subDays(2)->setHour(8)->setMinute(15),
+            'check_out_time' => now()->subDays(2)->setHour(16)->setMinute(45),
+            'attendance_type' => 'trainer_checkin',
+        ]);
+
+        // Sample attendance for member
+        Attendance::query()->create([
+            'user_id' => $member->id,
+            'check_in_time' => now()->subDays(1)->setHour(7)->setMinute(30),
+            'check_out_time' => now()->subDays(1)->setHour(9)->setMinute(0),
+            'attendance_type' => 'member_checkin',
+        ]);
+
+        // Sample payment for completed booking
+        $samplePayment = Payment::query()->updateOrCreate(
+            ['invoice_number' => 'INV-2026-TEST-001'],
+            [
+                'user_id' => $member->id,
+                'booking_id' => $pastBooking->id,
+                'payment_type' => 'booking',
+                'amount' => 150000,
+                'payment_method' => 'transfer',
+                'payment_status' => 'paid',
+                'payment_date' => now()->subDays(2),
+            ]
+        );
+
+        // Sample trainer earning
+        TrainerEarning::query()->updateOrCreate(
+            ['trainer_id' => $trainerUser->id, 'payment_id' => $samplePayment->id],
+            [
+                'booking_id' => $pastBooking->id,
+                'commission_rate' => 80.00,
+                'trainer_amount' => 120000,
+                'status' => 'paid',
+                'disbursed_at' => now()->subDays(1),
+            ]
+        );
     }
 }
