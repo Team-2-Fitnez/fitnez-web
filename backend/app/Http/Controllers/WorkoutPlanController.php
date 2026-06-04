@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WorkoutPlan;
+use App\Models\Notification;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,12 +39,29 @@ class WorkoutPlanController extends Controller
             'completed' => false,
         ]);
 
+        Notification::create([
+            'user_id' => $request->user()->id,
+            'title'   => 'Jadwal Baru Ditambahkan',
+            'body'    => "Latihan \"{$workout->name}\" telah ditambahkan untuk tanggal " . \Carbon\Carbon::parse($workout->date)->format('d-m-Y') . ".",
+            'notification_type' => 'workout_plan',
+            'is_read' => false,
+        ]);
+
         return ApiResponse::success('Workout plan created.', $workout, 201);
     }
 
-    public function update(Request $request, WorkoutPlan $workoutPlan): JsonResponse
+    public function show(Request $request, WorkoutPlan $workout_plan): JsonResponse
     {
-        if ($workoutPlan->user_id !== $request->user()->id) {
+        if ($workout_plan->user_id !== $request->user()->id) {
+            return ApiResponse::error('Unauthorized.', [], 403);
+        }
+
+        return ApiResponse::success('Workout plan loaded.', $workout_plan->load(['workoutExercises.exercise', 'trackings']));
+    }
+
+    public function update(Request $request, WorkoutPlan $workout_plan): JsonResponse
+    {
+        if ($workout_plan->user_id !== $request->user()->id) {
             return ApiResponse::error('Unauthorized.', [], 403);
         }
 
@@ -59,19 +77,26 @@ class WorkoutPlanController extends Controller
             'completed' => 'sometimes|boolean',
         ]);
 
-        $workoutPlan->update($validated);
+        $workout_plan->update($validated);
 
-        return ApiResponse::success('Workout plan updated.', $workoutPlan->fresh());
+        return ApiResponse::success('Workout plan updated.', $workout_plan->fresh());
     }
 
-    public function destroy(Request $request, WorkoutPlan $workoutPlan): JsonResponse
+    public function destroy(Request $request, WorkoutPlan $workout_plan): JsonResponse
     {
-        if ($workoutPlan->user_id !== $request->user()->id) {
+        if ($workout_plan->user_id !== $request->user()->id) {
             return ApiResponse::error('Unauthorized.', [], 403);
         }
 
-        $workoutPlan->delete();
+        $workout_plan->delete();
 
         return ApiResponse::success('Workout plan deleted.');
+    }
+
+    public function clearAll(Request $request): JsonResponse
+    {
+        WorkoutPlan::where('user_id', $request->user()->id)->delete();
+
+        return ApiResponse::success('All workout plans deleted.');
     }
 }

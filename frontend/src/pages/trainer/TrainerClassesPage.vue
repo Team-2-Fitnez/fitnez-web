@@ -1,12 +1,12 @@
-<script setup lang="ts">
-import RoleLayout from '../../components/layout/RoleLayout.vue'
+<script setup>
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 </script>
 
 <template>
-  <RoleLayout role="trainer" sidebar-title="Trainer" title="Classes" subtitle="Prepare and manage assigned class programs." :sidebar-items="trainerSidebarItems">
+  <WorkspaceLayout role="trainer" sidebar-title="Trainer" title="Classes" subtitle="Prepare and manage assigned class programs." :sidebar-items="trainerSidebarItems">
     <div class="grid gap-4 md:grid-cols-3">
       <StatCard label="Today Sessions" value="4" hint="Placeholder" />
       <StatCard label="Assigned Members" value="18" hint="Placeholder" />
@@ -14,10 +14,10 @@ import StatCard from '../../components/ui/StatCard.vue'
     </div>
 
     <FitnezCard class="mt-5">
-      <h2 class="text-2xl font-black">Classes Module</h2>
-      <p class="mt-3 max-w-3xl text-sm font-semibold leading-6 text-black/55">
+      <h2 class="title-md">Classes Module</h2>
+      <p class="text-muted mt-3">
         This trainer page is prepared for UI/UX. Connect backend functions later.
       </p>
     </FitnezCard>
-  </RoleLayout>
+  </WorkspaceLayout>
 </template>

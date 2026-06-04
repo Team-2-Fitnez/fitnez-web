@@ -14,13 +14,25 @@ class MemberPaymentAttendanceReportController extends Controller
 {
     public function summary(Request $request)
     {
+        $totalPayments = Payment::query()->count();
+        $totalPaymentAmount = (float) Payment::query()->sum('amount');
+        $paidPayments = Payment::query()->where('payment_status', 'paid')->count();
+        $pendingPayments = Payment::query()->where('payment_status', 'pending')->count();
+        $totalAttendance = Attendance::query()->count();
+        $attendanceToday = Attendance::query()->whereDate('check_in_time', now()->toDateString())->count();
+
         return ApiResponse::success('Member payment and attendance summary loaded.', [
-            'total_payments' => Payment::query()->count(),
-            'total_payment_amount' => (float) Payment::query()->sum('amount'),
-            'paid_payments' => Payment::query()->where('payment_status', 'paid')->count(),
-            'pending_payments' => Payment::query()->where('payment_status', 'pending')->count(),
-            'total_attendance' => Attendance::query()->count(),
-            'attendance_today' => Attendance::query()->whereDate('check_in_time', now()->toDateString())->count(),
+            'total_payments' => $totalPayments,
+            'total_member_payments' => $totalPayments,
+            'total_payment_amount' => $totalPaymentAmount,
+            'paid_payments' => $paidPayments,
+            'paid_member_payments' => $paidPayments,
+            'pending_payments' => $pendingPayments,
+            'pending_member_payments' => $pendingPayments,
+            'total_attendance' => $totalAttendance,
+            'total_attendance_records' => $totalAttendance,
+            'attendance_today' => $attendanceToday,
+            'today_attendance_count' => $attendanceToday,
             'attendance_this_month' => Attendance::query()
                 ->whereMonth('check_in_time', now()->month)
                 ->whereYear('check_in_time', now()->year)

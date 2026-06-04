@@ -78,10 +78,10 @@ onBeforeUnmount(() => {
             </p>
 
             <div class="hero-actions">
-              <RouterLink to="/register" class="button button-primary">Register Today</RouterLink>
-              <a href="#packages" class="button button-ghost">View Packages</a>
-              <RouterLink to="/registration-status" class="button button-secondary">Check Status</RouterLink>
-              <RouterLink to="/login/member" class="button button-black">Login</RouterLink>
+              <RouterLink to="/register" class="button button-landing-orange">Register Today</RouterLink>
+              <a href="#packages" class="button button-landing-orange">View Packages</a>
+              <RouterLink to="/registration-status" class="button button-landing-orange">Check Status</RouterLink>
+              <RouterLink to="/login/member" class="button button-landing-orange">Login</RouterLink>
             </div>
           </div>
 
@@ -98,25 +98,25 @@ onBeforeUnmount(() => {
                 <p class="stat-value">Rp2.200.000</p>
               </div>
 
-              <RouterLink to="/register" class="button button-black" style="width: 100%; margin-top: 1rem;">
+              <RouterLink to="/register" class="button button-landing-orange" style="width: 100%; margin-top: 1rem;">
                 Start Registration
               </RouterLink>
             </div>
 
             <div class="feature-grid" style="margin-top: 1rem;">
-              <div class="panel" style="background: rgba(255,255,255,0.14); color: white;">
+              <div class="panel landing-orange-card">
                 <p class="title-md" style="color: white;">Full-year access</p>
                 <p style="color: rgba(255,255,255,0.86); font-weight: 600;">Train consistently for 12 months.</p>
               </div>
-              <div class="panel" style="background: rgba(255,255,255,0.14); color: white;">
+              <div class="panel landing-orange-card">
                 <p class="title-md" style="color: white;">Best value</p>
                 <p style="color: rgba(255,255,255,0.86); font-weight: 600;">Lower effective monthly cost.</p>
               </div>
-              <div class="panel" style="background: rgba(255,255,255,0.14); color: white;">
+              <div class="panel landing-orange-card">
                 <p class="title-md" style="color: white;">Free classes</p>
                 <p style="color: rgba(255,255,255,0.86); font-weight: 600;">Access selected group classes.</p>
               </div>
-              <div class="panel" style="background: rgba(255,255,255,0.14); color: white;">
+              <div class="panel landing-orange-card">
                 <p class="title-md" style="color: white;">Priority renewal</p>
                 <p style="color: rgba(255,255,255,0.86); font-weight: 600;">Easier long-term membership control.</p>
               </div>
@@ -140,22 +140,22 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="feature-grid">
-          <div class="panel">
-            <p class="eyebrow">Training</p>
+          <div class="panel panel-blue landing-blue-card">
+            <p class="eyebrow eyebrow-light">Training</p>
             <h3 class="title-md">Exercise Tracking</h3>
-            <p class="text-muted">Record workout progress, completed sessions, and training consistency.</p>
+            <p>Record workout progress, completed sessions, and training consistency.</p>
           </div>
-          <div class="panel panel-blue">
+
+          <div class="panel panel-blue landing-blue-card">
             <p class="eyebrow eyebrow-light">Nutrition</p>
-            <h3 class="title-md" style="color: white;">Meal Plan</h3>
-            <p style="color: rgba(255,255,255,0.90); font-weight: 600;">
-              Organize daily meals to support bulking, cutting, or maintenance goals.
-            </p>
+            <h3 class="title-md">Meal Plan</h3>
+            <p>Organize daily meals to support bulking, cutting, or maintenance goals.</p>
           </div>
-          <div class="panel panel-orange">
-            <p class="eyebrow-accent">Calculator</p>
+
+          <div class="panel panel-blue landing-blue-card">
+            <p class="eyebrow eyebrow-light">Calculator</p>
             <h3 class="title-md">Nutrition Calculator</h3>
-            <p style="color: #111; font-weight: 600;">Estimate protein, carbs, and fat needs for daily planning.</p>
+            <p>Estimate protein, carbs, and fat needs for daily planning.</p>
           </div>
         </div>
       </div>
@@ -174,23 +174,23 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="package-grid">
-          <article v-for="item in packages" :key="item.name" class="panel">
+          <article v-for="item in packages" :key="item.name" class="panel landing-package-card">
             <div style="display: flex; justify-content: space-between; align-items: start; gap: 0.75rem;">
               <span class="status status-info">{{ item.duration }}</span>
               <span v-if="item.highlight" class="status status-warning">Free Class</span>
             </div>
 
             <h3 class="title-md">{{ item.name }}</h3>
-            <p class="text-muted">{{ item.bestFor }}</p>
-            <p class="stat-value" style="color: var(--color-orange-dark);">{{ item.price }}</p>
+            <p>{{ item.bestFor }}</p>
+            <p class="stat-value">{{ item.price }}</p>
 
             <ul style="padding-left: 0; list-style: none; display: grid; gap: 0.5rem;">
-              <li v-for="benefit in item.benefits" :key="benefit" class="text-muted">
+              <li v-for="benefit in item.benefits" :key="benefit">
                 ✓ {{ benefit }}
               </li>
             </ul>
 
-            <RouterLink to="/register" class="button button-primary" style="width: 100%; margin-top: 1rem;">
+            <RouterLink to="/register" class="button button-white-orange" style="width: 100%; margin-top: 1rem;">
               Select Package
             </RouterLink>
           </article>
@@ -201,10 +201,10 @@ onBeforeUnmount(() => {
     <section class="section">
       <div class="page-container flow-layout">
         <div class="step-grid">
-          <div v-for="(step, index) in steps" :key="step.title" class="panel">
-            <p class="eyebrow-accent">STEP {{ index + 1 }}</p>
-            <h3 class="title-md">{{ step.title }}</h3>
-            <p class="text-muted">{{ step.text }}</p>
+          <div v-for="(step, index) in steps" :key="step.title" class="panel landing-step-card">
+            <p class="eyebrow eyebrow-light">STEP {{ index + 1 }}</p>
+            <h3 class="title-md">{{ step.title }}</h3>>
+            <p>{{ step.text }}</p>
           </div>
         </div>
 
@@ -247,8 +247,8 @@ onBeforeUnmount(() => {
             Start registration, complete payment manually, upload proof, and wait for admin approval.
           </p>
           <div class="hero-actions" style="justify-content: center;">
-            <RouterLink to="/register" class="button button-secondary">Register Today</RouterLink>
-            <RouterLink to="/login/member" class="button button-ghost">Login</RouterLink>
+            <RouterLink to="/register" class="button button-landing-orange">Register Today</RouterLink>
+            <RouterLink to="/login/member" class="button button-landing-orange">Login</RouterLink>
           </div>
         </div>
       </div>

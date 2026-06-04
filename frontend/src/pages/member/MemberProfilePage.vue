@@ -79,6 +79,10 @@ async function enterTrainerWorkspace() {
   }
 }
 
+function goToTrainerRegistration() {
+  router.push('/trainer/daftar')
+}
+
 onMounted(loadTrainerStatus)
 </script>
 
@@ -130,8 +134,13 @@ onMounted(loadTrainerStatus)
         <p v-if="message" class="alert alert-info" style="margin-top: 1rem;">{{ message }}</p>
 
         <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem;">
-          <FitnezButton v-if="!status?.can_access_trainer_workspace" type="button" :disabled="loading || status?.status === 'pending'" @click="showDialog = true">
-            {{ status?.status === 'pending' ? 'Waiting for Admin Review' : 'Apply to Become Trainer' }}
+          <FitnezButton
+            v-if="!status?.can_access_trainer_workspace"
+            type="button"
+            :disabled="loading || status?.status === 'pending'"
+            @click="goToTrainerRegistration"
+          >
+            {{ status?.status === 'pending' ? 'Waiting for Admin Review' : 'Daftar Jadi Trainer' }}
           </FitnezButton>
 
           <FitnezButton v-if="status?.can_access_trainer_workspace || auth.user?.can_access_trainer_workspace" type="button" :disabled="loading" @click="enterTrainerWorkspace">

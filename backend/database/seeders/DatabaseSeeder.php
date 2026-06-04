@@ -26,6 +26,11 @@ class DatabaseSeeder extends Seeder
             ['description' => 'Fitnez member/user']
         );
 
+        $trainerRole = Role::query()->firstOrCreate(
+            ['name' => 'trainer'],
+            ['description' => 'Fitnez personal trainer']
+        );
+
 
         $admin = User::query()->updateOrCreate(
             ['email' => 'admin@fitnez.test'],
@@ -44,7 +49,7 @@ class DatabaseSeeder extends Seeder
             [
                 'full_name' => 'Fitnez Approved Trainer',
                 'phone' => '080000000002',
-                'role_id' => $memberRole->id,
+                'role_id' => $trainerRole->id,
                 'password_hash' => Hash::make('FitnezTeam2@2026'),
                 'is_active' => true,
                 'email_verified_at' => now(),

@@ -31,3 +31,6 @@ backend/database/*.sqlite
 Thumbs.db
 .idea/
 .vscode/
+
+# Feature pack (already merged)
+FitnezTrainerMemberFeaturePack/

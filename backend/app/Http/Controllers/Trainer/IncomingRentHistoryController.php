@@ -16,11 +16,20 @@ class IncomingRentHistoryController extends Controller
         $trainerId = $request->user()->id;
         $base = TrainerEarning::query()->where('trainer_id', $trainerId);
 
+        $totalRecords = (clone $base)->count();
+        $totalAmount = (float) (clone $base)->sum('trainer_amount');
+        $pendingAmount = (float) (clone $base)->where('status', 'pending')->sum('trainer_amount');
+        $disbursedAmount = (float) (clone $base)->where('status', 'disbursed')->sum('trainer_amount');
+
         return ApiResponse::success('Incoming rent summary loaded.', [
-            'total_records' => (clone $base)->count(),
-            'total_trainer_amount' => (float) (clone $base)->sum('trainer_amount'),
-            'pending_amount' => (float) (clone $base)->where('status', 'pending')->sum('trainer_amount'),
-            'disbursed_amount' => (float) (clone $base)->where('status', 'disbursed')->sum('trainer_amount'),
+            'total_records' => $totalRecords,
+            'total_transactions' => $totalRecords,
+            'total_trainer_amount' => $totalAmount,
+            'total_income' => $totalAmount,
+            'pending_amount' => $pendingAmount,
+            'pending_income' => $pendingAmount,
+            'disbursed_amount' => $disbursedAmount,
+            'paid_income' => $disbursedAmount,
             'this_month_amount' => (float) (clone $base)
                 ->whereMonth('disbursed_at', now()->month)
                 ->whereYear('disbursed_at', now()->year)

@@ -3,31 +3,35 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkoutPlan extends Model
 {
     protected $table = 'workout_plans';
 
-    const CREATED_AT = 'created_at';
-    const UPDATED_AT = 'updated_at';
-
     protected $fillable = [
         'user_id',
-        'title',
-        'description',
-        'start_date',
-        'end_date',
-        'status',
+        'name',
+        'category',
+        'date',
+        'day',
+        'set',
+        'weight',
+        'reps',
+        'duration',
+        'completed',
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'date'      => 'date',
+        'completed' => 'boolean',
+        'set'       => 'integer',
+        'weight'    => 'float',
+        'reps'      => 'integer',
+        'duration'  => 'integer',
     ];
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -35,5 +39,10 @@ class WorkoutPlan extends Model
     public function workoutExercises()
     {
         return $this->hasMany(WorkoutExercise::class);
+    }
+
+    public function trackings()
+    {
+        return $this->hasMany(WorkoutTracking::class);
     }
 }

@@ -14,6 +14,13 @@ class User extends Authenticatable {
     public function trainerDetail(){ return $this->hasOne(TrainerDetail::class); }
     public function trainerApplications(){ return $this->hasMany(TrainerApplication::class); }
     public function latestTrainerApplication(){ return $this->hasOne(TrainerApplication::class)->latestOfMany(); }
+    public function workoutPlans(){ return $this->hasMany(WorkoutPlan::class); }
+    public function workoutTrackings(){ return $this->hasMany(WorkoutTracking::class); }
+    public function mealPlans(){ return $this->hasMany(MealPlan::class); }
+    public function foodLogs(){ return $this->hasMany(FoodLog::class); }
+    public function nutritionCalculations(){ return $this->hasMany(NutritionCalculator::class); }
+    public function attendance(){ return $this->hasMany(Attendance::class); }
+    public function payments(){ return $this->hasMany(Payment::class); }
     public function roleName(): ?string { return $this->role?->name; }
     public function isMember(): bool { return $this->roleName()==='member'; }
     public function isAdmin(): bool { return $this->roleName()==='admin'; }

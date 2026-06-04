@@ -8,19 +8,23 @@ class Attendance extends Model
 {
     protected $table = 'attendance';
 
-    public $timestamps = false;
-
     protected $fillable = [
         'user_id',
         'check_in_time',
         'check_out_time',
+        'attendance_date',
         'attendance_type',
+        'status',
+        'notes',
         'booking_id',
     ];
 
     protected $casts = [
         'check_in_time' => 'datetime',
         'check_out_time' => 'datetime',
+        'attendance_date' => 'date',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     public function user()

@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import RoleSidebar from './RoleSidebar.vue'
 
+type MenuItem = {
+  label: string
+  to?: string
+  icon?: string
+  submenu?: Array<{ label: string; to: string; icon?: string }>
+}
+
 defineProps<{
   role: 'admin' | 'member' | 'trainer'
   title: string
   subtitle?: string
   sidebarTitle: string
-  sidebarItems: Array<{ label: string; to: string; icon?: string }>
+  sidebarItems: MenuItem[]
 }>()
+
 </script>
 
 <template>

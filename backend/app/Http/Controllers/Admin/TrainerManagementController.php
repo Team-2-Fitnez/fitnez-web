@@ -16,6 +16,31 @@ use Illuminate\Support\Facades\Hash;
 
 class TrainerManagementController extends Controller
 {
+    /**
+     * Public list of trainers with approved applications (no auth required).
+     */
+    public function publicList()
+    {
+        $trainers = TrainerDetail::query()
+            ->with('user:id,full_name,profile_picture_url')
+            ->whereHas('user', fn($q) => $q->where('is_active', true))
+            ->orderByDesc('avg_rating')
+            ->limit(50)
+            ->get()
+            ->map(fn(TrainerDetail $t) => [
+                'id'               => $t->user_id,
+                'name'             => $t->user?->full_name ?? '',
+                'img'              => $t->user?->profile_picture_url,
+                'spec'             => $t->specialization ?? '',
+                'bio'              => $t->biography ?? '',
+                'exp'              => $t->experience_years ?? 0,
+                'price'            => (int) ($t->hourly_rate ?? 0),
+                'rating'           => (float) ($t->avg_rating ?? 0),
+            ]);
+
+        return ApiResponse::success('Trainers loaded.', $trainers);
+    }
+
     public function index(IndexTableRequest $request)
     {
         $data = $request->validated();

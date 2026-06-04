@@ -7,6 +7,7 @@ use App\Models\TrainerApplication;
 use App\Models\TrainerDetail;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -69,6 +70,20 @@ class TrainerApplicationController extends Controller
             'status' => 'pending',
             'submitted_at' => now(),
         ]);
+
+        if (DB::getSchemaBuilder()->hasTable('system_logs')) {
+            DB::table('system_logs')->insert([
+                'user_id' => $user->id,
+                'action_type' => 'TRAINER_APPLICATION_SUBMITTED',
+                'table_affected' => 'trainer_applications',
+                'record_id' => $application->id,
+                'description' => 'Trainer application submitted',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'metadata' => json_encode(['email' => $user->email, 'source' => 'trainer_application']),
+                'created_at' => now(),
+            ]);
+        }
 
         return ApiResponse::success('Trainer application submitted.', $application->load('user.role'), 201);
     }

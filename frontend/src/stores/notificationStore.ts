@@ -35,5 +35,12 @@ export const useNotificationStore = defineStore('notifications', {
       await this.load()
       await this.loadUnreadCount()
     },
+
+    async markAllRead() {
+      await notificationsApi.markAllRead()
+      this.items = this.items.map((n) => ({ ...n, is_read: true }))
+      this.unreadCount = 0
+    },
   },
 })
+

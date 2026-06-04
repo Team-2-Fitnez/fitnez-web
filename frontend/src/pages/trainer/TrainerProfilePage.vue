@@ -12,9 +12,14 @@ const router = useRouter()
 const auth = useAuthStore()
 
 async function switchToMember() {
-  const response = await trainerApplicationApi.leaveWorkspace()
-  if (auth.user) auth.user = response.data.user
-  await router.push(response.data.redirect_to)
+  try {
+    const response = await trainerApplicationApi.leaveWorkspace()
+    if (auth.user) auth.user = response.data.user
+    window.showFitnezToast('Berhasil beralih ke Workspace Member', 'success');
+    await router.push(response.data.redirect_to)
+  } catch (error) {
+    window.showFitnezToast('Gagal beralih workspace', 'error');
+  }
 }
 </script>
 

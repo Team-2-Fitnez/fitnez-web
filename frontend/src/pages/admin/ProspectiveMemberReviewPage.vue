@@ -27,12 +27,17 @@ function reject(id: number) {
         </div>
 
         <select v-model="store.status" class="form-input" style="width: auto; min-width: 220px;" @change="store.load()">
-          <option value="awaiting_admin_review">Awaiting Review</option>
-          <option value="awaiting_payment">Awaiting Payment</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="">All Status</option>
+          <option value="awaiting_admin_review">Menunggu Review (Default)</option>
+          <option value="awaiting_payment">Menunggu Pembayaran</option>
+          <option value="approved">Sudah Disetujui</option>
+          <option value="rejected">Ditolak</option>
+          <option value="">Semua Status</option>
         </select>
+      </div>
+
+      <div v-if="!store.items.length && store.status === 'awaiting_admin_review'" class="p-8 text-center bg-blue-50 rounded-xl mb-6">
+        <p class="text-blue-600 font-medium">Tidak ada pembayaran baru yang menunggu review.</p>
+        <p class="text-xs text-blue-400 mt-1">Gunakan filter di atas untuk melihat pendaftaran yang sudah disetujui atau sedang menunggu pembayaran.</p>
       </div>
 
       <div class="data-table-wrapper">
@@ -70,7 +75,10 @@ function reject(id: number) {
             </tr>
 
             <tr v-if="!store.items.length">
-              <td colspan="6" style="padding-block: 2.5rem; text-align: center; font-weight: 800; color: var(--color-muted);">No registrations found.</td>
+              <td colspan="6" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
+                <div class="text-4xl mb-4">📂</div>
+                Data pendaftaran tidak ditemukan untuk filter ini.
+              </td>
             </tr>
           </tbody>
         </table>
