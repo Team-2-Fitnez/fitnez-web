@@ -1,0 +1,4 @@
+export type MembershipPackage={id:number;code:string;name:string;duration_months:number;price:number;free_class_access:boolean;benefits:string[]}
+export type ManualPaymentMethod={id:number;code:string;type:'qris'|'bank_transfer';display_name:string;bank_name?:string|null;account_number?:string|null;account_name?:string|null;qris_image_url?:string|null;instructions?:string|null}
+export type ProspectiveRegistration={id:number;registration_code:string;full_name:string;email:string;phone?:string|null;amount:number;status:string;payment_proof_url?:string|null;payment_submitted_at?:string|null;rejection_reason?:string|null;package?:MembershipPackage;paymentMethod?:ManualPaymentMethod;payment_method?:ManualPaymentMethod}
+export type StartManualRegistrationPayload={full_name:string;email:string;phone?:string;password:string;password_confirmation:string;membership_package_id:number;manual_payment_method_id:number}

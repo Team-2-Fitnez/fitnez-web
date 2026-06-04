@@ -1,0 +1,35 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+vendor/
+
+# Builds
+frontend/dist/
+backend/public/build/
+backend/public/hot
+
+# Runtime data
+backend/storage/logs/*.log
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/app/public/*
+backend/storage/app/private/*
+backend/bootstrap/cache/*.php
+
+# Databases / generated files
+backend/database/*.sqlite
+*.sqlite
+*.db
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+

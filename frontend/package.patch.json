@@ -1,0 +1,12 @@
+{
+  "dependencies_to_add": [
+    "vee-validate",
+    "zod",
+    "@vee-validate/zod"
+  ],
+  "devDependencies_to_add": [
+    "tailwindcss",
+    "postcss",
+    "autoprefixer"
+  ]
+}

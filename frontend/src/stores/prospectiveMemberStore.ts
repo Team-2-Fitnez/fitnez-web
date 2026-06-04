@@ -1,0 +1,4 @@
+import { defineStore } from 'pinia'
+import { manualRegistrationApi } from '../api/manualRegistrationApi'
+import type { ProspectiveRegistration } from '../types/membership'
+export const useProspectiveMemberStore=defineStore('prospectiveMembers',{state:()=>({items:[] as ProspectiveRegistration[],loading:false,search:'',status:'awaiting_admin_review',page:1,perPage:15,lastPage:1,total:0}),actions:{async load(){this.loading=true;try{const r=await manualRegistrationApi.adminList({search:this.search,status:this.status,page:this.page,per_page:this.perPage});this.items=r.data.data;this.page=r.data.current_page;this.lastPage=r.data.last_page;this.total=r.data.total}finally{this.loading=false}},async approve(id:number){await manualRegistrationApi.approve(id);await this.load()},async reject(id:number,reason:string){await manualRegistrationApi.reject(id,reason);await this.load()},setSearch(v:string){this.search=v;this.page=1;this.load()}}})

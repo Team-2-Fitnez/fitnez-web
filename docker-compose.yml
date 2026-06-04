@@ -1,0 +1,79 @@
+services:
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: fitnez-app
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - fitnez_storage:/var/www/html/storage
+      - fitnez_bootstrap_cache:/var/www/html/bootstrap/cache
+    depends_on:
+      - db
+    networks:
+      - fitnez-net
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: fitnez-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./backend:/var/www/html
+      - fitnez_storage:/var/www/html/storage:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - fitnez-net
+
+  frontend:
+    image: node:22-alpine
+    container_name: fitnez-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -lc "npm install && chmod -R a+x node_modules/.bin || true && npm run dev -- --host 0.0.0.0"
+    networks:
+      - fitnez-net
+
+  socketio:
+    build:
+      context: ./docker/socketio
+      dockerfile: Dockerfile
+    container_name: fitnez-socketio
+    ports:
+      - '6001:6001'
+    networks:
+      - fitnez-net
+    environment:
+      PORT: '6001'
+      JWT_SECRET: 'fitnez-local-jwt-secret'
+
+  db:
+    image: postgres:16-alpine
+    container_name: fitnez-db
+    environment:
+      POSTGRES_DB: fitnez
+      POSTGRES_USER: fitnez
+      POSTGRES_PASSWORD: fitnez_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - fitnez_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - fitnez-net
+
+volumes:
+  fitnez_pgdata:
+  fitnez_storage:
+  fitnez_bootstrap_cache:
+
+networks:
+  fitnez-net:
+    driver: bridge
