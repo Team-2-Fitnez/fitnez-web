@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\IndexTableRequest;
 use App\Http\Requests\Admin\RejectProspectiveMemberRequest;
 use App\Models\ProspectiveMemberRegistration;
+use App\Models\Payment;
 use App\Support\ApiResponse;
 use App\Support\SearchTerm;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -53,7 +55,27 @@ class ProspectiveMemberReviewController extends Controller
             'approved_at' => now(),
         ]);
 
+        Payment::query()->firstOrCreate(
+            ['external_reference' => $registration->registration_code, 'payment_type' => 'membership'],
+            [
+                'invoice_number' => 'FITNEZ-MBR-'.$registration->id.'-'.now()->format('YmdHis'),
+                'user_id' => $user->id,
+                'booking_id' => null,
+                'amount' => $registration->amount,
+                'payment_method' => $registration->paymentMethod?->name ?? 'manual',
+                'payment_status' => 'paid',
+                'status' => 'paid',
+                'type' => 'membership',
+                'payment_date' => now(),
+                'paid_at' => now(),
+                'proof_path' => $registration->payment_proof_path,
+                'notes' => 'Membership registration payment approved by admin.',
+            ]
+        );
+
         $registration->refresh()->load(['package', 'paymentMethod', 'user']);
+
+        $this->logReviewEvent($registration, 'REGISTRATION_APPROVED', 'Admin approved prospective member registration');
 
         $this->notifyApplicantApproved($registration);
 
@@ -77,6 +99,8 @@ class ProspectiveMemberReviewController extends Controller
         ]);
 
         $registration->refresh()->load(['package', 'paymentMethod']);
+
+        $this->logReviewEvent($registration, 'REGISTRATION_REJECTED', 'Admin rejected prospective member registration');
 
         $this->notifyApplicantRejected($registration);
 
@@ -112,6 +136,30 @@ class ProspectiveMemberReviewController extends Controller
             'email' => $registration->email,
             'registration_code' => $registration->registration_code,
             'user_id' => $registration->user_id,
+        ]);
+    }
+
+    private function logReviewEvent(ProspectiveMemberRegistration $registration, string $action, string $description): void
+    {
+        if (! DB::getSchemaBuilder()->hasTable('system_logs')) {
+            return;
+        }
+
+        DB::table('system_logs')->insert([
+            'user_id' => $registration->user_id,
+            'action_type' => $action,
+            'table_affected' => 'prospective_member_registrations',
+            'record_id' => $registration->id,
+            'description' => $description,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'metadata' => json_encode([
+                'email' => $registration->email,
+                'status' => $registration->status,
+                'source' => 'prospective_registration',
+                'admin_id' => request()->user()?->id,
+            ]),
+            'created_at' => now(),
         ]);
     }
 

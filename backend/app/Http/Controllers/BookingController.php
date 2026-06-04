@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
+use App\Models\Payment;
+use App\Models\TrainerEarning;
 use App\Models\TrainerBooking;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -127,6 +129,62 @@ class BookingController extends Controller
                 'notification_type' => 'payment_in',
                 'is_read'           => false,
             ]);
+
+            $payment = Payment::query()->firstOrCreate(
+                ['booking_id' => $booking->id, 'payment_type' => 'trainer_booking'],
+                [
+                    'invoice_number' => 'FITNEZ-TRN-'.$booking->id.'-'.now()->format('YmdHis'),
+                    'user_id' => $booking->member_id,
+                    'amount' => $booking->total_price,
+                    'payment_method' => 'manual',
+                    'payment_status' => 'pending',
+                    'status' => 'pending',
+                    'type' => 'trainer_booking',
+                    'payment_date' => null,
+                ]
+            );
+
+            TrainerEarning::query()->firstOrCreate(
+                ['booking_id' => $booking->id],
+                [
+                    'trainer_id' => $booking->trainer_id,
+                    'member_id' => $booking->member_id,
+                    'payment_id' => $payment->id,
+                    'commission_rate' => 100,
+                    'trainer_amount' => $booking->total_price,
+                    'amount' => $booking->total_price,
+                    'status' => 'pending',
+                    'earned_at' => now()->toDateString(),
+                    'description' => 'Trainer booking session earning',
+                ]
+            );
+        }
+
+        if (
+            $data['status'] === TrainerBooking::STATUS_COMPLETED
+            && $previousStatus !== TrainerBooking::STATUS_COMPLETED
+        ) {
+            $payment = Payment::query()
+                ->where('booking_id', $booking->id)
+                ->where('payment_type', 'trainer_booking')
+                ->first();
+
+            if ($payment) {
+                $payment->update([
+                    'payment_status' => 'paid',
+                    'status' => 'paid',
+                    'payment_date' => now(),
+                    'paid_at' => now(),
+                ]);
+            }
+
+            TrainerEarning::query()
+                ->where('booking_id', $booking->id)
+                ->update([
+                    'status' => 'disbursed',
+                    'disbursed_at' => now(),
+                    'paid_at' => now()->toDateString(),
+                ]);
         }
 
         return ApiResponse::success('Booking status updated.', $booking->fresh());

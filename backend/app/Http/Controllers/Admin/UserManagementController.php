@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\SearchTerm;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserManagementController extends Controller
@@ -57,6 +58,25 @@ class UserManagementController extends Controller
             'is_active' => $data['is_active'],
             'email_verified_at' => $data['is_active'] ? now() : null,
         ]);
+
+        if (DB::getSchemaBuilder()->hasTable('system_logs')) {
+            DB::table('system_logs')->insert([
+                'user_id' => $user->id,
+                'action_type' => 'USER_CREATED_BY_ADMIN',
+                'table_affected' => 'users',
+                'record_id' => $user->id,
+                'description' => 'Admin created user account',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'metadata' => json_encode([
+                    'email' => $user->email,
+                    'role_id' => $user->role_id,
+                    'source' => 'admin_created_user',
+                    'admin_id' => $request->user()?->id,
+                ]),
+                'created_at' => now(),
+            ]);
+        }
 
         return ApiResponse::success('User created.', $user->load('role'), 201);
     }

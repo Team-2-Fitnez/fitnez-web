@@ -13,21 +13,36 @@ class WorkoutTracking extends Model
 
     protected $fillable = [
         'user_id',
+        'workout_plan_id',
         'workout_exercise_id',
+        'exercise_name',
         'workout_date',
         'actual_sets',
         'actual_reps',
         'actual_weight_kg',
+        'sets',
+        'reps',
+        'weight',
+        'duration_minutes',
+        'tracked_at',
         'is_completed',
+        'completed',
+        'notes',
         'logged_at',
     ];
 
     protected $casts = [
         'workout_date' => 'date',
+        'tracked_at' => 'date',
         'actual_sets' => 'integer',
         'actual_reps' => 'integer',
         'actual_weight_kg' => 'integer',
+        'sets' => 'integer',
+        'reps' => 'integer',
+        'weight' => 'decimal:2',
+        'duration_minutes' => 'integer',
         'is_completed' => 'boolean',
+        'completed' => 'boolean',
         'logged_at' => 'datetime',
     ];
 
@@ -39,5 +54,10 @@ class WorkoutTracking extends Model
     public function workoutExercise()
     {
         return $this->belongsTo(WorkoutExercise::class);
+    }
+
+    public function workoutPlan()
+    {
+        return $this->belongsTo(WorkoutPlan::class);
     }
 }

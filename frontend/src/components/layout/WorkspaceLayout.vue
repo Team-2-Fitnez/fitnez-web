@@ -186,21 +186,16 @@ onUnmounted(() => {
           </button>
 
           <div>
-            <p class="eyebrow">{{ role }}</p>
+            <p class="eyebrow">{{ role === 'admin' ? 'administrator' : role }}</p>
             <h1 class="title-lg">{{ title }}</h1>
             <p v-if="subtitle" class="text-muted">{{ subtitle }}</p>
           </div>
 
           <div class="header-right-panel">
-            <RouterLink :to="notificationLink" class="notification-trigger" title="Notifications">
-              <span class="bell-icon">🔔</span>
-              <span class="notification-badge"></span>
+            <RouterLink :to="notificationLink" class="header-bell-button-circular" title="Notifications">
+              <span class="bell-icon" style="transform: translateY(-1px);">🔔</span>
+              <span v-if="lastNotifCount > 0" class="notification-badge"></span>
             </RouterLink>
-            
-            <div class="panel">
-              <p class="stat-label">Workspace</p>
-              <p class="title-md">{{ role }}</p>
-            </div>
           </div>
         </header>
 

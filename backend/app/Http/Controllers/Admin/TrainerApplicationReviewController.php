@@ -10,6 +10,7 @@ use App\Models\TrainerApplication;
 use App\Models\TrainerDetail;
 use App\Support\ApiResponse;
 use App\Support\SearchTerm;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class TrainerApplicationReviewController extends Controller
@@ -61,6 +62,8 @@ class TrainerApplicationReviewController extends Controller
             ]
         );
 
+        $this->logTrainerApplicationEvent($request, $application, 'TRAINER_APPLICATION_APPROVED', 'Admin approved trainer application');
+
         return ApiResponse::success('Trainer application approved.', $application->fresh(['user.role', 'reviewer']));
     }
 
@@ -79,6 +82,8 @@ class TrainerApplicationReviewController extends Controller
             'admin_notes' => $data['admin_notes'],
         ])->save();
 
+        $this->logTrainerApplicationEvent($request, $application, 'TRAINER_APPLICATION_REJECTED', 'Admin rejected trainer application');
+
         return ApiResponse::success('Trainer application rejected.', $application->fresh(['user.role', 'reviewer']));
     }
 
@@ -95,5 +100,28 @@ class TrainerApplicationReviewController extends Controller
         }
 
         return Storage::disk('local')->download($path, $type.'-'.$application->id.'.pdf');
+    }
+
+    private function logTrainerApplicationEvent($request, TrainerApplication $application, string $action, string $description): void
+    {
+        if (! DB::getSchemaBuilder()->hasTable('system_logs')) {
+            return;
+        }
+
+        DB::table('system_logs')->insert([
+            'user_id' => $application->user_id,
+            'action_type' => $action,
+            'table_affected' => 'trainer_applications',
+            'record_id' => $application->id,
+            'description' => $description,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'metadata' => json_encode([
+                'status' => $application->status,
+                'source' => 'trainer_application',
+                'admin_id' => $request->user()?->id,
+            ]),
+            'created_at' => now(),
+        ]);
     }
 }

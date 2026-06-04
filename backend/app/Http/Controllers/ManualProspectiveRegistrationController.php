@@ -8,14 +8,18 @@ use App\Http\Requests\Auth\StartManualProspectiveRegistrationRequest;
 use App\Http\Requests\Auth\UploadManualPaymentProofRequest;
 use App\Models\ProspectiveMemberRegistration;
 use App\Support\ApiResponse;
+use Illuminate\Support\Facades\DB;
 
 class ManualProspectiveRegistrationController extends Controller
 {
     public function start(StartManualProspectiveRegistrationRequest $request, StartManualProspectiveRegistrationAction $action)
     {
+        $registration = $action->handle($request->validated());
+        $this->logRegistrationEvent($registration, 'REGISTRATION_SUBMITTED', 'Prospective member submitted manual registration', $request);
+
         return ApiResponse::success(
             'Registration created. Please complete payment and upload proof.',
-            $action->handle($request->validated()),
+            $registration,
             201
         );
     }
@@ -43,6 +47,8 @@ class ManualProspectiveRegistrationController extends Controller
             'rejected_at' => null,
         ]);
 
+        $this->logRegistrationEvent($registration->fresh(), 'REGISTRATION_PAYMENT_PROOF_UPLOADED', 'Prospective member uploaded payment proof', $request);
+
         return ApiResponse::success(
             'Payment proof uploaded. Please wait for admin verification.',
             $registration->fresh(['package', 'paymentMethod'])
@@ -60,5 +66,28 @@ class ManualProspectiveRegistrationController extends Controller
             ->firstOrFail();
 
         return ApiResponse::success('Registration status loaded.', $registration);
+    }
+
+    private function logRegistrationEvent(ProspectiveMemberRegistration $registration, string $action, string $description, $request): void
+    {
+        if (! DB::getSchemaBuilder()->hasTable('system_logs')) {
+            return;
+        }
+
+        DB::table('system_logs')->insert([
+            'user_id' => $registration->user_id,
+            'action_type' => $action,
+            'table_affected' => 'prospective_member_registrations',
+            'record_id' => $registration->id,
+            'description' => $description,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'metadata' => json_encode([
+                'email' => $registration->email,
+                'status' => $registration->status,
+                'source' => 'prospective_registration',
+            ]),
+            'created_at' => now(),
+        ]);
     }
 }

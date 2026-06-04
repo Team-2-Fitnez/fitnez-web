@@ -46,8 +46,8 @@ export const useMealPlanStore = defineStore('mealPlan', {
                     mealPlanApi.getMealPlan(),
                     mealPlanApi.getFoodLog(),
                 ])
-                this.mealPlan = (planRes as any).plan ?? null
-                this.foods = (foodRes as any).foods ?? []
+                this.mealPlan = planRes.data.plan ?? null
+                this.foods = foodRes.data.foods ?? []
             } catch (e) {
                 this.error = 'Gagal memuat data'
             } finally {
@@ -63,7 +63,7 @@ export const useMealPlanStore = defineStore('mealPlan', {
         async addFood(name: string, calories: number) {
             await mealPlanApi.addFood({ food_name: name, calories })
             const foodRes = await mealPlanApi.getFoodLog()
-            this.foods = (foodRes as any).foods ?? []
+            this.foods = foodRes.data.foods ?? []
         },
 
         async deleteFood(id: number) {

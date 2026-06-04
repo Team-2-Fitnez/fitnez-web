@@ -77,8 +77,13 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
     });
 
     Route::prefix('trainer')->middleware(EnsureTrainerWorkspaceAccess::class)->group(function(){
+        Route::get('/dashboard',[DashboardController::class,'trainerDashboard']);
+        Route::get('/dashboard/summary',[DashboardController::class,'trainerSummary']);
         Route::get('/member-monitoring/summary',[MemberFitnessMonitoringController::class,'summary']); Route::get('/member-monitoring/members',[MemberFitnessMonitoringController::class,'members']); Route::get('/member-monitoring/members/{member}',[MemberFitnessMonitoringController::class,'show']);
         Route::get('/incoming-rent-history/summary',[IncomingRentHistoryController::class,'summary']); Route::get('/incoming-rent-history',[IncomingRentHistoryController::class,'index']);
+        Route::get('/members/monitoring',[MemberFitnessMonitoringController::class,'members']);
+        Route::get('/members/{member}/monitoring',[MemberFitnessMonitoringController::class,'show']);
+        Route::get('/rent-history',[IncomingRentHistoryController::class,'index']);
     });
 
     // Meal Plan & Food Log (member)
@@ -96,10 +101,20 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
     });
 
     Route::prefix('admin')->middleware(EnsureRole::class.':admin')->group(function(){
+        Route::get('/dashboard',[DashboardController::class,'adminDashboard']);
+        Route::get('/dashboard/summary',[DashboardController::class,'adminSummary']);
         Route::get('/roles',[UserManagementController::class,'roles']);
         Route::get('/landing-visits',[LandingVisitReportController::class,'index']); Route::get('/landing-visits/summary',[LandingVisitReportController::class,'summary']);
         Route::get('/auth-activity/summary',[AuthActivityReportController::class,'summary']); Route::get('/auth-activity/logs',[AuthActivityReportController::class,'logs']); Route::get('/auth-activity/registrations',[AuthActivityReportController::class,'registrations']);
         Route::get('/member-reports/summary',[MemberPaymentAttendanceReportController::class,'summary']); Route::get('/member-reports/payments',[MemberPaymentAttendanceReportController::class,'payments']); Route::get('/member-reports/attendance',[MemberPaymentAttendanceReportController::class,'attendance']);
+        Route::get('/reports/auth-activity',[AuthActivityReportController::class,'logs']);
+        Route::get('/reports/registrations',[AuthActivityReportController::class,'registrations']);
+        Route::get('/reports/payments',[MemberPaymentAttendanceReportController::class,'payments']);
+        Route::get('/reports/attendance',[MemberPaymentAttendanceReportController::class,'attendance']);
+        Route::get('/reports/member-payments',[MemberPaymentAttendanceReportController::class,'payments']);
+        Route::get('/reports/member-attendance',[MemberPaymentAttendanceReportController::class,'attendance']);
+        Route::get('/reports/member-payments/summary',[MemberPaymentAttendanceReportController::class,'summary']);
+        Route::get('/reports/member-attendance/summary',[MemberPaymentAttendanceReportController::class,'summary']);
         Route::get('/prospective-members',[ProspectiveMemberReviewController::class,'index']); Route::post('/prospective-members/{registration}/approve',[ProspectiveMemberReviewController::class,'approve']); Route::post('/prospective-members/{registration}/reject',[ProspectiveMemberReviewController::class,'reject']);
         Route::get('/trainer-applications',[TrainerApplicationReviewController::class,'index']); Route::post('/trainer-applications/{application}/approve',[TrainerApplicationReviewController::class,'approve']); Route::post('/trainer-applications/{application}/reject',[TrainerApplicationReviewController::class,'reject']); Route::get('/trainer-applications/{application}/documents/{type}',[TrainerApplicationReviewController::class,'download'])->whereIn('type',['cv','certificate']);
         Route::apiResource('users',UserManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('trainers',TrainerManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('schedules',ScheduleManagementController::class)->parameters(['schedules'=>'schedule'])->only(['index','store','update','destroy']);

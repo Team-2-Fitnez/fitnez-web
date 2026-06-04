@@ -35,4 +35,14 @@ class WorkoutPlan extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function workoutExercises()
+    {
+        return $this->hasMany(WorkoutExercise::class);
+    }
+
+    public function trackings()
+    {
+        return $this->hasMany(WorkoutTracking::class);
+    }
 }

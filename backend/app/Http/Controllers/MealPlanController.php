@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FoodLog;
 use App\Models\MealPlan;
+use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -13,7 +14,15 @@ class MealPlanController extends Controller
     public function getMealPlan()
     {
         $plan = MealPlan::where('user_id', Auth::id())->first();
-        return response()->json(['plan' => $plan]);
+        $foods = FoodLog::where('user_id', Auth::id())
+            ->whereDate('logged_date', today())
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return ApiResponse::success('Meal plan loaded successfully.', [
+            'plan' => $plan,
+            'foods' => $foods,
+        ]);
     }
 
     // PUT /api/user/meal_plan
@@ -45,7 +54,10 @@ class MealPlanController extends Controller
             ]);
         }
 
-        return response()->json(['plan' => $plan]);
+        return ApiResponse::success('Meal plan saved successfully.', [
+            'plan' => $plan,
+            'foods' => FoodLog::where('user_id', Auth::id())->whereDate('logged_date', today())->get(),
+        ]);
     }
 
     // GET /api/user/food_log
@@ -56,7 +68,9 @@ class MealPlanController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        return response()->json(['foods' => $foods]);
+        return ApiResponse::success('Food log loaded successfully.', [
+            'foods' => $foods,
+        ]);
     }
 
     // POST /api/user/food_log
@@ -74,7 +88,7 @@ class MealPlanController extends Controller
             'logged_date' => today(),
         ]);
 
-        return response()->json($food);
+        return ApiResponse::success('Food logged successfully.', $food, 201);
     }
 
     // DELETE /api/user/food_log/{id}
@@ -86,7 +100,7 @@ class MealPlanController extends Controller
 
         $food->delete();
 
-        return response()->json(['message' => 'Deleted']);
+        return ApiResponse::success('Food log deleted.');
     }
 
     // GET /api/admin/nutrition-monitoring
@@ -101,13 +115,13 @@ class MealPlanController extends Controller
 
                 return [
                     'id'             => $plan->user_id,
-                    'name'           => $plan->user->name,
+                    'name'           => $plan->user->full_name,
                     'email'          => $plan->user->email,
                     'daily_limit'    => $plan->daily_limit,
                     'total_calories' => $totalCalories,
                 ];
             });
 
-        return response()->json(['members' => $members]);
+        return ApiResponse::success('Nutrition monitoring loaded.', ['members' => $members]);
     }
 }

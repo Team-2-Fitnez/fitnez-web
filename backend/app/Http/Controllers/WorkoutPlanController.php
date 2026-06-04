@@ -50,6 +50,15 @@ class WorkoutPlanController extends Controller
         return ApiResponse::success('Workout plan created.', $workout, 201);
     }
 
+    public function show(Request $request, WorkoutPlan $workout_plan): JsonResponse
+    {
+        if ($workout_plan->user_id !== $request->user()->id) {
+            return ApiResponse::error('Unauthorized.', [], 403);
+        }
+
+        return ApiResponse::success('Workout plan loaded.', $workout_plan->load(['workoutExercises.exercise', 'trackings']));
+    }
+
     public function update(Request $request, WorkoutPlan $workout_plan): JsonResponse
     {
         if ($workout_plan->user_id !== $request->user()->id) {

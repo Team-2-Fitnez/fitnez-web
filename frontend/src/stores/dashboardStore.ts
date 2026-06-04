@@ -5,6 +5,8 @@ import type { DashboardSummary } from '../types/dashboard'
 export const useDashboardStore = defineStore('dashboard', {
   state: () => ({
     summary: null as DashboardSummary | null,
+    adminSummary: null as Record<string, any> | null,
+    trainerSummary: null as Record<string, any> | null,
     loading: false,
     eventSource: null as EventSource | null,
   }),
@@ -15,6 +17,26 @@ export const useDashboardStore = defineStore('dashboard', {
       try {
         const response = await dashboardApi.summary()
         this.summary = response.data
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadAdmin() {
+      this.loading = true
+      try {
+        const response = await dashboardApi.adminSummary()
+        this.adminSummary = response.data
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadTrainer() {
+      this.loading = true
+      try {
+        const response = await dashboardApi.trainerSummary()
+        this.trainerSummary = response.data
       } finally {
         this.loading = false
       }
