@@ -57,7 +57,7 @@ class MemberPaymentAttendanceReportController extends Controller
         $search = SearchTerm::contains($data['search'] ?? null);
 
         $payments = Payment::query()
-            ->with(['user.role', 'booking.member', 'booking.trainer'])
+            ->with(['user.role', 'user.membershipPackage', 'booking.member', 'booking.trainer'])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('invoice_number', 'ilike', $search)

@@ -8,6 +8,7 @@ import { http } from '../../api/http'
 import SkeletonStatGrid from '../../components/ui/skeleton/SkeletonStatGrid.vue'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const payments = ref<any[]>([])
 const { loading, run, shimmerStyle } = useDeferredLoading()
@@ -69,12 +70,14 @@ async function payNow(paymentId: number) {
   }
 }
 
+async function refreshData() {
+  await Promise.all([loadSummary(), loadPayments()])
+}
+
 onMounted(() => {
-  run(async () => {
-    await loadSummary()
-    await loadPayments()
-  })
+  run(refreshData)
 })
+useAutoRefresh(refreshData, 8000)
 </script>
 
 <template>

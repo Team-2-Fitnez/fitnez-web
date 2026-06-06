@@ -6,6 +6,7 @@ import { useAdminUserStore } from '../../stores/adminUserStore'
 import type { FitnezUser } from '../../types/auth'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useAdminUserStore()
 const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
@@ -145,6 +146,10 @@ const visiblePages = computed(() => Array.from({ length: Math.min(store.lastPage
 const firstItem = computed(() => (store.total === 0 ? 0 : (store.page - 1) * store.perPage + 1))
 const lastItem = computed(() => Math.min(store.page * store.perPage, store.total))
 
+async function refreshData() {
+  await Promise.all([store.load(), store.loadSummary()])
+}
+
 onMounted(() => {
   run(async () => {
     await store.load()
@@ -152,6 +157,7 @@ onMounted(() => {
     await store.loadSummary()
   })
 })
+useAutoRefresh(refreshData, 10000)
 </script>
 
 <template>

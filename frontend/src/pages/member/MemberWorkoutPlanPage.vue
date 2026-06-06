@@ -313,7 +313,8 @@ export default {
         video: ""
       },
       searchQuery: "",
-      loading: false
+      loading: false,
+      refreshInterval: null
     };
   },
 
@@ -354,9 +355,28 @@ export default {
 
   async mounted() {
     await this.fetchWorkouts();
+    this.refreshInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        this.fetchWorkoutsSilent();
+      }
+    }, 10000);
+  },
+
+  beforeUnmount() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
   },
 
   methods: {
+    async fetchWorkoutsSilent() {
+      try {
+        const response = await api.get('/workout-plans');
+        this.workouts = response.data;
+      } catch {
+        // Ignore background refresh errors
+      }
+    },
     async fetchWorkouts() {
       this.loading = true;
       try {

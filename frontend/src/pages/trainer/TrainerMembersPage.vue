@@ -1,15 +1,84 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import SkeletonList from '../../components/ui/SkeletonList.vue'
 import { useTrainerMemberMonitoringStore } from '../../stores/trainerMemberMonitoringStore'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useTrainerMemberMonitoringStore()
 const router = useRouter()
 const activeTab = ref('Overview')
 const tabs = ['Overview', 'Workout Plans', 'Nutrition & Meals', 'Progress']
+
+// Dynamic computed properties based on database data
+const currentPlan = computed(() => {
+  if (!store.selected?.workout_plans || store.selected.workout_plans.length === 0) return null
+  const plan = store.selected.workout_plans[0]
+  const exercises = plan.workout_exercises || []
+  const total = exercises.length
+  const trackings = store.selected.workout_trackings || []
+  const completed = trackings.filter(t => t.is_completed && exercises.some(ex => ex.id === t.workout_exercise_id)).length
+  const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
+  return {
+    title: plan.title,
+    startDate: plan.start_date,
+    endDate: plan.end_date,
+    status: plan.status,
+    completedCount: completed,
+    totalCount: total,
+    percentage: pct
+  }
+})
+
+const recentSessions = computed(() => {
+  const trackings = store.selected?.workout_trackings || []
+  return trackings.slice(0, 3).map(t => ({
+    name: t.workout_exercise?.exercise?.name || 'Workout Session',
+    date: t.workout_date ? new Date(t.workout_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent'
+  }))
+})
+
+const latestMealPlan = computed(() => {
+  const plans = store.selected?.meal_plans || []
+  return plans.length > 0 ? plans[0] : null
+})
+
+const nutritionStats = computed(() => {
+  const targetCal = Number(store.selected?.nutrition?.target_calories || 2000)
+  const assignedCal = Number(latestMealPlan.value?.total_calories || 0)
+  const calPct = targetCal > 0 ? Math.min(100, Math.round((assignedCal / targetCal) * 100)) : 0
+  const calOffset = 276 - (276 * calPct / 100)
+
+  const targetProt = Number(store.selected?.nutrition?.target_protein || 150)
+  const assignedProt = Number(latestMealPlan.value?.protein_grams || 0)
+  const protPct = targetProt > 0 ? Math.min(100, Math.round((assignedProt / targetProt) * 100)) : 0
+
+  const targetCarb = Number(store.selected?.nutrition?.target_carbs || 250)
+  const assignedCarb = Number(latestMealPlan.value?.carbs_grams || 0)
+  const carbPct = targetCarb > 0 ? Math.min(100, Math.round((assignedCarb / targetCarb) * 100)) : 0
+
+  const targetFat = Number(store.selected?.nutrition?.target_fat || 70)
+  const assignedFat = Number(latestMealPlan.value?.fat_grams || 0)
+  const fatPct = targetFat > 0 ? Math.min(100, Math.round((assignedFat / targetFat) * 100)) : 0
+
+  return {
+    targetCal,
+    assignedCal,
+    calPct,
+    calOffset,
+    targetProt,
+    assignedProt,
+    protPct,
+    targetCarb,
+    assignedCarb,
+    carbPct,
+    targetFat,
+    assignedFat,
+    fatPct
+  }
+})
 
 function formatDate(value?: string | null) {
   if (!value) return '-'
@@ -39,10 +108,21 @@ function getAge(birthDate?: string | null) {
   return age
 }
 
+async function refreshData() {
+  await Promise.all([
+    store.loadSummary(),
+    store.loadMembers()
+  ])
+  if (store.selected?.member?.id) {
+    await store.loadDetail(store.selected.member.id)
+  }
+}
+
 onMounted(() => {
   store.loadSummary()
   store.loadMembers()
 })
+useAutoRefresh(refreshData, 8000)
 </script>
 
 <template>
@@ -249,18 +329,18 @@ onMounted(() => {
                     <button class="text-btn" @click="activeTab = 'Workout Plans'">View All</button>
                   </div>
                   
-                  <div v-if="store.selected.workout_plans && store.selected.workout_plans.length > 0" class="progress-block">
+                  <div v-if="currentPlan" class="progress-block">
                     <div class="progress-meta">
                       <div>
-                        <h4>{{ store.selected.workout_plans[0].title }}</h4>
-                        <p>Week 3 of 8</p>
+                        <h4>{{ currentPlan.title }}</h4>
+                        <p v-if="currentPlan.startDate">{{ formatDate(currentPlan.startDate) }} - {{ formatDate(currentPlan.endDate) }}</p>
                       </div>
-                      <span class="status-badge status-green">Active</span>
+                      <span :class="statusClass(currentPlan.status)">{{ currentPlan.status || 'Active' }}</span>
                     </div>
                     <div class="progress-bar-container">
-                      <div class="progress-fill" style="width: 37%"></div>
+                      <div class="progress-fill" :style="{ width: currentPlan.percentage + '%' }"></div>
                     </div>
-                    <p class="progress-percentage-label">37% Completed</p>
+                    <p class="progress-percentage-label">{{ currentPlan.percentage }}% Completed ({{ currentPlan.completedCount }}/{{ currentPlan.totalCount }} exercises)</p>
                   </div>
                   <div v-else class="empty-placeholder">
                     <p>No active workout plan</p>
@@ -268,13 +348,15 @@ onMounted(() => {
 
                   <div class="recent-sessions-block">
                     <h5>Recent Sessions</h5>
-                    <div class="session-log-row">
-                      <span class="session-label"><span class="material-symbols-outlined check-icon">check_circle</span> Upper Body Power</span>
-                      <span class="session-time">Yesterday</span>
+                    <div v-for="session in recentSessions" :key="session.name" class="session-log-row">
+                      <span class="session-label">
+                        <span class="material-symbols-outlined check-icon">check_circle</span>
+                        {{ session.name }}
+                      </span>
+                      <span class="session-time">{{ session.date }}</span>
                     </div>
-                    <div class="session-log-row">
-                      <span class="session-label"><span class="material-symbols-outlined check-icon">check_circle</span> Lower Body Power</span>
-                      <span class="session-time">3 days ago</span>
+                    <div v-if="recentSessions.length === 0" class="empty-placeholder mt-2">
+                      <p>No sessions recorded yet</p>
                     </div>
                   </div>
                 </div>
@@ -283,37 +365,38 @@ onMounted(() => {
                 <div class="inner-detail-card">
                   <div class="inner-card-head">
                     <h3>Nutrition Goals</h3>
-                    <button class="text-btn" @click="activeTab = 'Nutrition & Meals'">Edit</button>
+                    <button class="text-btn" @click="activeTab = 'Nutrition & Meals'">View Detail</button>
                   </div>
 
                   <div class="nutrition-circular-display">
                     <div class="circle-container">
                       <svg class="circle-svg" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="44" stroke="#1e242c" stroke-width="8" fill="transparent"></circle>
-                        <circle cx="50" cy="50" r="44" stroke="#3b82f6" stroke-width="8" stroke-dasharray="276" stroke-dashoffset="65" fill="transparent" stroke-linecap="round"></circle>
+                        <circle cx="50" cy="50" r="44" stroke="#3b82f6" stroke-width="8" :stroke-dasharray="276" :stroke-dashoffset="nutritionStats.calOffset" fill="transparent" stroke-linecap="round"></circle>
                       </svg>
                       <div class="circle-center-text">
-                        <strong>{{ store.selected.nutrition?.target_calories || '2450' }}</strong>
-                        <span>kcal / day</span>
+                        <strong>{{ nutritionStats.targetCal }}</strong>
+                        <span>kcal / day target</span>
+                        <small class="text-xs text-gray-400 mt-1 block" style="font-size: 0.7rem;">{{ nutritionStats.assignedCal }} kcal assigned</small>
                       </div>
                     </div>
                   </div>
 
                   <div class="macros-flex-grid">
                     <div class="macro-capsule">
-                      <span class="macro-label">Protein</span>
-                      <strong class="macro-amount">{{ store.selected.nutrition?.target_protein || '180' }}g</strong>
-                      <div class="macro-line-bg"><div class="macro-line-fill bg-blue" style="width: 80%"></div></div>
+                      <span class="macro-label">Protein (Target: {{ nutritionStats.targetProt }}g)</span>
+                      <strong class="macro-amount">{{ nutritionStats.assignedProt }}g assigned</strong>
+                      <div class="macro-line-bg"><div class="macro-line-fill bg-blue" :style="{ width: nutritionStats.protPct + '%' }"></div></div>
                     </div>
                     <div class="macro-capsule">
-                      <span class="macro-label">Carbs</span>
-                      <strong class="macro-amount">{{ store.selected.nutrition?.target_carbs || '250' }}g</strong>
-                      <div class="macro-line-bg"><div class="macro-line-fill bg-orange" style="width: 65%"></div></div>
+                      <span class="macro-label">Carbs (Target: {{ nutritionStats.targetCarb }}g)</span>
+                      <strong class="macro-amount">{{ nutritionStats.assignedCarb }}g assigned</strong>
+                      <div class="macro-line-bg"><div class="macro-line-fill bg-orange" :style="{ width: nutritionStats.carbPct + '%' }"></div></div>
                     </div>
                     <div class="macro-capsule">
-                      <span class="macro-label">Fats</span>
-                      <strong class="macro-amount">{{ store.selected.nutrition?.target_fat || '80' }}g</strong>
-                      <div class="macro-line-bg"><div class="macro-line-fill bg-purple" style="width: 40%"></div></div>
+                      <span class="macro-label">Fats (Target: {{ nutritionStats.targetFat }}g)</span>
+                      <strong class="macro-amount">{{ nutritionStats.assignedFat }}g assigned</strong>
+                      <div class="macro-line-bg"><div class="macro-line-fill bg-purple" :style="{ width: nutritionStats.fatPct + '%' }"></div></div>
                     </div>
                   </div>
                 </div>

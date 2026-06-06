@@ -6,6 +6,7 @@ import FitnezCard from '../../components/ui/FitnezCard.vue'
 import { trainerApplicationApi, type TrainerApplication } from '../../api/trainerApplicationApi'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const items = ref<TrainerApplication[]>([])
 const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
@@ -101,27 +102,8 @@ async function openDocument(row: TrainerApplication, type: 'cv' | 'certificate')
   }
 }
 
-async function reject(row: TrainerApplication) {
-  const reason = window.prompt('Write rejection reason for this trainer application:')
-  if (!reason) return
-
-  error.value = ''
-  message.value = ''
-
-  try {
-    await trainerApplicationApi.reject(row.id, reason)
-    message.value = 'Trainer application rejected.'
-    await load()
-  } catch (e: any) {
-    error.value = e?.message || 'Failed to reject application.'
-  }
-}
-
-function openDocument(row: TrainerApplication, type: 'cv' | 'certificate') {
-  window.open(trainerApplicationApi.documentUrl(row.id, type), '_blank')
-}
-
 onMounted(() => run(load))
+useAutoRefresh(load, 8000)
 </script>
 
 <template>

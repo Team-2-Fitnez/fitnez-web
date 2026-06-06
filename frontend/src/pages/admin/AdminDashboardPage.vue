@@ -8,6 +8,7 @@ import SkeletonStatGrid from '../../components/ui/skeleton/SkeletonStatGrid.vue'
 import SkeletonChartBlock from '../../components/ui/skeleton/SkeletonChartBlock.vue'
 import SkeletonList from '../../components/ui/SkeletonList.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 type RecentActivity = {
   id: number
@@ -61,6 +62,7 @@ async function loadSummary() {
 }
 
 onMounted(() => run(loadSummary))
+useAutoRefresh(loadSummary, 8000)
 
 const chartBars = computed(() => {
   const activeArray = selectedPeriod.value === 'This Week'
@@ -234,7 +236,7 @@ function formatDate(dateStr: string) {
         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 lg:col-span-1 p-6 md:p-8 flex flex-col">
           <div class="flex justify-between items-center mb-8">
             <h2 class="text-xl font-extrabold text-gray-900 tracking-tight">Recent Activity Log</h2>
-            <RouterLink to="/admin/users" class="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+            <RouterLink to="/admin/check-in-logs" class="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
               View All
             </RouterLink>
           </div>
@@ -263,53 +265,12 @@ function formatDate(dateStr: string) {
               </div>
             </template>
 
-            <!-- Mock Activity Items as Enrichment / Fallback -->
-            <div class="flex items-start gap-4 p-2 rounded-2xl hover:bg-gray-50 transition-colors group">
-              <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold flex-shrink-0 text-sm">
-                A
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <p class="text-sm font-bold text-gray-900">Andi Pratama</p>
-                  <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-md text-[9px] font-black uppercase tracking-widest">Pending</span>
-                </div>
-                <p class="text-xs text-gray-500 font-medium">uploaded payment proof document.</p>
-                <p class="text-[10px] mt-1.5 text-gray-400 font-bold">10 minutes ago</p>
-              </div>
-              <RouterLink to="/admin/prospective-members" class="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                Review
+            <div v-if="!stats.recent_activity?.length" class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-center">
+              <p class="text-sm font-extrabold text-gray-800">No recent activity yet</p>
+              <p class="mt-1 text-xs font-semibold text-gray-500">New registrations and access logs will appear once users interact with the system.</p>
+              <RouterLink to="/admin/check-in-logs" class="mt-4 inline-flex px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm">
+                Open Check-In Logs
               </RouterLink>
-            </div>
-
-            <div class="flex items-start gap-4 p-2 rounded-2xl hover:bg-gray-50 transition-colors group">
-              <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold flex-shrink-0 text-sm">
-                S
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <p class="text-sm font-bold text-gray-900">Siti Nurhaliza</p>
-                  <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[9px] font-black uppercase tracking-widest">New</span>
-                </div>
-                <p class="text-xs text-gray-500 font-medium">submitted trainer application.</p>
-                <p class="text-[10px] mt-1.5 text-gray-400 font-bold">1 hour ago</p>
-              </div>
-              <RouterLink to="/admin/trainer-applications" class="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                Review
-              </RouterLink>
-            </div>
-
-            <div class="flex items-start gap-4 p-2 rounded-2xl hover:bg-gray-50 transition-colors group">
-              <div class="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center font-bold flex-shrink-0 text-sm">
-                B
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <p class="text-sm font-bold text-gray-900">Budi Santoso</p>
-                  <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-md text-[9px] font-black uppercase tracking-widest">Completed</span>
-                </div>
-                <p class="text-xs text-gray-500 font-medium">transaction automatically verified.</p>
-                <p class="text-[10px] mt-1.5 text-gray-400 font-bold">3 hours ago</p>
-              </div>
             </div>
           </div>
         </div>

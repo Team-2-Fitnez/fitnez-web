@@ -5,6 +5,7 @@ import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezInput from '../../components/ui/FitnezInput.vue'
 import FitnezButton from '../../components/ui/FitnezButton.vue'
 import { useMealPlanStore } from '../../stores/mealPlanStore'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useMealPlanStore()
 
@@ -44,6 +45,7 @@ const recentFoods = computed(() => [...store.foods].reverse())
 onMounted(() => {
   store.loadAll()
 })
+useAutoRefresh(() => store.loadAll(), 10000)
 
 function calculate() {
   calculatorError.value = ''

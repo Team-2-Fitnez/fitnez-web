@@ -6,6 +6,7 @@ import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import { useBookingStore } from '../../stores/bookingStore'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useBookingStore()
 const route = useRoute()
@@ -164,6 +165,7 @@ onMounted(() => {
     window.showFitnezToast('Booking successful! Check schedule in the Schedule menu.', 'success')
   }
 })
+useAutoRefresh(() => store.loadBookings(), 8000)
 </script>
 
 <template>

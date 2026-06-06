@@ -41,6 +41,7 @@ class StartManualProspectiveRegistrationAction
             'full_name' => trim($data['full_name']),
             'email' => $email,
             'phone' => $data['phone'] ?? null,
+            'birth_date' => $data['birth_date'] ?? null,
             'password_hash' => Hash::make($data['password']),
             'amount' => $package->price,
             'status' => 'awaiting_payment',

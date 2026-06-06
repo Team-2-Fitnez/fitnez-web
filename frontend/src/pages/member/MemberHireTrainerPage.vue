@@ -171,7 +171,14 @@ export default { components: { BookingModal } }
   z-index: 50;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(11, 28, 48, 0.45);
+  backdrop-filter: blur(8px);
   padding: 1rem;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

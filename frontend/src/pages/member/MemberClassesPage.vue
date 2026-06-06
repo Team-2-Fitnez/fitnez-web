@@ -6,6 +6,7 @@ import FitnezCard from '../../components/ui/FitnezCard.vue'
 import { http } from '../../api/http'
 import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 interface ClassItem {
   id: number
@@ -49,6 +50,7 @@ async function joinClass(classId: number) {
 }
 
 onMounted(() => run(loadClasses))
+useAutoRefresh(loadClasses, 10000)
 </script>
 
 <template>

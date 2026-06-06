@@ -9,6 +9,7 @@ import { useTrainerRentHistoryStore } from '../../stores/trainerRentHistoryStore
 import SkeletonStatGrid from '../../components/ui/skeleton/SkeletonStatGrid.vue'
 import SkeletonCard from '../../components/ui/SkeletonCard.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const monitoringStore = useTrainerMemberMonitoringStore()
 const rentStore = useTrainerRentHistoryStore()
@@ -30,6 +31,7 @@ async function loadData() {
 }
 
 onMounted(() => run(loadData))
+useAutoRefresh(loadData, 8000)
 
 const confirmedBookings = computed(() => bookingStore.bookings.filter(item => item.status === 'confirmed').length)
 const pendingBookings = computed(() => bookingStore.bookings.filter(item => item.status === 'pending').length)
@@ -90,16 +92,6 @@ const chartBars = computed(() => {
     }
   })
 })
-
-const workspaceLinks = [
-  { label: 'Schedule', hint: 'Manage session requests and schedules.', to: '/trainer/schedule', status: 'Connected' },
-  { label: 'Members', hint: 'Monitor member workouts, nutrition, and progress.', to: '/trainer/members', status: 'Real Data' },
-  { label: 'Classes', hint: 'Class modules available to manage.', to: '/trainer/classes', status: 'Module Ready' },
-  { label: 'Trainer Reports', hint: 'View earnings and commission history.', to: '/trainer/rent-history', status: 'Active' },
-  { label: 'Chat', hint: 'Reply to member messages from connected schedule.', to: '/trainer/chat', status: 'Open' },
-  { label: 'Notifications', hint: 'Monitor important trainer workspace updates.', to: '/trainer/notifications', status: 'Monitor' },
-  { label: 'Profile', hint: 'Update trainer identity and status.', to: '/trainer/profile', status: 'Active' },
-]
 </script>
 
 <template>
@@ -110,7 +102,7 @@ const workspaceLinks = [
     subtitle="Trainer operations, member workouts, schedule requests, commissions, and notifications."
     :sidebar-items="trainerSidebarItems"
   >
-    <div class="max-w-7xl mx-auto w-full space-y-6" :style="shimmerStyle">
+    <div class="max-w-7xl mx-auto w-full space-y-6 pb-12" :style="shimmerStyle">
       <template v-if="loading">
         <SkeletonStatGrid :count="3" />
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -120,22 +112,6 @@ const workspaceLinks = [
       </template>
 
       <template v-else>
-        <!-- Dashboard Toolbar / Header -->
-        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center p-6 md:p-8 gap-4">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-widest text-blue-600">Trainer Workspace</p>
-            <h2 class="text-xl md:text-2xl font-black text-gray-900 mt-1">Trainer operations in a single summary.</h2>
-          </div>
-          <button
-            class="px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-bold transition-colors cursor-pointer"
-            type="button"
-            :disabled="loading"
-            @click="loadData"
-          >
-            {{ loading ? 'Loading...' : 'Refresh' }}
-          </button>
-        </div>
-
         <!-- Metric Cards -->
         <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <!-- Card 1: Monitored Members -->
@@ -146,8 +122,8 @@ const workspaceLinks = [
             <div class="flex justify-between items-start mb-6 relative z-10">
               <h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Monitored Members</h3>
               <div class="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H2v-2a4 4 0 014-4h3m8-4a4 4 0 11-8 0 4 4 0 018 0zm-8 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H2v-2a4 4 0 014-4h3m8-4a4 4 0 11-8 0 4 4 0 018 0zm-8 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </div>
             </div>
@@ -182,8 +158,8 @@ const workspaceLinks = [
             <div class="flex justify-between items-start mb-6 relative z-10">
               <h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Schedule Requests</h3>
               <div class="p-2.5 bg-orange-50 text-orange-500 rounded-xl">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 8v5l3 2m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M12 8v5l3 2m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </div>
             </div>
@@ -209,8 +185,8 @@ const workspaceLinks = [
             <div class="flex justify-between items-start mb-6 relative z-10">
               <h3 class="text-xs font-bold uppercase tracking-widest text-gray-500">Trainer Earnings</h3>
               <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 10h18M5 10V7a2 2 0 012-2h10a2 2 0 012 2v3m-2 4h.01M5 10v9a2 2 0 002 2h10a2 2 0 002-2v-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M3 10h18M5 10V7a2 2 0 012-2h10a2 2 0 012 2v3m-2 4h.01M5 10v9a2 2 0 002 2h10a2 2 0 002-2v-9" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </div>
             </div>
@@ -238,11 +214,11 @@ const workspaceLinks = [
           </RouterLink>
         </section>
 
-        <!-- Split Content Area -->
+        <!-- Main Analytics Section -->
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Left: Program Stats Chart (col-span-2) -->
           <div class="bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col lg:col-span-2 p-6 md:p-8">
-            <div class="flex justify-between items-center mb-8">
+            <div class="flex justify-between items-center mb-4">
               <div>
                 <p class="text-xs font-bold uppercase tracking-widest text-blue-600 font-black">Program Stats</p>
                 <h2 class="text-xl font-extrabold text-gray-900 tracking-tight mt-1">Member Activity & Sessions</h2>
@@ -252,17 +228,38 @@ const workspaceLinks = [
               </RouterLink>
             </div>
 
-            <div class="flex-1 flex items-end justify-between gap-4 h-56 mt-4">
-              <div
-                v-for="(bar, idx) in chartBars"
-                :key="idx"
-                :class="['w-full bg-blue-50 rounded-t-xl relative group hover:bg-blue-100 transition-all duration-500', idx === 0 ? 'bg-blue-600 shadow-md hover:bg-blue-700' : '']"
-                :style="{ height: bar.height }"
-              >
-                <!-- Interactive Tooltip -->
-                <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none mb-1 whitespace-nowrap shadow-sm">
-                  {{ bar.value }} {{ bar.label }}
-                </span>
+            <!-- Beautiful data visualization bar chart with grid lines -->
+            <div class="relative flex-1 h-56 mt-6 border-b border-gray-100 min-h-[220px]">
+              <!-- Grid Lines -->
+              <div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                <div class="border-t border-dashed border-gray-100 w-full h-0"></div>
+                <div class="border-t border-dashed border-gray-100 w-full h-0"></div>
+                <div class="border-t border-dashed border-gray-100 w-full h-0"></div>
+                <div class="border-t border-dashed border-gray-100 w-full h-0"></div>
+              </div>
+
+              <!-- Bars -->
+              <div class="absolute inset-0 flex items-end justify-around gap-6 px-4">
+                <div
+                  v-for="(bar, idx) in chartBars"
+                  :key="idx"
+                  class="w-16 rounded-t-2xl relative group transition-all duration-500 hover:scale-105 hover:shadow-lg"
+                  :style="{
+                    height: bar.height,
+                    background: idx === 0 
+                      ? 'linear-gradient(to top, #2563eb, #3b82f6)' 
+                      : idx === 1 
+                        ? 'linear-gradient(to top, #059669, #10b981)' 
+                        : idx === 2 
+                          ? 'linear-gradient(to top, #d97706, #f59e0b)' 
+                          : 'linear-gradient(to top, #7c3aed, #8b5cf6)'
+                  }"
+                >
+                  <!-- Interactive Tooltip -->
+                  <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-[11px] font-bold py-1.5 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none mb-2 whitespace-nowrap shadow-md">
+                    {{ bar.value }} {{ bar.label }}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -276,7 +273,7 @@ const workspaceLinks = [
 
           <!-- Right: Recent Clients List (col-span-1) -->
           <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 flex flex-col">
-            <div class="flex justify-between items-center mb-8">
+            <div class="flex justify-between items-center mb-6">
               <div>
                 <p class="text-xs font-bold uppercase tracking-widest text-blue-600 font-black">Recent Clients</p>
                 <h2 class="text-xl font-extrabold text-gray-900 tracking-tight mt-1">Under Monitoring</h2>
@@ -291,12 +288,12 @@ const workspaceLinks = [
                 <div
                   v-for="member in monitoringStore.members.slice(0, 5)"
                   :key="member.id"
-                  class="flex items-center gap-4 p-2 rounded-2xl hover:bg-gray-50 transition-colors group"
+                  class="flex items-center gap-4 p-2.5 rounded-2xl hover:bg-gray-50 transition-colors group"
                 >
                   <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold flex-shrink-0 text-sm">
                     {{ member.full_name ? member.full_name[0].toUpperCase() : 'M' }}
                   </div>
-                  <div class="flex-1 min-width-0">
+                  <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold text-gray-900 truncate">{{ member.full_name }}</p>
                     <p class="text-xs text-gray-500 font-medium truncate mt-0.5">
                       {{ member.workout_plans_count || 0 }} plans • {{ member.workout_trackings_count || 0 }} logs
@@ -310,80 +307,99 @@ const workspaceLinks = [
                   </RouterLink>
                 </div>
               </template>
-              <div v-else class="text-center py-8">
+              <div v-else class="text-center py-12">
                 <p class="text-xs text-gray-400 font-bold">No active clients connected yet.</p>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Bottom Grid Section: Quick Links & Summary Cards Stacked -->
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-12">
-          <!-- Left: Workspace Links (col-span-2) -->
-          <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 lg:col-span-2">
-            <h2 class="text-xl font-extrabold text-gray-900 tracking-tight mb-6">Quick Links & Modules</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <RouterLink
-                v-for="item in workspaceLinks"
-                :key="item.label"
-                :to="item.to"
-                class="p-4 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl transition-all duration-300 group flex flex-col justify-between min-h-[95px]"
-              >
-                <div>
-                  <div class="flex justify-between items-center">
-                    <strong class="text-sm font-extrabold text-gray-900 group-hover:text-blue-600 transition-colors">{{ item.label }}</strong>
-                    <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">
-                      {{ item.status }}
-                    </span>
-                  </div>
-                  <span class="block text-[11px] text-gray-500 font-medium mt-2 leading-snug">
-                    {{ item.hint }}
-                  </span>
-                </div>
-              </RouterLink>
+        <!-- Secondary Visualizations Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left: Consistency (Completion Rate) (col-span-1) -->
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 flex flex-col items-center justify-center">
+            <div class="w-full flex justify-between items-start mb-2">
+              <div>
+                <p class="text-xs font-black uppercase tracking-widest text-blue-600">Consistency</p>
+                <h3 class="text-sm font-black text-gray-900 mt-1">Program Completion</h3>
+              </div>
             </div>
+
+            <!-- Premium SVG Circular Gauge -->
+            <div class="relative w-32 h-32 flex items-center justify-center my-6">
+              <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <!-- Background Circle -->
+                <circle cx="50" cy="50" r="40" stroke="#f1f5f9" stroke-width="8" fill="transparent" />
+                <!-- Foreground Circle with Gradient -->
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  stroke="url(#progressGradient)"
+                  stroke-width="8"
+                  fill="transparent"
+                  stroke-dasharray="251.2"
+                  :stroke-dashoffset="251.2 - (251.2 * completionRate) / 100"
+                  stroke-linecap="round"
+                  class="transition-all duration-1000 ease-out"
+                />
+                <defs>
+                  <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6" />
+                    <stop offset="100%" stop-color="#1d4ed8" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="absolute flex flex-col items-center justify-center">
+                <span class="text-2xl font-black text-gray-900">{{ completionRate }}%</span>
+                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">Completion</span>
+              </div>
+            </div>
+
+            <p class="text-[11px] text-gray-500 font-medium text-center px-4 leading-normal">
+              {{ monitoringStore.summary?.completed_trackings || 0 }} logs completed out of {{ monitoringStore.summary?.active_workout_plans || 0 }} active programs.
+            </p>
           </div>
 
-          <!-- Right: Consistency & Commissions stack (col-span-1) -->
-          <div class="lg:col-span-1 space-y-6">
-            <!-- Consistency (Completion Rate) -->
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex flex-col items-center justify-center">
-              <div class="w-full flex justify-between items-start mb-2">
-                <div>
-                  <p class="text-xs font-black uppercase tracking-widest text-blue-600">Consistency</p>
-                  <h3 class="text-sm font-black text-gray-900 mt-1">Program Completion</h3>
-                </div>
+          <!-- Right: Commission Progress (col-span-2) -->
+          <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 lg:col-span-2 flex flex-col justify-between">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="text-xs font-black uppercase tracking-widest text-emerald-600">Earnings & Payouts</p>
+                <h3 class="text-lg font-black text-gray-900 mt-1">Commissions Paid Summary</h3>
               </div>
-              <div class="w-28 h-28 rounded-full flex flex-col items-center justify-center relative my-4" :style="`background: conic-gradient(#2563eb ${completionRate}%, #e2e8f0 0)`">
-                <div class="absolute inset-2 bg-white rounded-full flex flex-col items-center justify-center">
-                  <strong class="text-xl font-black text-gray-900">{{ completionRate }}%</strong>
-                  <span class="text-[9px] text-gray-400 font-bold uppercase mt-0.5">completion</span>
-                </div>
-              </div>
-              <p class="text-[11px] text-gray-500 font-medium text-center px-4 leading-normal">
-                {{ monitoringStore.summary?.completed_trackings || 0 }} logs completed out of {{ monitoringStore.summary?.active_workout_plans || 0 }} active programs.
-              </p>
+              <RouterLink to="/trainer/rent-history" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                History
+              </RouterLink>
             </div>
 
-            <!-- Commission Progress -->
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex flex-col">
-              <div class="flex justify-between items-start mb-2">
+            <div class="my-6">
+              <div class="flex justify-between items-end mb-2">
                 <div>
-                  <p class="text-xs font-black uppercase tracking-widest text-emerald-600">Earnings</p>
-                  <h3 class="text-sm font-black text-gray-900 mt-1">Commissions Paid</h3>
+                  <span class="text-xs text-gray-400 font-bold uppercase">Total Earned</span>
+                  <p class="text-3xl font-black text-gray-900 mt-0.5">{{ money(rentStore.summary?.total_trainer_amount) }}</p>
                 </div>
-                <RouterLink to="/trainer/rent-history" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                  History
-                </RouterLink>
+                <div class="text-right">
+                  <span class="text-xs text-gray-400 font-bold uppercase">Disbursed</span>
+                  <p class="text-xl font-extrabold text-emerald-600 mt-0.5">{{ money(rentStore.summary?.disbursed_amount) }}</p>
+                </div>
               </div>
-              <p class="text-2xl font-black text-gray-900 mt-3">{{ money(rentStore.summary?.total_trainer_amount) }}</p>
-              <div class="w-full bg-gray-100 rounded-full h-2 my-3 overflow-hidden">
-                <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" :style="{ width: `${incomeRate}%` }"></div>
+
+              <!-- Premium gradient progress bar -->
+              <div class="w-full bg-gray-100 rounded-full h-3.5 my-4 overflow-hidden relative shadow-inner">
+                <div 
+                  class="h-full rounded-full transition-all duration-1000 ease-out shadow-sm" 
+                  :style="{ 
+                    width: `${incomeRate}%`,
+                    background: 'linear-gradient(to right, #34d399, #059669)'
+                  }"
+                ></div>
               </div>
-              <p class="text-[11px] text-gray-500 font-medium leading-normal">
-                Disbursed {{ money(rentStore.summary?.disbursed_amount) }} of total commission ({{ incomeRate }}%).
-              </p>
             </div>
+
+            <p class="text-xs text-gray-500 font-medium leading-relaxed">
+              You have received payouts for {{ incomeRate }}% of your total earned gym commission. Payout requests are processed automatically on regular rent cycles.
+            </p>
           </div>
         </section>
       </template>

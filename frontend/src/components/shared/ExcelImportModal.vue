@@ -95,7 +95,7 @@ function close() {
         <input type="file" accept=".xlsx,.xls,.csv" @change="onFileChange" :disabled="uploading" class="input" />
       </div>
 
-      <div class="flex gap-2 justify-end">
+      <div class="modal-actions flex gap-2 justify-end">
         <button @click="close" class="button button-ghost">Close</button>
         <button @click="doUpload" :disabled="!file || uploading" class="button">
           {{ uploading ? 'Uploading...' : 'Upload & Process' }}
@@ -106,6 +106,24 @@ function close() {
 </template>
 
 <style scoped>
+.modal-overlay {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.54);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1rem;
+  position: fixed;
+  z-index: 9999;
+}
+
+.modal-panel {
+  max-height: calc(100dvh - 2rem);
+  max-width: 520px;
+  overflow-y: auto;
+  width: 100%;
+}
+
 .progress-bar-track {
   width: 100%;
   height: 8px;
@@ -118,5 +136,26 @@ function close() {
   background: var(--color-primary);
   transition: width 0.3s ease;
   border-radius: 4px;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: end;
+    padding: 0.75rem;
+  }
+
+  .modal-panel {
+    border-radius: 1rem !important;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .modal-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .button {
+    width: 100%;
+  }
 }
 </style>

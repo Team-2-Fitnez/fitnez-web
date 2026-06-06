@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { manualRegistrationApi } from '../api/manualRegistrationApi'
 import type { ManualPaymentMethod, MembershipPackage, ProspectiveRegistration } from '../types/membership'
 import StatusBadge from '../components/ui/StatusBadge.vue'
+import LandingPublicNav from '../components/landing/LandingPublicNav.vue'
+import LandingPublicFooter from '../components/landing/LandingPublicFooter.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 const packages = ref<MembershipPackage[]>([])
 const methods = ref<ManualPaymentMethod[]>([])
@@ -23,10 +26,19 @@ const message = ref('')
 const selectedPackage = computed(() => packages.value.find((item) => item.id === selectedPackageId.value))
 const selectedMethod = computed(() => methods.value.find((item) => item.id === selectedMethodId.value))
 
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+}
+
+function monthlyCost(pkg: MembershipPackage) {
+  return formatCurrency(Math.round(pkg.price / pkg.duration_months))
+}
+
 const schema = toTypedSchema(z.object({
   fullName: z.string().min(3, 'Full name must be at least 3 characters.'),
   email: z.string().email('Email format is not valid.'),
   phone: z.string().optional().default(''),
+  birthDate: z.string().optional().default(''),
   password: z.string()
     .min(16, 'Password must be at least 16 characters.')
     .regex(/[A-Z]/, 'Must contain one uppercase letter.')
@@ -38,16 +50,24 @@ const schema = toTypedSchema(z.object({
   path: ['passwordConfirmation'],
 }))
 
-const { handleSubmit, errors, values, isSubmitting, setFieldError } = useForm({
+const { handleSubmit, errors, values, isSubmitting, setFieldError, defineField } = useForm({
   validationSchema: schema,
   initialValues: {
     fullName: '',
     email: '',
     phone: '',
+    birthDate: '',
     password: '',
     passwordConfirmation: '',
   },
 })
+
+const [fullName, fullNameProps] = defineField('fullName')
+const [email, emailProps] = defineField('email')
+const [phone, phoneProps] = defineField('phone')
+const [birthDate, birthDateProps] = defineField('birthDate')
+const [password, passwordProps] = defineField('password')
+const [passwordConfirmation, passwordConfirmationProps] = defineField('passwordConfirmation')
 
 onMounted(async () => {
   const [packageResponse, methodResponse] = await Promise.all([
@@ -58,19 +78,16 @@ onMounted(async () => {
   packages.value = packageResponse.data
   methods.value = methodResponse.data
 
-  // Check route query param for pre-selection
   const targetPackageCode = route.query.package as string | undefined
   if (targetPackageCode) {
     const matched = packageResponse.data.find(p => p.code === targetPackageCode)
     if (matched) {
       selectedPackageId.value = matched.id
     } else {
-      // Default to "PKG_1_MONTH" if not found
       const defaultPkg = packageResponse.data.find(p => p.code === 'PKG_1_MONTH') || packageResponse.data[0]
       selectedPackageId.value = defaultPkg?.id || null
     }
   } else {
-    // Default to "PKG_1_MONTH" if no query parameter
     const defaultPkg = packageResponse.data.find(p => p.code === 'PKG_1_MONTH') || packageResponse.data[0]
     selectedPackageId.value = defaultPkg?.id || null
   }
@@ -96,6 +113,7 @@ const startRegistration = handleSubmit(async (formValues) => {
       full_name: formValues.fullName.trim(),
       email: formValues.email.trim().toLowerCase(),
       phone: formValues.phone.trim(),
+      birth_date: formValues.birthDate || undefined,
       password: formValues.password,
       password_confirmation: formValues.passwordConfirmation,
       membership_package_id: Number(selectedPackageId.value),
@@ -138,7 +156,10 @@ async function uploadProof() {
     registration.value = response.data
     localStorage.setItem('fitnez_last_registration_code', response.data.registration_code)
     localStorage.setItem('fitnez_last_registration_email', response.data.email)
-    message.value = 'Payment proof uploaded. Please wait for admin approval.'
+    message.value = 'Payment proof uploaded successfully! Redirecting to Check Status page in 3 seconds...'
+    setTimeout(() => {
+      router.push('/registration-status')
+    }, 3000)
   } catch (e: any) {
     setFieldError('fullName', e?.message || 'Failed to upload proof.')
   } finally {
@@ -161,177 +182,177 @@ function copyCode() {
 </script>
 
 <template>
-  <div class="bg-surface-bright text-on-surface antialiased min-h-screen flex flex-col gradient-bg Outfit pt-20">
-    <!-- TopNavBar (Shared Component, identical to Landing Page) -->
-    <nav class="fixed top-0 w-full z-[100] transition-all duration-300 nav-scrolled py-2" id="navbar">
-      <div class="flex justify-between items-center px-gutter max-w-container-max mx-auto">
-        <div class="flex items-center gap-2">
-          <span class="font-headline-lg text-headline-lg font-extrabold text-on-background">Fitnez Gym</span>
-        </div>
-        <div class="hidden md:flex gap-stack-lg items-center">
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#features">Features</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#packages">Packages</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#how-it-works">How it Works</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/faq">FAQ</RouterLink>
-        </div>
-        <div class="flex gap-4">
-          <RouterLink to="/login/member" class="hidden sm:block text-primary font-label-bold text-label-bold hover:bg-primary-container/10 px-4 py-2 rounded-lg transition-all text-center">Login</RouterLink>
-          <RouterLink to="/register" class="bg-primary text-on-primary font-label-bold text-label-bold px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all text-center">Join Now</RouterLink>
-        </div>
-      </div>
-    </nav>
+  <div class="reg-page">
+    <LandingPublicNav variant="static" />
 
     <!-- Main Content -->
-    <main class="flex-grow w-full max-w-container-max mx-auto px-gutter py-section-padding-mobile md:py-section-padding-desktop">
-      
+    <main class="reg-main">
+
       <!-- Step 1 Form Screen -->
       <div v-if="!registration">
         <!-- Header -->
-        <div class="mb-12 flex justify-between items-end flex-wrap gap-4">
+        <div class="reg-header">
           <div>
-            <p class="font-label-bold text-label-bold text-primary uppercase tracking-widest mb-2">PROSPECTIVE MEMBER</p>
-            <h1 class="font-headline-xl text-headline-xl text-on-surface mb-2">Create your Fitnez registration.</h1>
-            <p class="font-body-lg text-body-lg text-on-surface-variant">Fill personal data, select a package, choose QRIS or bank transfer, then upload payment proof.</p>
+            <p class="reg-eyebrow">PROSPECTIVE MEMBER</p>
+            <h1 class="reg-title">Create your Fitnez registration.</h1>
+            <p class="reg-subtitle">Fill personal data, select a package, choose QRIS or bank transfer, then upload payment proof.</p>
           </div>
-          <RouterLink to="/registration-status" class="px-6 py-2 border-2 border-outline rounded-full font-label-bold text-label-bold text-on-surface hover:bg-surface-variant transition-colors text-center block sm:inline-block">
+          <RouterLink to="/registration-status" class="btn-outline-pill">
             Check Status
           </RouterLink>
         </div>
 
-        <form @submit.prevent="startRegistration" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <form @submit.prevent="startRegistration" class="reg-form-grid">
           <!-- Column 1: Personal Data -->
-          <div class="lg:col-span-5 flex flex-col gap-8">
-            <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-surface-variant h-full flex flex-col justify-between">
-              <div>
-                <h2 class="font-headline-lg text-headline-lg text-on-surface mb-8">Personal data</h2>
-                <div class="flex flex-col gap-6">
-                  <div class="flex flex-col gap-2">
-                    <label class="font-label-bold text-label-bold text-on-surface">Full Name</label>
-                    <input 
-                      v-model="values.fullName"
-                      class="w-full h-12 px-4 rounded-lg border bg-transparent focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-body-md"
-                      :class="errors.fullName ? 'border-error focus:border-error focus:ring-error' : 'border-outline'"
-                      required 
-                      type="text"
-                      placeholder="Enter your full name"
-                    />
-                    <span v-if="errors.fullName" class="text-error text-xs font-semibold mt-1">{{ errors.fullName }}</span>
-                  </div>
-                  <div class="flex flex-col gap-2">
-                    <label class="font-label-bold text-label-bold text-on-surface">Email</label>
-                    <input 
-                      v-model="values.email"
-                      class="w-full h-12 px-4 rounded-lg border bg-transparent focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-body-md"
-                      :class="errors.email ? 'border-error focus:border-error focus:ring-error' : 'border-outline'"
-                      required 
-                      type="email"
-                      placeholder="Enter your email address"
-                    />
-                    <span v-if="errors.email" class="text-error text-xs font-semibold mt-1">{{ errors.email }}</span>
-                  </div>
-                  <div class="flex flex-col gap-2">
-                    <label class="font-label-bold text-label-bold text-on-surface">Phone</label>
-                    <input 
-                      v-model="values.phone"
-                      class="w-full h-12 px-4 rounded-lg border bg-transparent focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-body-md"
-                      :class="errors.phone ? 'border-error focus:border-error focus:ring-error' : 'border-outline'"
-                      required 
-                      type="tel"
-                      placeholder="Enter your phone number"
-                    />
-                    <span v-if="errors.phone" class="text-error text-xs font-semibold mt-1">{{ errors.phone }}</span>
-                  </div>
-                  <div class="flex flex-col gap-2">
-                    <label class="font-label-bold text-label-bold text-on-surface">Password</label>
-                    <input 
-                      v-model="values.password"
-                      class="w-full h-12 px-4 rounded-lg border bg-transparent focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-body-md"
-                      :class="errors.password ? 'border-error focus:border-error focus:ring-error' : 'border-outline'"
-                      required 
-                      type="password"
-                      placeholder="Create a strong password"
-                    />
-                    <span v-if="errors.password" class="text-error text-xs font-semibold mt-1">{{ errors.password }}</span>
-                  </div>
-                  <div class="flex flex-col gap-2">
-                    <label class="font-label-bold text-label-bold text-on-surface">Confirm Password</label>
-                    <input 
-                      v-model="values.passwordConfirmation"
-                      class="w-full h-12 px-4 rounded-lg border bg-transparent focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-body-md"
-                      :class="errors.passwordConfirmation ? 'border-error focus:border-error focus:ring-error' : 'border-outline'"
-                      required 
-                      type="password"
-                      placeholder="Confirm your password"
-                    />
-                    <span v-if="errors.passwordConfirmation" class="text-error text-xs font-semibold mt-1">{{ errors.passwordConfirmation }}</span>
-                  </div>
+          <div class="reg-col-left">
+            <div class="reg-card reg-card-full">
+              <h2 class="card-heading">Personal Data</h2>
+              <div class="fields-stack">
+                <!-- Full Name (Required) -->
+                <div class="field-group">
+                  <label class="field-label">Full Name <span class="required-mark">*</span></label>
+                  <input
+                    v-model="fullName"
+                    v-bind="fullNameProps"
+                    class="field-input"
+                    :class="{ 'field-error': errors.fullName }"
+                    required
+                    type="text"
+                    placeholder="Enter your full name"
+                  />
+                  <span v-if="errors.fullName" class="error-text">{{ errors.fullName }}</span>
+                </div>
+                <!-- Email (Required) -->
+                <div class="field-group">
+                  <label class="field-label">Email <span class="required-mark">*</span></label>
+                  <input
+                    v-model="email"
+                    v-bind="emailProps"
+                    class="field-input"
+                    :class="{ 'field-error': errors.email }"
+                    required
+                    type="email"
+                    placeholder="Enter your email address"
+                  />
+                  <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
+                </div>
+                <!-- Phone (Optional) -->
+                <div class="field-group">
+                  <label class="field-label">Phone <span class="optional-mark">(Optional)</span></label>
+                  <input
+                    v-model="phone"
+                    v-bind="phoneProps"
+                    class="field-input"
+                    :class="{ 'field-error': errors.phone }"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                  />
+                  <span v-if="errors.phone" class="error-text">{{ errors.phone }}</span>
+                </div>
+                <!-- Birth Date (Optional) -->
+                <div class="field-group">
+                  <label class="field-label">Date of Birth <span class="optional-mark">(Optional)</span></label>
+                  <input
+                    v-model="birthDate"
+                    v-bind="birthDateProps"
+                    class="field-input"
+                    type="date"
+                  />
+                </div>
+                <!-- Password (Required) -->
+                <div class="field-group">
+                  <label class="field-label">Password <span class="required-mark">*</span></label>
+                  <input
+                    v-model="password"
+                    v-bind="passwordProps"
+                    class="field-input"
+                    :class="{ 'field-error': errors.password }"
+                    required
+                    type="password"
+                    placeholder="Min 16 chars, 1 upper, 1 lower, 1 special"
+                  />
+                  <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
+                </div>
+                <!-- Confirm Password (Required) -->
+                <div class="field-group">
+                  <label class="field-label">Confirm Password <span class="required-mark">*</span></label>
+                  <input
+                    v-model="passwordConfirmation"
+                    v-bind="passwordConfirmationProps"
+                    class="field-input"
+                    :class="{ 'field-error': errors.passwordConfirmation }"
+                    required
+                    type="password"
+                    placeholder="Confirm your password"
+                  />
+                  <span v-if="errors.passwordConfirmation" class="error-text">{{ errors.passwordConfirmation }}</span>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Column 2: Package & Payment -->
-          <div class="lg:col-span-7 flex flex-col gap-8">
+          <div class="reg-col-right">
             <!-- Step 2: Package -->
-            <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-surface-variant">
-              <h2 class="font-headline-lg text-headline-lg text-on-surface mb-8">Choose package</h2>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label v-for="item in packages" :key="item.id" class="cursor-pointer relative block h-full">
-                  <div v-if="item.code === 'PKG_12_MONTHS_PREMIUM'" class="absolute -top-3 right-4 bg-brand-orange text-white text-xs font-bold px-3 py-1 rounded-full z-10">Recommended</div>
+            <div class="reg-card">
+              <h2 class="card-heading">Choose Membership Package</h2>
+              <div class="pkg-grid">
+                <label v-for="item in packages" :key="item.id" class="pkg-label">
+                  <div v-if="item.code === 'PKG_12_MONTHS_PREMIUM'" class="pkg-badge">Best Value</div>
                   <input type="radio" :value="item.id" v-model="selectedPackageId" class="sr-only" />
-                  <div :class="[
-                    'p-6 rounded-xl transition-all duration-200 h-full flex flex-col justify-between',
-                    selectedPackageId === item.id 
-                      ? 'border-2 border-primary bg-surface-variant shadow-sm' 
-                      : 'border border-outline-variant hover:border-primary bg-surface-container-lowest'
-                  ]">
-                    <div>
-                      <div class="flex justify-between items-start mb-2 gap-2">
-                        <h3 class="font-headline-lg text-[24px] font-bold text-on-surface leading-tight">
-                          {{ item.name.replace(/ Basic| Plus| Premium/, '') }}<br/>{{ item.name.match(/Basic|Plus|Premium/)?.[0] || '' }}
-                        </h3>
-                        <span class="font-label-bold text-label-bold text-brand-orange whitespace-nowrap">Rp {{ Number(item.price).toLocaleString('en-US') }}</span>
-                      </div>
-                      <p class="font-body-md text-body-md text-on-surface-variant">{{ item.duration_months }} month(s)</p>
+                  <div :class="['pkg-card', selectedPackageId === item.id && 'pkg-card-active']">
+                    <div class="pkg-top">
+                      <h3 class="pkg-name">{{ item.name }}</h3>
+                      <p class="pkg-duration">{{ item.duration_months }} month{{ item.duration_months > 1 ? 's' : '' }}</p>
                     </div>
-                    <div v-if="item.free_class_access" class="mt-4">
-                      <span class="inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">Free Class Access</span>
+                    <div class="pkg-bottom">
+                      <p class="pkg-price">{{ formatCurrency(item.price) }}</p>
+                      <p class="pkg-monthly">{{ monthlyCost(item) }}/month</p>
+                      <span v-if="item.free_class_access" class="pkg-perk">✓ Free Class Access</span>
                     </div>
                   </div>
                 </label>
               </div>
+
+              <!-- Price Summary Callout -->
+              <div v-if="selectedPackage" class="price-callout">
+                <div class="price-callout-label">Total amount to pay</div>
+                <div class="price-callout-value">{{ formatCurrency(selectedPackage.price) }}</div>
+                <div class="price-callout-info">{{ selectedPackage.name }} — {{ selectedPackage.duration_months }} month{{ selectedPackage.duration_months > 1 ? 's' : '' }} membership</div>
+              </div>
             </div>
 
             <!-- Step 3: Payment Method -->
-            <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-surface-variant">
-              <h2 class="font-headline-lg text-headline-lg text-on-surface mb-8">Payment method</h2>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                <label v-for="method in methods" :key="method.id" class="cursor-pointer block">
+            <div class="reg-card">
+              <h2 class="card-heading">Payment Method</h2>
+              <div class="method-grid">
+                <label v-for="method in methods" :key="method.id" class="method-label">
                   <input type="radio" :value="method.id" v-model="selectedMethodId" class="sr-only" />
-                  <div :class="[
-                    'p-6 rounded-xl transition-all duration-200 h-full',
-                    selectedMethodId === method.id 
-                      ? 'border-2 border-primary bg-surface-variant shadow-sm' 
-                      : 'border border-outline-variant hover:border-primary bg-surface-container-lowest'
-                  ]">
-                    <h3 class="font-headline-lg text-[20px] font-bold text-on-surface mb-2">{{ method.display_name }}</h3>
-                    <p class="font-body-md text-body-md text-on-surface-variant text-sm">{{ method.instructions }}</p>
+                  <div :class="['method-card', selectedMethodId === method.id && 'method-card-active']">
+                    <div class="method-icon">
+                      <span v-if="method.type === 'qris'" class="material-symbols-outlined">qr_code_2</span>
+                      <span v-else class="material-symbols-outlined">account_balance</span>
+                    </div>
+                    <div>
+                      <h3 class="method-name">{{ method.display_name }}</h3>
+                      <p class="method-desc">{{ method.instructions }}</p>
+                    </div>
                   </div>
                 </label>
               </div>
 
               <!-- General Error -->
-              <div v-if="errors.fullName && !values.fullName" class="p-4 rounded-xl bg-error-container text-on-error-container text-sm font-bold mb-4 border border-error">
+              <div v-if="errors.fullName && !values.fullName" class="alert-error">
                 {{ errors.fullName }}
               </div>
 
               <!-- Submit Button -->
-              <button 
-                class="w-full bg-on-secondary-fixed text-white font-label-bold text-label-bold py-4 rounded-xl hover:bg-opacity-90 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" 
+              <button
+                class="btn-primary-full"
                 type="submit"
                 :disabled="loading || isSubmitting"
               >
-                {{ loading ? 'Creating...' : 'Create Registration & Show Payment Info' }}
+                {{ loading ? 'Creating Registration...' : 'Create Registration & Show Payment Info' }}
               </button>
             </div>
           </div>
@@ -341,325 +362,853 @@ function copyCode() {
       <!-- Step 2 Success & Payment Info Screen -->
       <div v-else>
         <!-- Header -->
-        <div class="mb-12 flex justify-between items-end flex-wrap gap-4">
+        <div class="reg-header">
           <div>
-            <p class="font-label-bold text-label-bold text-primary uppercase tracking-widest mb-2">REGISTRATION PENDING</p>
-            <h1 class="font-headline-xl text-headline-xl text-on-surface mb-2">Registration Created!</h1>
-            <p class="font-body-lg text-body-lg text-on-surface-variant">Please complete payment and upload your payment proof to activate your account.</p>
+            <p class="reg-eyebrow">REGISTRATION PENDING</p>
+            <h1 class="reg-title">Registration Created!</h1>
+            <p class="reg-subtitle">Please complete payment and upload your payment proof to activate your account.</p>
           </div>
-          <RouterLink to="/registration-status" class="px-6 py-2 border-2 border-outline rounded-full font-label-bold text-label-bold text-on-surface hover:bg-surface-variant transition-colors text-center block sm:inline-block">
+          <RouterLink to="/registration-status" class="btn-outline-pill">
             Check Status
           </RouterLink>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="reg-form-grid">
           <!-- Column 1: Details & Summary -->
-          <div class="lg:col-span-5 flex flex-col gap-6">
-            <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-surface-variant flex flex-col gap-6">
-              <div class="flex justify-between items-center gap-4 flex-wrap pb-4 border-b border-surface-variant">
+          <div class="reg-col-left">
+            <div class="reg-card">
+              <div class="code-row">
                 <div>
-                  <p class="font-label-bold text-xs uppercase text-on-surface-variant">Registration Code</p>
-                  <div class="flex items-center gap-2 mt-1">
-                    <h2 class="font-headline-lg text-[22px] font-black text-on-surface select-all leading-none">{{ registration.registration_code }}</h2>
-                    <button 
-                      @click="copyCode"
-                      class="text-primary hover:text-opacity-80 p-1 flex items-center justify-center rounded-lg hover:bg-surface-variant transition-colors"
-                      title="Copy code"
-                    >
-                      <span class="material-symbols-outlined text-lg">content_copy</span>
+                  <p class="code-label">Registration Code</p>
+                  <div class="code-value-row">
+                    <h2 class="code-value">{{ registration.registration_code }}</h2>
+                    <button @click="copyCode" class="code-copy-btn" title="Copy code">
+                      <span class="material-symbols-outlined">content_copy</span>
                     </button>
                   </div>
                 </div>
                 <StatusBadge :status="registration.status" />
               </div>
 
-              <div class="bg-surface-container rounded-xl p-6 border border-surface-variant">
-                <p class="font-label-bold text-xs uppercase text-on-surface-variant mb-1">Amount to Pay</p>
-                <p class="text-3xl font-black text-brand-orange">Rp {{ Number(registration.amount).toLocaleString('en-US') }}</p>
+              <!-- Price callout -->
+              <div class="price-callout price-callout-lg">
+                <div class="price-callout-label">Amount to Pay</div>
+                <div class="price-callout-value">{{ formatCurrency(Number(registration.amount)) }}</div>
+                <div class="price-callout-info">Please enter exactly this amount when transferring.</div>
               </div>
 
-              <div class="p-6 rounded-xl border border-outline-variant bg-surface-container-lowest flex flex-col justify-between">
-                <div>
-                  <h3 class="font-headline-lg text-[20px] font-bold text-on-surface leading-tight mb-2">{{ selectedPackage?.name }}</h3>
-                  <p class="font-body-md text-body-md text-on-surface-variant">{{ selectedPackage?.duration_months }} month(s) Membership</p>
-                </div>
-                <div v-if="selectedPackage?.free_class_access" class="mt-4">
-                  <span class="inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">Free Class Access</span>
-                </div>
+              <div class="summary-card">
+                <h3 class="summary-pkg-name">{{ selectedPackage?.name }}</h3>
+                <p class="summary-pkg-duration">{{ selectedPackage?.duration_months }} month{{ (selectedPackage?.duration_months ?? 0) > 1 ? 's' : '' }} Membership</p>
+                <span v-if="selectedPackage?.free_class_access" class="pkg-perk">✓ Free Class Access</span>
               </div>
 
-              <p class="font-body-md text-body-md text-on-surface-variant text-sm mt-2">
-                <span class="font-bold text-on-surface">Important:</span> Save your registration code carefully. You can use it later to check if the admin has approved your membership request.
+              <p class="reg-notice">
+                <span class="notice-bold">Important:</span> Save your registration code carefully. You can use it later to check if the admin has approved your membership request.
               </p>
             </div>
           </div>
 
           <!-- Column 2: Bank details, QRIS & upload form -->
-          <div class="lg:col-span-7 flex flex-col gap-8">
-            <div class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-surface-variant flex flex-col gap-8">
-              <div>
-                <h2 class="font-headline-lg text-headline-lg text-on-surface mb-2">Payment Instructions</h2>
-                <p class="font-body-md text-body-md text-on-surface-variant">Follow instructions below to transfer your payment.</p>
-              </div>
+          <div class="reg-col-right">
+            <div class="reg-card">
+              <h2 class="card-heading">Payment Instructions</h2>
+              <p class="card-subtitle">Follow instructions below to transfer your payment.</p>
 
-              <div class="bg-surface-container rounded-xl p-6 border border-surface-variant flex flex-col gap-4">
+              <div class="payment-details-box">
                 <div>
-                  <p class="font-label-bold text-xs uppercase text-on-surface-variant mb-1">Selected Payment Method</p>
-                  <h3 class="font-headline-lg text-[20px] font-bold text-on-surface">{{ selectedMethod?.display_name }}</h3>
-                  <p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">{{ selectedMethod?.instructions }}</p>
+                  <p class="detail-label">Selected Payment Method</p>
+                  <h3 class="detail-value">{{ selectedMethod?.display_name }}</h3>
+                  <p class="detail-desc">{{ selectedMethod?.instructions }}</p>
                 </div>
 
                 <!-- Bank Transfer details -->
-                <div v-if="selectedMethod?.type === 'bank_transfer'" class="bg-surface-container-lowest rounded-lg p-4 border border-outline-variant flex flex-col gap-2 mt-2">
-                  <div class="flex justify-between text-sm py-1 border-b border-surface-container">
-                    <span class="text-on-surface-variant font-medium">Bank Name</span>
-                    <span class="font-bold text-on-surface">{{ selectedMethod?.bank_name }}</span>
+                <div v-if="selectedMethod?.type === 'bank_transfer'" class="bank-details">
+                  <div class="bank-row">
+                    <span>Bank Name</span>
+                    <span class="bank-val">{{ selectedMethod?.bank_name }}</span>
                   </div>
-                  <div class="flex justify-between text-sm py-1 border-b border-surface-container">
-                    <span class="text-on-surface-variant font-medium">Account Number</span>
-                    <span class="font-bold text-on-surface select-all">{{ selectedMethod?.account_number }}</span>
+                  <div class="bank-row">
+                    <span>Account Number</span>
+                    <span class="bank-val selectable">{{ selectedMethod?.account_number }}</span>
                   </div>
-                  <div class="flex justify-between text-sm py-1">
-                    <span class="text-on-surface-variant font-medium">Account Name</span>
-                    <span class="font-bold text-on-surface">{{ selectedMethod?.account_name }}</span>
+                  <div class="bank-row bank-row-last">
+                    <span>Account Name</span>
+                    <span class="bank-val">{{ selectedMethod?.account_name }}</span>
                   </div>
                 </div>
 
                 <!-- QRIS Image -->
-                <div v-if="selectedMethod?.type === 'qris'" class="flex flex-col items-center justify-center p-4 mt-2 bg-white rounded-lg border border-outline-variant w-fit mx-auto">
-                  <img 
-                    :src="selectedMethod?.qris_image_url || ''" 
-                    alt="QRIS Code" 
-                    class="h-64 w-64 object-contain"
+                <div v-if="selectedMethod?.type === 'qris'" class="qris-box">
+                  <img
+                    :src="selectedMethod?.qris_image_url || ''"
+                    alt="QRIS Code"
+                    class="qris-img"
                   />
-                  <span class="font-label-bold text-[10px] text-on-surface-variant mt-2 tracking-widest uppercase">Scan QRIS Code to Pay</span>
+                  <span class="qris-caption">Scan QRIS Code to Pay</span>
                 </div>
               </div>
 
               <!-- Upload Section -->
-              <div class="bg-surface-container rounded-xl p-6 border border-surface-variant flex flex-col gap-4">
-                <div>
-                  <h3 class="font-headline-lg text-[20px] font-bold text-on-surface mb-1">Upload Payment Proof</h3>
-                  <p class="font-body-md text-body-md text-on-surface-variant text-sm">Please upload transaction receipt in JPG, PNG, or WebP format.</p>
+              <div class="upload-section">
+                <h3 class="upload-title">Upload Payment Proof</h3>
+                <p class="upload-desc">Please upload transaction receipt in JPG, PNG, or WebP format.</p>
+
+                <div class="file-drop-zone">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    class="file-input-hidden"
+                    @change="onProofChange"
+                  />
+                  <div class="file-drop-content">
+                    <span class="material-symbols-outlined file-icon">upload_file</span>
+                    <span class="file-text">{{ proofFile ? proofFile.name : 'Choose payment proof image' }}</span>
+                  </div>
                 </div>
 
-                <div class="flex flex-col gap-3">
-                  <!-- File selection UI -->
-                  <div class="relative w-full h-16 border-2 border-dashed border-outline-variant rounded-lg hover:border-primary transition-colors flex items-center justify-center bg-surface-container-lowest cursor-pointer group">
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                      @change="onProofChange"
-                    />
-                    <div class="flex items-center gap-2 text-on-surface-variant group-hover:text-primary">
-                      <span class="material-symbols-outlined text-xl">upload_file</span>
-                      <span class="font-label-bold text-sm">
-                        {{ proofFile ? proofFile.name : 'Choose payment proof image' }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col sm:flex-row gap-3 mt-2">
-                    <button 
-                      @click="uploadProof"
-                      :disabled="loading || !proofFile"
-                      class="flex-1 bg-on-secondary-fixed text-white font-label-bold text-label-bold py-3.5 rounded-lg hover:bg-opacity-90 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {{ loading ? 'Uploading...' : 'Upload Proof' }}
-                    </button>
-                    <RouterLink 
-                      to="/registration-status" 
-                      class="px-6 py-3.5 border-2 border-outline rounded-lg font-label-bold text-label-bold text-on-surface hover:bg-surface-variant transition-colors text-center block sm:inline-block"
-                    >
-                      Check Status
-                    </RouterLink>
-                  </div>
+                <div class="upload-actions">
+                  <button
+                    @click="uploadProof"
+                    :disabled="loading || !proofFile"
+                    class="btn-primary-flex"
+                  >
+                    {{ loading ? 'Uploading...' : 'Upload Proof' }}
+                  </button>
+                  <RouterLink to="/registration-status" class="btn-outline-inline">
+                    Check Status
+                  </RouterLink>
                 </div>
               </div>
 
               <!-- Alert notifications -->
-              <div v-if="message" class="p-4 rounded-xl bg-green-100 text-green-800 text-sm font-bold border border-green-300">
-                {{ message }}
-              </div>
-              <div v-if="errors.fullName" class="p-4 rounded-xl bg-error-container text-on-error-container text-sm font-bold border border-error">
-                {{ errors.fullName }}
-              </div>
+              <div v-if="message" class="alert-success">{{ message }}</div>
+              <div v-if="errors.fullName" class="alert-error">{{ errors.fullName }}</div>
             </div>
           </div>
         </div>
       </div>
-
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-on-background dark:bg-on-background w-full mt-auto">
-      <div class="flex flex-col md:flex-row justify-between items-center w-full px-gutter py-8 max-w-container-max mx-auto font-body-md text-body-md">
-        <div class="font-headline-lg text-headline-lg text-surface-lowest mb-4 md:mb-0">
-          Fitnez Gym
-        </div>
-        <div class="flex flex-wrap justify-center gap-6 text-primary-fixed dark:text-primary-fixed-dim">
-          <RouterLink class="text-secondary-fixed-dim hover:text-surface-bright transition-colors duration-200 opacity-80 hover:opacity-100 transition-opacity" to="/">Home</RouterLink>
-          <RouterLink class="text-secondary-fixed-dim hover:text-surface-bright transition-colors duration-200 opacity-80 hover:opacity-100 transition-opacity" to="/faq">FAQ</RouterLink>
-          <RouterLink class="text-secondary-fixed-dim hover:text-surface-bright transition-colors duration-200 opacity-80 hover:opacity-100 transition-opacity" to="/privacy-cookie-policy">Privacy & Cookie Policy</RouterLink>
-        </div>
-        <div class="text-secondary-fixed-dim mt-4 md:mt-0 text-sm">
-          © 2024 Fitnez Gym. All rights reserved.
-        </div>
-          <div class="panel panel-blue" style="margin-top: 1.5rem;">
-            <p style="color: rgba(255,255,255,0.9); font-weight: 800;">Amount to Pay</p>
-            <p class="stat-value" style="color: white;">Rp {{ Number(registration.amount).toLocaleString('id-ID') }}</p>
-          </div>
-
-          <div class="panel" style="background: var(--color-cream); margin-top: 1rem;">
-            <p class="title-md">{{ selectedPackage?.name }}</p>
-            <p class="text-muted">{{ selectedPackage?.duration_months }} month(s)</p>
-          </div>
-
-          <p class="text-muted">
-            Save this registration code. Use it to check whether admin has approved your account.
-          </p>
-        </FitnezCard>
-
-        <FitnezCard>
-          <h2 class="title-md">Payment instruction</h2>
-          <p class="text-muted">Pay manually using the selected method, then upload payment proof.</p>
-
-          <div class="panel" style="margin-top: 1rem;">
-            <p class="title-md">{{ selectedMethod?.display_name }}</p>
-            <p class="text-muted">{{ selectedMethod?.instructions }}</p>
-
-            <div v-if="selectedMethod?.type === 'bank_transfer'" class="panel" style="background: var(--color-cream); margin-top: 1rem;">
-              <p>Bank: {{ selectedMethod.bank_name }}</p>
-              <p>Account Number: {{ selectedMethod.account_number }}</p>
-              <p>Account Name: {{ selectedMethod.account_name }}</p>
-            </div>
-
-            <img
-              v-if="selectedMethod?.type === 'qris'"
-              :src="selectedMethod.qris_image_url || ''"
-              alt="QRIS"
-              style="background: white; border: 1px solid var(--color-border); border-radius: var(--radius-md); height: 16rem; margin-top: 1rem; max-width: 100%; object-fit: contain; padding: 1rem; width: 16rem;"
-            />
-          </div>
-
-          <div class="panel" style="background: var(--color-cream); margin-top: 1rem;">
-            <p class="title-md">Upload payment proof</p>
-            <p class="text-muted">Use JPG, PNG, or WebP transaction screenshot.</p>
-            <input style="margin-top: 1rem; width: 100%;" type="file" accept="image/*" @change="onProofChange" />
-
-            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem;">
-              <FitnezButton :disabled="loading" @click="uploadProof">
-                {{ loading ? 'Uploading...' : 'Upload Proof' }}
-              </FitnezButton>
-              <RouterLink to="/registration-status" class="button button-black">Check Status</RouterLink>
-            </div>
-          </div>
-
-          <p v-if="message" class="alert alert-success">{{ message }}</p>
-          <p v-if="errors.fullName" class="alert alert-error">{{ errors.fullName }}</p>
-        </FitnezCard>
-      </div>
-    </footer>
+    <LandingPublicFooter />
   </div>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
-.Outfit {
-  font-family: 'Outfit', sans-serif !important;
-}
-
-.gradient-bg {
-  background: linear-gradient(135deg, #eef2f6 0%, #fef1eb 100%) !important;
-}
-
-/* Typography styles matching custom properties in HTML mockup */
-.font-headline-xl {
-  font-family: 'Outfit', sans-serif !important;
-  font-size: 48px !important;
-  line-height: 1.2 !important;
-  letter-spacing: -0.02em !important;
-  font-weight: 700 !important;
-}
-.font-headline-lg {
-  font-family: 'Outfit', sans-serif !important;
-  font-size: 32px !important;
-  line-height: 1.3 !important;
-  font-weight: 700 !important;
-}
-.font-body-lg {
-  font-family: 'Outfit', sans-serif !important;
-  font-size: 20px !important;
-  line-height: 1.6 !important;
-  font-weight: 400 !important;
-}
-.font-body-md {
-  font-family: 'Outfit', sans-serif !important;
-  font-size: 16px !important;
-  line-height: 1.6 !important;
-  font-weight: 400 !important;
-}
-.font-label-bold {
-  font-family: 'Outfit', sans-serif !important;
-  font-size: 14px !important;
-  line-height: 1.0 !important;
-  letter-spacing: 0.05em !important;
-  font-weight: 700 !important;
+/* ===== Page Root ===== */
+.reg-page {
+  font-family: 'Outfit', sans-serif;
+  background: linear-gradient(135deg, #eef2f6 0%, #fef1eb 100%);
+  color: #0b1c30;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom color utility classes mapped from tailwind config block */
-.bg-surface-bright { background-color: #f8f9ff !important; }
-.text-on-surface { color: #0b1c30 !important; }
-.text-on-surface-variant { color: #424754 !important; }
-.bg-surface-variant { background-color: #d3e4fe !important; }
-.bg-surface-container-lowest { background-color: #ffffff !important; }
-.text-brand-orange { color: #f97316 !important; }
-.bg-brand-orange { background-color: #f97316 !important; }
-.border-outline-variant { border-color: #c2c6d6 !important; }
-.border-outline { border-color: #727785 !important; }
-.border-primary { border-color: #005ac2 !important; }
-.bg-primary { background-color: #0058be !important; }
-.text-primary { color: #0058be !important; }
-.bg-on-secondary-fixed { background-color: #131b2e !important; }
-.bg-on-background { background-color: #0b1c30 !important; }
-.text-surface-lowest { color: #ffffff !important; }
-.text-secondary-fixed-dim { color: #bec6e0 !important; }
-.text-error { color: #ba1a1a !important; }
-.border-error { border-color: #ba1a1a !important; }
-.bg-error-container { background-color: #ffdad6 !important; }
-.text-on-error-container { color: #93000a !important; }
-
-/* Custom margins / spacing properties */
-.px-gutter { padding-left: 24px !important; padding-right: 24px !important; }
-.max-w-container-max { max-width: 1280px !important; }
-.py-section-padding-mobile { padding-top: 64px !important; padding-bottom: 64px !important; }
-.py-section-padding-desktop { padding-top: 120px !important; padding-bottom: 120px !important; }
-
-.nav-scrolled {
-  background-color: rgba(248, 249, 255, 0.9) !important;
-  backdrop-filter: blur(12px) !important;
-  border-bottom: 1px solid rgba(194, 198, 214, 0.3) !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
-}
-
-.nav-link {
-  position: relative;
-}
-
-.nav-link::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -4px;
-  left: 0;
-  background-color: #0058be;
-  transition: width 0.3s ease;
-}
-
-.nav-link:hover::after {
+.reg-main {
+  flex-grow: 1;
   width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 120px 24px 80px;
+}
+
+/* ===== Header ===== */
+.reg-header {
+  margin-bottom: 3rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.reg-eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0058be;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.5rem;
+}
+
+.reg-title {
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+  color: #0b1c30;
+}
+
+.reg-subtitle {
+  font-size: 18px;
+  color: #424754;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ===== Buttons ===== */
+.btn-outline-pill {
+  padding: 0.65rem 1.5rem;
+  border: 2px solid #727785;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b1c30;
+  text-decoration: none;
+  transition: all 0.2s;
+  text-align: center;
+  white-space: nowrap;
+}
+.btn-outline-pill:hover {
+  background: #d3e4fe;
+  border-color: #0058be;
+  color: #0058be;
+}
+
+.btn-primary-full {
+  width: 100%;
+  background: #131b2e;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.5rem;
+}
+.btn-primary-full:hover { background: #1e293b; }
+.btn-primary-full:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary-flex {
+  flex: 1;
+  background: #131b2e;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary-flex:hover { background: #1e293b; }
+.btn-primary-flex:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-outline-inline {
+  padding: 0.875rem 1.5rem;
+  border: 2px solid #727785;
+  border-radius: 0.75rem;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b1c30;
+  text-decoration: none;
+  transition: all 0.2s;
+  text-align: center;
+}
+.btn-outline-inline:hover { background: #d3e4fe; border-color: #0058be; }
+
+/* ===== Form Grid ===== */
+.reg-form-grid {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 2rem;
+}
+
+.reg-col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.reg-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* ===== Cards ===== */
+.reg-card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 2rem;
+  border: 1px solid #c2c6d6;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.reg-card-full {
+  flex: 1;
+}
+
+.card-heading {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0b1c30;
+  margin: 0;
+}
+
+.card-subtitle {
+  font-size: 16px;
+  color: #424754;
+  margin: -0.5rem 0 0;
+}
+
+/* ===== Fields ===== */
+.fields-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b1c30;
+}
+
+.required-mark {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.optional-mark {
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.field-input {
+  width: 100%;
+  height: 3rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #c2c6d6;
+  background: transparent;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  color: #0b1c30;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field-input:focus {
+  border-color: #0058be;
+  box-shadow: 0 0 0 2px rgba(0, 88, 190, 0.12);
+}
+
+.field-input.field-error {
+  border-color: #dc2626;
+}
+
+.field-input.field-error:focus {
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+}
+
+.error-text {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+/* ===== Package Cards ===== */
+.pkg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.pkg-label {
+  cursor: pointer;
+  position: relative;
+  display: block;
+}
+
+.pkg-badge {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  background: #f97316;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  z-index: 1;
+}
+
+.pkg-card {
+  padding: 1.25rem;
+  border-radius: 0.875rem;
+  border: 1px solid #c2c6d6;
+  background: #fff;
+  transition: all 0.2s;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pkg-card:hover {
+  border-color: #0058be;
+}
+
+.pkg-card-active {
+  border: 2px solid #0058be;
+  background: #f0f5ff;
+  box-shadow: 0 0 0 3px rgba(0, 88, 190, 0.08);
+}
+
+.pkg-top { }
+
+.pkg-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0b1c30;
+  margin: 0 0 0.25rem;
+  line-height: 1.3;
+}
+
+.pkg-duration {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.pkg-bottom { }
+
+.pkg-price {
+  font-size: 20px;
+  font-weight: 900;
+  color: #f97316;
+  margin: 0;
+}
+
+.pkg-monthly {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0.15rem 0 0;
+}
+
+.pkg-perk {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.65rem;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+/* ===== Price Callout ===== */
+.price-callout {
+  background: linear-gradient(135deg, #fef3c7 0%, #fff7ed 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+}
+
+.price-callout-lg {
+  padding: 1.5rem 2rem;
+}
+
+.price-callout-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+}
+
+.price-callout-value {
+  font-size: 32px;
+  font-weight: 900;
+  color: #b45309;
+  line-height: 1.2;
+}
+
+.price-callout-info {
+  font-size: 13px;
+  color: #92400e;
+  margin-top: 0.35rem;
+}
+
+/* ===== Payment Method ===== */
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.method-label {
+  cursor: pointer;
+  display: block;
+}
+
+.method-card {
+  padding: 1.25rem;
+  border-radius: 0.875rem;
+  border: 1px solid #c2c6d6;
+  background: #fff;
+  transition: all 0.2s;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.method-card:hover {
+  border-color: #0058be;
+}
+
+.method-card-active {
+  border: 2px solid #0058be;
+  background: #f0f5ff;
+  box-shadow: 0 0 0 3px rgba(0, 88, 190, 0.08);
+}
+
+.method-icon {
+  background: #e0e7ff;
+  border-radius: 0.75rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #3730a3;
+}
+
+.method-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b1c30;
+  margin: 0 0 0.25rem;
+}
+
+.method-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ===== Alerts ===== */
+.alert-error {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid #fca5a5;
+}
+
+.alert-success {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid #86efac;
+}
+
+/* ===== Post-Submission: Code Row ===== */
+.code-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.code-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.code-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.code-value {
+  font-size: 20px;
+  font-weight: 900;
+  color: #0b1c30;
+  margin: 0;
+  user-select: all;
+}
+
+.code-copy-btn {
+  background: none;
+  border: none;
+  color: #0058be;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.code-copy-btn:hover { background: #e0e7ff; }
+
+/* ===== Summary Card ===== */
+.summary-card {
+  padding: 1.25rem;
+  border-radius: 0.875rem;
+  border: 1px solid #c2c6d6;
+  background: #fff;
+}
+
+.summary-pkg-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0b1c30;
+  margin: 0 0 0.25rem;
+}
+
+.summary-pkg-duration {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.reg-notice {
+  font-size: 14px;
+  color: #424754;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.notice-bold {
+  font-weight: 800;
+  color: #0b1c30;
+}
+
+/* ===== Payment Details ===== */
+.payment-details-box {
+  background: #f8fafc;
+  border-radius: 0.875rem;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detail-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.25rem;
+}
+
+.detail-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0b1c30;
+  margin: 0;
+}
+
+.detail-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0.25rem 0 0;
+  line-height: 1.4;
+}
+
+.bank-details {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.bank-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+  color: #64748b;
+}
+
+.bank-row-last {
+  border-bottom: none;
+}
+
+.bank-val {
+  font-weight: 800;
+  color: #0b1c30;
+}
+
+.selectable {
+  user-select: all;
+}
+
+.qris-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.qris-img {
+  height: 256px;
+  width: 256px;
+  object-fit: contain;
+}
+
+.qris-caption {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.5rem;
+}
+
+/* ===== Upload Section ===== */
+.upload-section {
+  background: #f8fafc;
+  border-radius: 0.875rem;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upload-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0b1c30;
+  margin: 0;
+}
+
+.upload-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.file-drop-zone {
+  position: relative;
+  width: 100%;
+  height: 4rem;
+  border: 2px dashed #c2c6d6;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.file-drop-zone:hover { border-color: #0058be; }
+
+.file-input-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.file-drop-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #64748b;
+}
+
+.file-icon { font-size: 22px; }
+
+.file-text {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.upload-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+  .reg-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .reg-title {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .reg-main {
+    padding-top: 100px;
+    padding-bottom: 60px;
+  }
+  .pkg-grid,
+  .method-grid {
+    grid-template-columns: 1fr;
+  }
+  .upload-actions {
+    flex-direction: column;
+  }
+  .reg-title {
+    font-size: 26px;
+  }
+  .price-callout-value {
+    font-size: 24px;
+  }
 }
 </style>

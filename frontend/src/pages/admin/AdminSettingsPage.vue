@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import RoleLayout from '../../components/layout/RoleLayout.vue'
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
@@ -78,7 +78,7 @@ onMounted(() => run(loadSettingsOverview))
 </script>
 
 <template>
-  <RoleLayout role="admin" sidebar-title="Admin" title="Settings" subtitle="Summary of operational configurations currently active in the database." :sidebar-items="adminSidebarItems">
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Settings" subtitle="Summary of operational configurations currently active in the database." :sidebar-items="adminSidebarItems">
     <template #default>
       <div v-if="loading" :style="shimmerStyle">
         <SkeletonStatGrid :count="3" />
@@ -171,5 +171,5 @@ onMounted(() => run(loadSettingsOverview))
       </div>
       </template>
     </template>
-  </RoleLayout>
+  </WorkspaceLayout>
 </template>

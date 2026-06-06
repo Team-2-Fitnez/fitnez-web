@@ -180,6 +180,7 @@ export default {
       hariIni: [],
       besok: [],
       readDummyIds: JSON.parse(localStorage.getItem('fitnez_read_notifs') || '[]'),
+      refreshInterval: null,
     }
   },
   computed: {
@@ -189,8 +190,49 @@ export default {
   },
   async mounted() {
     await this.fetchNotifications()
+    this.refreshInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        // Do a silent refresh in background without setting full screen loading overlay
+        this.fetchNotificationsSilent()
+      }
+    }, 8000)
+  },
+  beforeUnmount() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval)
+    }
   },
   methods: {
+    async fetchNotificationsSilent() {
+      try {
+        // 1. Fetch general notifications
+        const respNotif = await api.get('/notifications')
+        const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
+        
+        this.realNotifications = rawRealNotifs.map(n => ({
+          ...n,
+          is_read: n.is_read || this.readDummyIds.includes(n.id)
+        }))
+
+        // 2. Fetch workout plans
+        const respWorkout = await api.get('/workout-plans')
+        const workoutPlans = Array.isArray(respWorkout.data) ? respWorkout.data : (respWorkout.data?.data || [])
+        
+        const reminders = workoutPlans.map(w => ({
+          id: 'workout-' + w.id,
+          title: w.name,
+          body: `${w.category} - ${w.reps} reps x ${w.set} set - ${w.weight}kg`,
+          created_at: w.created_at,
+          group_date: w.date,
+          is_read: !!w.completed,
+          type: 'workout'
+        }))
+
+        this.groupWorkoutReminders(reminders)
+      } catch (error) {
+        // ignore background error
+      }
+    },
     async fetchNotifications() {
       try {
         this.loading = true

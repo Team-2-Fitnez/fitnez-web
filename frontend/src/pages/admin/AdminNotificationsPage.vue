@@ -78,10 +78,21 @@ export default {
       pendingTrainerCount: 0,
       notifications: [],
       readAdminNotifIds: JSON.parse(localStorage.getItem('fitnez_admin_read_notifs') || '[]'),
+      refreshInterval: null,
     }
   },
   async mounted() {
     await this.fetchAdminData()
+    this.refreshInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        this.fetchAdminData()
+      }
+    }, 8000)
+  },
+  beforeUnmount() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval)
+    }
   },
   methods: {
     isRead(id) {

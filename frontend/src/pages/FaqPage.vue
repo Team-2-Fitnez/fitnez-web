@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { http } from '../api/http'
+import LandingPublicNav from '../components/landing/LandingPublicNav.vue'
 import SkeletonFaqAccordion from '../components/ui/skeleton/SkeletonFaqAccordion.vue'
 import { useDeferredLoading } from '../composables/useDeferredLoading'
 
@@ -14,89 +15,63 @@ interface FaqItem {
 
 const faqs = ref<FaqItem[]>([])
 const categories = ref<string[]>([])
-const activeCategory = ref<string>('')
+const activeCategory = ref('')
 const searchQuery = ref('')
-const { loading, run, shimmerStyle } = useDeferredLoading()
 const openId = ref<number | null>(null)
+const { loading, run, shimmerStyle } = useDeferredLoading()
 
-function toggle(id: number) {
-  openId.value = openId.value === id ? null : id
-}
-
-// Improved token-based scoring and exact boost search
 const filteredFaqs = computed(() => {
-  let result = faqs.value
-  if (activeCategory.value) {
-    result = result.filter(f => f.category === activeCategory.value)
-  }
-  
+  let result = activeCategory.value
+    ? faqs.value.filter(faq => faq.category === activeCategory.value)
+    : faqs.value
+
   const query = searchQuery.value.trim().toLowerCase()
-  if (!query) {
-    return result
-  }
-  
-  const tokens = query.split(/\s+/).filter(t => t.length > 0)
-  if (tokens.length === 0) {
-    return result
-  }
-  
-  const scored = result.map(faq => {
-    let score = 0
-    const qText = faq.question.toLowerCase()
-    const aText = faq.answer.toLowerCase()
-    
-    // Exact match boost
-    if (qText.includes(query)) {
-      score += 50
-    }
-    if (aText.includes(query)) {
-      score += 10
-    }
-    
-    // Token-based matching
-    let matchedAllTokens = true
-    tokens.forEach(token => {
-      const inQuestion = qText.includes(token)
-      const inAnswer = aText.includes(token)
-      
-      if (inQuestion || inAnswer) {
-        if (inQuestion) score += 15
-        if (inAnswer) score += 5
-      } else {
-        matchedAllTokens = false
-      }
+  if (!query) return result
+
+  const tokens = query.split(/\s+/).filter(Boolean)
+  if (!tokens.length) return result
+
+  return result
+    .map(faq => {
+      const question = faq.question.toLowerCase()
+      const answer = faq.answer.toLowerCase()
+      let score = 0
+
+      if (question.includes(query)) score += 50
+      if (answer.includes(query)) score += 10
+
+      const matchedAll = tokens.every(token => {
+        const questionMatch = question.includes(token)
+        const answerMatch = answer.includes(token)
+        if (questionMatch) score += 15
+        if (answerMatch) score += 5
+        return questionMatch || answerMatch
+      })
+
+      if (matchedAll) score += 30
+      return { faq, score }
     })
-    
-    // If it matches all tokens, give it a massive boost
-    if (matchedAllTokens) {
-      score += 30
-    }
-    
-    return { faq, score }
-  })
-  
-  // Only keep items with a score > 0, and sort by highest score
-  return scored
     .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .map(item => item.faq)
 })
 
-// Multi-token highlighting system
+function toggle(id: number) {
+  openId.value = openId.value === id ? null : id
+}
+
 function highlight(text: string): string {
   const query = searchQuery.value.trim()
   if (!query) return text
-  
-  const tokens = query.split(/\s+/).filter(t => t.length > 0)
-  if (tokens.length === 0) return text
-  
-  // Sort tokens by length descending so longer words get highlighted first
-  const sortedTokens = [...tokens].sort((a, b) => b.length - a.length)
-  
-  // Escape regex special chars
-  const escapedTokens = sortedTokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  const regex = new RegExp(`(${escapedTokens.join('|')})`, 'gi')
-  return text.replace(regex, '<mark class="search-highlight">$1</mark>')
+
+  const tokens = query
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .map(token => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+
+  if (!tokens.length) return text
+  return text.replace(new RegExp(`(${tokens.join('|')})`, 'gi'), '<mark class="search-highlight">$1</mark>')
 }
 
 onMounted(() => {
@@ -112,59 +87,12 @@ onMounted(() => {
       window.showFitnezToast('Failed to load FAQs.', 'error')
     }
   })
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase()
-    result = result.filter(f =>
-      f.question.toLowerCase().includes(q) ||
-      f.answer.toLowerCase().includes(q)
-    )
-  }
-  return result
-})
-
-function highlight(text: string): string {
-  if (!searchQuery.value.trim()) return text
-  const q = searchQuery.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`(${q})`, 'gi')
-  return text.replace(regex, '<mark class="search-highlight">$1</mark>')
-}
-
-onMounted(async () => {
-  try {
-    const [faqRes, catRes] = await Promise.all([
-      http.get<FaqItem[]>('/faqs'),
-      http.get<string[]>('/faqs/categories'),
-    ])
-    faqs.value = faqRes.data
-    categories.value = catRes.data
-  } catch {
-    window.showFitnezToast('Gagal memuat FAQ.', 'error')
-  } finally {
-    loading.value = false
-  }
 })
 </script>
 
 <template>
   <div class="bg-background text-on-background font-body-md min-h-screen flex flex-col Outfit pt-20">
-    <!-- TopNavBar (Shared Component, identical to Landing Page) -->
-    <nav class="fixed top-0 w-full z-[100] transition-all duration-300 nav-scrolled py-2" id="navbar">
-      <div class="flex justify-between items-center px-gutter max-w-container-max mx-auto">
-        <div class="flex items-center gap-2">
-          <span class="font-headline-lg text-headline-lg font-extrabold text-on-background">Fitnez Gym</span>
-        </div>
-        <div class="hidden md:flex gap-stack-lg items-center">
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#features">Features</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#packages">Packages</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#how-it-works">How it Works</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/faq">FAQ</RouterLink>
-        </div>
-        <div class="flex gap-4">
-          <RouterLink to="/login/member" class="hidden sm:block text-primary font-label-bold text-label-bold hover:bg-primary-container/10 px-4 py-2 rounded-lg transition-all text-center">Login</RouterLink>
-          <RouterLink to="/register" class="bg-primary text-on-primary font-label-bold text-label-bold px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all text-center">Join Now</RouterLink>
-        </div>
-      </div>
-    </nav>
+    <LandingPublicNav variant="static" />
 
     <!-- Main Content -->
     <main class="flex-grow">

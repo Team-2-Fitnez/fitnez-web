@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import RoleLayout from '../../components/layout/RoleLayout.vue'
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
@@ -53,7 +53,7 @@ onMounted(() => run(loadPackages))
 </script>
 
 <template>
-  <RoleLayout role="admin" sidebar-title="Admin" title="Packages" subtitle="Monitor active membership packages, duration, prices, and class access." :sidebar-items="adminSidebarItems">
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Packages" subtitle="Monitor active membership packages, duration, prices, and class access." :sidebar-items="adminSidebarItems">
     <template #default>
       <div v-if="loading && !packages.length" :style="shimmerStyle">
         <SkeletonStatGrid :count="3" />
@@ -80,7 +80,7 @@ onMounted(() => run(loadPackages))
         <p v-if="error" class="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{{ error }}</p>
         <p v-else-if="!packages.length" class="py-10 text-center text-sm font-bold text-black/45">No membership packages in the database.</p>
 
-        <div v-else class="mt-4 overflow-x-auto">
+        <div v-else class="fitnez-desktop-only mt-4 overflow-x-auto">
           <table class="w-full min-w-[760px] text-left text-sm">
             <thead class="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
@@ -115,8 +115,40 @@ onMounted(() => run(loadPackages))
             </tbody>
           </table>
         </div>
+
+        <div v-if="packages.length" class="mobile-record-list mt-4">
+          <article v-for="item in packages" :key="`package-card-${item.id}`" class="mobile-record-card">
+            <div class="mobile-record-head">
+              <div>
+                <strong>{{ item.name }}</strong>
+                <p>{{ item.code }}</p>
+              </div>
+              <span class="rounded-full px-3 py-1 text-xs font-black" :class="item.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                {{ item.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <dl class="mobile-detail-grid">
+              <div>
+                <dt>Duration</dt>
+                <dd>{{ item.duration_months }} months</dd>
+              </div>
+              <div>
+                <dt>Price</dt>
+                <dd>{{ formatCurrency(item.price) }}</dd>
+              </div>
+              <div>
+                <dt>Class Access</dt>
+                <dd>{{ item.free_class_access ? 'Included' : 'Not included' }}</dd>
+              </div>
+              <div>
+                <dt>Benefits</dt>
+                <dd>{{ item.benefits?.length ? item.benefits.join(', ') : '-' }}</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
       </FitnezCard>
       </template>
     </template>
-  </RoleLayout>
+  </WorkspaceLayout>
 </template>

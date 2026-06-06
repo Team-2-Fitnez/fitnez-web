@@ -69,7 +69,7 @@ onMounted(async () => {
     await selectContact(contactId)
   }
 })
-onUnmounted(() => chat.stopPolling())
+onUnmounted(() => chat.resetChat())
 </script>
 
 <template>
@@ -83,7 +83,7 @@ onUnmounted(() => chat.stopPolling())
     <div style="display: grid; grid-template-columns: 280px 1fr; gap: 1rem; min-height: 500px;"
          class="chat-layout">
       <!-- Contact List -->
-      <FitnezCard style="padding: 0; overflow: hidden;">
+      <FitnezCard class="chat-contacts" style="padding: 0; overflow: hidden;">
         <div style="padding: 1rem; border-bottom: 1px solid var(--color-border);">
           <p class="stat-label">Member Contacts</p>
         </div>
@@ -95,7 +95,7 @@ onUnmounted(() => chat.stopPolling())
           <p class="text-muted" style="font-size: 0.8rem;">No contacts yet. Members who book you will appear here.</p>
         </div>
 
-        <div v-else style="max-height: 400px; overflow-y: auto;">
+        <div v-else class="chat-contact-list" style="max-height: 400px; overflow-y: auto;">
           <button
             v-for="c in chat.contacts"
             :key="c.id"
@@ -119,7 +119,7 @@ onUnmounted(() => chat.stopPolling())
       </FitnezCard>
 
       <!-- Messages -->
-      <FitnezCard style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+      <FitnezCard class="chat-panel" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
         <div v-if="!chat.activeContact" style="flex: 1; display: grid; place-items: center; padding: 2rem;">
           <p class="text-muted">Select a contact to start chatting.</p>
         </div>
@@ -137,7 +137,7 @@ onUnmounted(() => chat.stopPolling())
           </div>
 
           <!-- Messages area -->
-          <div style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 300px; max-height: 400px;">
+          <div class="chat-messages" style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; min-height: 300px; max-height: 400px;">
             <div v-if="chat.messagesLoading" style="text-align: center; padding: 2rem;">
               <p class="text-muted" style="font-size: 0.8rem;">Loading messages...</p>
             </div>
@@ -148,6 +148,7 @@ onUnmounted(() => chat.stopPolling())
               <div
                 v-for="msg in chat.messages"
                 :key="msg.id"
+                class="chat-bubble"
                 :style="{
                   alignSelf: msg.isMe ? 'flex-end' : 'flex-start',
                   background: msg.isMe ? 'var(--color-blue)' : 'var(--color-cream)',
@@ -169,7 +170,7 @@ onUnmounted(() => chat.stopPolling())
           </div>
 
           <!-- Input -->
-          <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--color-border); display: flex; gap: 0.5rem;">
+          <div class="chat-composer" style="padding: 0.75rem 1rem; border-top: 1px solid var(--color-border); display: flex; gap: 0.5rem;">
             <input
               v-model="newMessage"
               class="form-input"
@@ -188,9 +189,59 @@ onUnmounted(() => chat.stopPolling())
 </template>
 
 <style scoped>
+.chat-layout,
+.chat-panel,
+.chat-contacts {
+  min-width: 0;
+}
+
+.chat-panel {
+  min-height: min(620px, calc(100dvh - 11rem));
+}
+
+.chat-contact-list,
+.chat-messages {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.chat-composer {
+  background: #ffffff;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.chat-composer input {
+  min-width: 0;
+}
+
 @media (max-width: 768px) {
   .chat-layout {
     grid-template-columns: 1fr !important;
+    min-height: 0 !important;
+  }
+
+  .chat-contact-list {
+    max-height: 14rem !important;
+  }
+
+  .chat-panel {
+    min-height: calc(100dvh - 12rem);
+  }
+
+  .chat-messages {
+    max-height: none !important;
+    min-height: 18rem !important;
+  }
+
+  .chat-bubble {
+    max-width: 88% !important;
+  }
+
+  .chat-composer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

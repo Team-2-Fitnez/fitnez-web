@@ -142,4 +142,32 @@ function close() {
 .progress-bar-track { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
 .progress-bar-fill { height: 100%; background: var(--color-primary); border-radius: 4px; transition: width 0.3s; }
 .file-label:hover { border-color: var(--color-primary); background: var(--color-cream); }
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: end;
+    padding: 0.75rem;
+  }
+
+  .modal-panel {
+    border-radius: 1rem;
+    max-height: calc(100dvh - 1.5rem);
+    width: 100%;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .modal-footer .button {
+    width: 100%;
+  }
+}
 </style>

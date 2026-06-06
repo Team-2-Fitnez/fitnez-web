@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { landingVisitService } from '../services/landingVisitService'
-import CookieConsent from '../components/CookieConsent.vue'
 import LandingPublicNav from '../components/landing/LandingPublicNav.vue'
 import LandingPublicFooter from '../components/landing/LandingPublicFooter.vue'
 
 let stopTracking: null | (() => void) = null
-const cookieConsentRef = ref<InstanceType<typeof CookieConsent> | null>(null)
 
 function openCookieSettings() {
-  cookieConsentRef.value?.openCookieSettingsFromFooter()
+  window.dispatchEvent(new CustomEvent('open-cookie-settings'))
 }
 
 function smoothScroll(e: Event, targetId: string) {
@@ -388,7 +386,6 @@ onMounted(() => {
       Cookie Settings
     </button>
 
-    <CookieConsent ref="cookieConsentRef" />
   </div>
 </template>
 

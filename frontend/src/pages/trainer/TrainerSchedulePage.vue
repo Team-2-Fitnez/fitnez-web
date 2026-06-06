@@ -5,6 +5,7 @@ import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import { useBookingStore } from '../../stores/bookingStore'
 import SkeletonScheduleSession from '../../components/ui/skeleton/SkeletonScheduleSession.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useBookingStore()
 const { run } = useDeferredLoading()
@@ -138,6 +139,7 @@ onMounted(() => {
     hasLoadedBookings.value = true
   })
 })
+useAutoRefresh(() => store.loadBookings(), 8000)
 </script>
 
 <template>
@@ -497,6 +499,7 @@ onMounted(() => {
 /* RIGHT COLUMN */
 .right-column {
   min-height: 520px;
+  min-width: 0;
 }
 
 .tab-link {
@@ -511,6 +514,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: center;
+  white-space: nowrap;
 }
 
 .tab-link:hover {
@@ -717,4 +721,69 @@ onMounted(() => {
 .mt-1 { margin-top: 0.25rem; }
 .flex { display: flex; }
 .gap-2 { gap: 0.5rem; }
+
+@media (max-width: 760px) {
+  .trainer-schedule-layout,
+  .schedule-grid,
+  .left-column,
+  .right-column {
+    min-width: 0;
+  }
+
+  .calendar-header,
+  .session-card-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-days-week-grid,
+  .calendar-days-numbers-grid {
+    gap: 0.18rem;
+    font-size: 0.7rem;
+  }
+
+  .day-number-cell {
+    border-radius: 0.45rem;
+    height: 2rem;
+  }
+
+  .right-column {
+    min-height: 0;
+  }
+
+  .right-column > .flex:first-child {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-link {
+    flex: 0 0 auto;
+    min-width: 9.5rem;
+  }
+
+  .session-detail-card {
+    padding: 1rem !important;
+  }
+
+  .session-detail-card > .flex:first-child {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .status-pill {
+    width: fit-content;
+  }
+
+  .session-card-footer > .flex {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-primary-small,
+  .btn-ghost-small {
+    min-height: 2.75rem;
+    width: 100%;
+  }
+}
 </style>

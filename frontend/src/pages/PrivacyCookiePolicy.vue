@@ -1,27 +1,11 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import LandingPublicNav from '../components/landing/LandingPublicNav.vue'
 </script>
 
 <template>
   <div class="bg-surface-bright text-on-surface antialiased min-h-screen flex flex-col gradient-bg Outfit pt-20">
-    <!-- TopNavBar -->
-    <nav class="fixed top-0 w-full z-[100] transition-all duration-300 nav-scrolled py-2" id="navbar">
-      <div class="flex justify-between items-center px-gutter max-w-container-max mx-auto">
-        <div class="flex items-center gap-2">
-          <span class="font-headline-lg text-headline-lg font-extrabold text-on-background">Fitnez Gym</span>
-        </div>
-        <div class="hidden md:flex gap-stack-lg items-center">
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#features">Features</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#packages">Packages</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/#how-it-works">How it Works</RouterLink>
-          <RouterLink class="nav-link text-on-surface-variant hover:text-primary transition-colors font-label-bold text-label-bold" to="/faq">FAQ</RouterLink>
-        </div>
-        <div class="flex gap-4">
-          <RouterLink to="/login/member" class="hidden sm:block text-primary font-label-bold text-label-bold hover:bg-primary-container/10 px-4 py-2 rounded-lg transition-all text-center">Login</RouterLink>
-          <RouterLink to="/register" class="bg-primary text-on-primary font-label-bold text-label-bold px-6 py-2.5 rounded-full hover:shadow-lg hover:scale-105 active:scale-95 transition-all text-center">Join Now</RouterLink>
-        </div>
-      </div>
-    </nav>
+    <LandingPublicNav variant="static" />
 
     <!-- Main Content Grid -->
     <main class="flex-grow max-w-container-max mx-auto w-full px-gutter py-12 flex flex-col md:flex-row gap-8 relative">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import RoleLayout from '../../components/layout/RoleLayout.vue'
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
@@ -8,6 +8,7 @@ import { http } from '../../api/http'
 import SkeletonStatGrid from '../../components/ui/skeleton/SkeletonStatGrid.vue'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 type ClassItem = {
   id: number
@@ -41,10 +42,11 @@ async function loadClasses() {
 }
 
 onMounted(() => run(loadClasses))
+useAutoRefresh(loadClasses, 10000)
 </script>
 
 <template>
-  <RoleLayout role="admin" sidebar-title="Admin" title="Classes" subtitle="Monitor active classes, trainers, schedules, capacity, and participants." :sidebar-items="adminSidebarItems">
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Classes" subtitle="Monitor active classes, trainers, schedules, capacity, and participants." :sidebar-items="adminSidebarItems">
     <template #default>
       <div v-if="loading && !classes.length" :style="shimmerStyle">
         <SkeletonStatGrid :count="3" />
@@ -71,7 +73,7 @@ onMounted(() => run(loadClasses))
         <p v-if="error" class="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{{ error }}</p>
         <p v-else-if="!classes.length" class="py-10 text-center text-sm font-bold text-black/45">No active classes in the database.</p>
 
-        <div v-else class="mt-4 overflow-x-auto">
+        <div v-else class="fitnez-desktop-only mt-4 overflow-x-auto">
           <table class="w-full min-w-[760px] text-left text-sm">
             <thead class="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
@@ -100,8 +102,38 @@ onMounted(() => run(loadClasses))
             </tbody>
           </table>
         </div>
+
+        <div v-if="classes.length" class="mobile-record-list mt-4">
+          <article v-for="item in classes" :key="`class-card-${item.id}`" class="mobile-record-card">
+            <div class="mobile-record-head">
+              <div>
+                <strong>{{ item.name }}</strong>
+                <p>{{ item.description || 'No class description.' }}</p>
+              </div>
+              <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">{{ item.status }}</span>
+            </div>
+            <dl class="mobile-detail-grid">
+              <div>
+                <dt>Trainer</dt>
+                <dd>{{ item.trainer_name || '-' }}</dd>
+              </div>
+              <div>
+                <dt>Day</dt>
+                <dd>{{ item.day_of_week }}</dd>
+              </div>
+              <div>
+                <dt>Time</dt>
+                <dd>{{ item.start_time }} - {{ item.end_time }}</dd>
+              </div>
+              <div>
+                <dt>Participants</dt>
+                <dd>{{ item.current_participants }} / {{ item.max_participants }}</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
       </FitnezCard>
       </template>
     </template>
-  </RoleLayout>
+  </WorkspaceLayout>
 </template>

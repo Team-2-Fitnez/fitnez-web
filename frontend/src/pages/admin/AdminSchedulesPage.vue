@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import RoleLayout from '../../components/layout/RoleLayout.vue'
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
@@ -11,7 +11,7 @@ const showImportModal = ref(false)
 </script>
 
 <template>
-  <RoleLayout role="admin" sidebar-title="Admin" title="Schedules" subtitle="Manage gym classes, trainer sessions, and bookings." :sidebar-items="adminSidebarItems">
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Schedules" subtitle="Manage gym classes, trainer sessions, and bookings." :sidebar-items="adminSidebarItems">
     <div class="grid gap-4 md:grid-cols-3">
       <StatCard label="Status" value="UI Ready" hint="Prepared page" />
       <StatCard label="Next Step" value="API" hint="Connect backend later" />
@@ -33,5 +33,5 @@ const showImportModal = ref(false)
     </FitnezCard>
 
     <ExcelImportModal v-if="showImportModal" @done="showImportModal = false" />
-  </RoleLayout>
+  </WorkspaceLayout>
 </template>

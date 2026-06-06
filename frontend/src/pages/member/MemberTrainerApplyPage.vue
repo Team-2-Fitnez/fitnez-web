@@ -11,7 +11,7 @@
       <form @submit.prevent="onSubmit" class="form-grid">
         <div class="form-field">
           <label class="form-label">Area of Expertise / Specialization</label>
-          <select v-model="values.specialization" class="form-input" :class="{ 'input-error': errors.specialization }">
+          <select v-model="specialization" v-bind="specializationProps" class="form-input" :class="{ 'input-error': errors.specialization }">
             <option value="">Select area of expertise...</option>
             <option value="Yoga">Yoga</option>
             <option value="Aerobics">Aerobics</option>
@@ -30,7 +30,8 @@
         <div class="form-field">
           <label class="form-label">Experience (Years)</label>
           <input
-            v-model.number="values.experience_years"
+            v-model.number="experience_years"
+            v-bind="experience_yearsProps"
             type="number"
             min="0"
             max="50"
@@ -96,6 +97,7 @@ import { trainerApplicationApi } from '../../api/trainerApplicationApi'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024
 const success = ref(false)
 const cvFile = ref<File | null>(null)
 const certificateFile = ref<File | null>(null)
@@ -107,13 +109,16 @@ const schema = toTypedSchema(z.object({
   experience_years: z.number({ invalid_type_error: 'Enter years of experience.' }).min(0, 'Cannot be negative.'),
 }))
 
-const { handleSubmit, errors, values, isSubmitting, setFieldError } = useForm({
+const { handleSubmit, errors, isSubmitting, setFieldError, resetForm, defineField } = useForm({
   validationSchema: schema,
   initialValues: {
     specialization: '',
     experience_years: 0,
   },
 })
+
+const [specialization, specializationProps] = defineField('specialization')
+const [experience_years, experience_yearsProps] = defineField('experience_years')
 
 function validateFile(file: File | null): string {
   if (!file) return ''
@@ -138,19 +143,18 @@ function onCertificateChange(event: Event) {
   if (certificateError.value) certificateFile.value = null
 }
 
-const onSubmit = handleSubmit(async () => {
+const onSubmit = handleSubmit(async (formValues) => {
   if (!cvFile.value || !certificateFile.value) {
     setFieldError('specialization', 'Please upload CV and Certificate.')
     return
   }
 
   try {
-    await trainerApplicationApi.submit(cvFile.value, certificateFile.value, values.specialization!, values.experience_years!)
+    await trainerApplicationApi.submit(cvFile.value, certificateFile.value, formValues.specialization, formValues.experience_years)
     success.value = true
     cvFile.value = null
     certificateFile.value = null
-    values.specialization = ''
-    values.experience_years = 0
+    resetForm()
   } catch (e: any) {
     setFieldError('specialization', e?.message || 'Failed to submit application.')
   }

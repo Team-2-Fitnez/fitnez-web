@@ -5,6 +5,7 @@ import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import { useTrainerRentHistoryStore } from '../../stores/trainerRentHistoryStore'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useTrainerRentHistoryStore()
 
@@ -54,12 +55,14 @@ const endBound = computed(() => {
 
 const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
 
+async function refreshData() {
+  await Promise.all([store.loadSummary(), store.load()])
+}
+
 onMounted(() => {
-  run(async () => {
-    await store.loadSummary()
-    await store.load()
-  })
+  run(refreshData)
 })
+useAutoRefresh(refreshData, 8000)
 </script>
 
 <template>

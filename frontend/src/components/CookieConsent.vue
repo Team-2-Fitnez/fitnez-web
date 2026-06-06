@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 import {
   defaultConsentCategories,
   getStoredConsent,
@@ -7,10 +7,7 @@ import {
   type CookieCategory,
 } from '@/utils/cookieConsent'
 
-type TabName = 'consent' | 'details' | 'about'
-
 const isVisible = ref(false)
-const activeTab = ref<TabName>('consent')
 const showPreferencePanel = ref(false)
 
 const categories = ref<Record<CookieCategory, boolean>>({
@@ -20,62 +17,64 @@ const categories = ref<Record<CookieCategory, boolean>>({
 const categoryItems = [
   {
     key: 'essential' as CookieCategory,
-    title: 'Essential / Strictly Necessary',
-    description:
-      'Required for login, security, session, page navigation, and basic FitNez website features. This category cannot be turned off.',
+    title: 'Essential',
+    description: 'Required for login, security, session, page navigation, and basic website features. This category cannot be turned off.',
     locked: true,
   },
   {
     key: 'analytics' as CookieCategory,
-    title: 'Analytics / Statistics',
-    description:
-      'Helps us understand frequently opened pages, errors occurred, and website performance without selling user personal data.',
+    title: 'Analytics',
+    description: 'Helps us understand frequently opened pages, errors occurred, and website performance.',
     locked: false,
   },
   {
     key: 'marketing' as CookieCategory,
-    title: 'Marketing / Advertising',
-    description:
-      'Used to measure promotional campaigns, advertising, and more relevant content recommendations.',
+    title: 'Marketing',
+    description: 'Used to measure promotional campaigns and deliver more relevant content recommendations.',
     locked: false,
   },
   {
     key: 'preferences' as CookieCategory,
-    title: 'Preferences / Functional',
-    description:
-      'Saves layout options, language, filters, or other preferences to make the user experience more comfortable.',
+    title: 'Functional',
+    description: 'Saves layout options, filters, or other preferences to make the user experience more comfortable.',
     locked: false,
   },
 ]
-
-const currentConsentText = computed(() => {
-  const enabled = Object.entries(categories.value)
-    .filter(([, value]) => value)
-    .map(([key]) => key)
-    .join(', ')
-
-  return enabled || 'essential'
-})
 
 onMounted(() => {
   const stored = getStoredConsent()
 
   if (!stored) {
     isVisible.value = true
-    return
+  } else {
+    categories.value = {
+      essential: true,
+      analytics: Boolean(stored.categories.analytics),
+      marketing: Boolean(stored.categories.marketing),
+      preferences: Boolean(stored.categories.preferences),
+    }
   }
 
-  categories.value = {
-    essential: true,
-    analytics: Boolean(stored.categories.analytics),
-    marketing: Boolean(stored.categories.marketing),
-    preferences: Boolean(stored.categories.preferences),
-  }
+  // Register global listener to open cookie settings from anywhere
+  window.addEventListener('open-cookie-settings', openCookieSettingsFromGlobal)
 })
 
-function openPreferences() {
-  activeTab.value = 'details'
+onBeforeUnmount(() => {
+  window.removeEventListener('open-cookie-settings', openCookieSettingsFromGlobal)
+})
+
+function openCookieSettingsFromGlobal() {
+  const stored = getStoredConsent()
+  if (stored) {
+    categories.value = {
+      essential: true,
+      analytics: Boolean(stored.categories.analytics),
+      marketing: Boolean(stored.categories.marketing),
+      preferences: Boolean(stored.categories.preferences),
+    }
+  }
   showPreferencePanel.value = true
+  isVisible.value = true
 }
 
 function acceptAll() {
@@ -88,449 +87,378 @@ function acceptAll() {
   isVisible.value = false
 }
 
-function rejectAll() {
-  saveConsent({
-    essential: true,
-    analytics: false,
-    marketing: false,
-    preferences: false,
-  })
-  isVisible.value = false
-}
 
 function saveSelected() {
   saveConsent(categories.value)
   isVisible.value = false
 }
 
-function toggleCategory(category: CookieCategory) {
-  if (category === 'essential') return
-
-  categories.value = {
-    ...categories.value,
-    [category]: !categories.value[category],
+function closePopup() {
+  const stored = getStoredConsent()
+  if (!stored) {
+    saveConsent({
+      essential: true,
+      analytics: false,
+      marketing: false,
+      preferences: false,
+    })
   }
+  isVisible.value = false
 }
 
-function openCookieSettingsFromFooter() {
-  const stored = getStoredConsent()
-
-  if (stored) {
-    categories.value = {
-      essential: true,
-      analytics: Boolean(stored.categories.analytics),
-      marketing: Boolean(stored.categories.marketing),
-      preferences: Boolean(stored.categories.preferences),
-    }
-  }
-
-  activeTab.value = 'details'
+function openPreferences() {
   showPreferencePanel.value = true
-  isVisible.value = true
 }
 
 defineExpose({
-  openCookieSettingsFromFooter,
+  openCookieSettingsFromFooter: openCookieSettingsFromGlobal
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <section
-      v-if="isVisible"
-      class="cookie-overlay"
-      aria-labelledby="cookie-title"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div class="cookie-modal">
-        <header class="cookie-header">
-          <div>
-            <p class="cookie-brand">FitNez Privacy Center</p>
-            <h2 id="cookie-title">Cookie Settings</h2>
-          </div>
+    <div v-if="isVisible" class="cookie-popup-container">
+      <div class="cookie-card">
+        <!-- Header -->
+        <div class="cookie-header">
+          <h3 class="cookie-title">Cookies settings</h3>
+          <button type="button" class="cookie-close-btn" @click="closePopup" aria-label="Close">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
 
-          <nav class="cookie-tabs" aria-label="Cookie information tabs">
-            <button
-              type="button"
-              :class="{ active: activeTab === 'consent' }"
-              @click="activeTab = 'consent'"
-            >
-              Consent
-            </button>
-            <button
-              type="button"
-              :class="{ active: activeTab === 'details' }"
-              @click="activeTab = 'details'"
-            >
-              Details
-            </button>
-            <button
-              type="button"
-              :class="{ active: activeTab === 'about' }"
-              @click="activeTab = 'about'"
-            >
-              About
-            </button>
-          </nav>
-        </header>
+        <!-- Body -->
+        <div class="cookie-body">
+          <p v-if="!showPreferencePanel" class="cookie-text">
+            We use cookies and similar technologies to help personalise content, tailor and measure ads, and provide a better experience. By clicking accept, you agree to this, as outlined in our Cookie Policy.
+          </p>
 
-        <main class="cookie-body">
-          <section v-if="activeTab === 'consent'" class="cookie-section">
-            <h3>This website uses cookies</h3>
-
-            <p>
-              We use cookies to run essential website features, store
-              preferences, analyze performance, and support marketing activities. Cookie
-              non-essential like analytics and advertising will remain blocked by default
-              until you give consent.
-            </p>
-
-            <p>
-              You can accept all, reject all non-essential cookies, or set
-              preferences by category. Consent can be changed at any time via the
-              <strong>Cookie Settings</strong> link in the website footer.
-            </p>
-
-            <a class="cookie-policy-link" href="/privacy-cookie-policy">
-              View Privacy & Cookie Policy
-            </a>
-          </section>
-
-          <section v-if="activeTab === 'details'" class="cookie-section">
-            <h3>Configure Cookie Preferences</h3>
-
-            <p>
-              Choose which categories of cookies to allow. Essential cookies are always active because
-              they are needed for security, login, and basic website functions.
-            </p>
-
-            <div class="cookie-category-list">
-              <article
-                v-for="item in categoryItems"
-                :key="item.key"
-                class="cookie-category-card"
-              >
-                <div>
-                  <h4>{{ item.title }}</h4>
-                  <p>{{ item.description }}</p>
+          <div v-else class="cookie-pref-panel">
+            <div v-for="item in categoryItems" :key="item.key" class="cookie-pref-row">
+              <div class="cookie-pref-info">
+                <div class="cookie-pref-title-row">
+                  <span class="cookie-pref-title">{{ item.title }}</span>
+                  <span v-if="item.locked" class="cookie-tag-always">Always Active</span>
                 </div>
-
-                <button
-                  type="button"
-                  class="cookie-switch"
-                  :class="{ enabled: categories[item.key], locked: item.locked }"
-                  :aria-pressed="categories[item.key]"
-                  :disabled="item.locked"
-                  @click="toggleCategory(item.key)"
-                >
-                  <span />
-                  {{ item.locked ? 'Always Active' : categories[item.key] ? 'Active' : 'Inactive' }}
-                </button>
-              </article>
+                <p class="cookie-pref-desc">{{ item.description }}</p>
+              </div>
+              <div v-if="!item.locked" class="cookie-pref-toggle">
+                <label class="ios-switch">
+                  <input type="checkbox" v-model="categories[item.key]" />
+                  <span class="ios-slider"></span>
+                </label>
+              </div>
             </div>
+          </div>
+        </div>
 
-            <p class="cookie-current-choice">
-              Current active choices: {{ currentConsentText }}
-            </p>
-          </section>
-
-          <section v-if="activeTab === 'about'" class="cookie-section">
-            <h3>About Cookies and Data Security</h3>
-
-            <p>
-              Cookies are small files stored in the browser to remember sessions,
-              preferences, or specific activities. At FitNez, non-essential cookies must not be
-              active before consent is given.
-            </p>
-
-            <p>
-              Storage and transmission of cookie data must be done via HTTPS so that data
-              is not easily read or modified by other parties during transit between the browser and
-              the server.
-            </p>
-
-            <p>
-              For audit purposes, the server can store anonymous consent logs containing an anonymous ID,
-              consent timestamp, policy version, and consented categories.
-            </p>
-          </section>
-        </main>
-
-        <footer class="cookie-actions">
-          <button type="button" class="cookie-button equal" @click="acceptAll">
-            Accept All
-          </button>
-
-          <button type="button" class="cookie-button secondary" @click="openPreferences">
-            Configure Preferences
-          </button>
-
-          <button type="button" class="cookie-button equal" @click="rejectAll">
-            Reject All
-          </button>
-
-          <button
-            v-if="showPreferencePanel || activeTab === 'details'"
-            type="button"
-            class="cookie-button save"
-            @click="saveSelected"
-          >
-            Save Preferences
-          </button>
-        </footer>
+        <!-- Footer -->
+        <div class="cookie-footer">
+          <template v-if="!showPreferencePanel">
+            <button type="button" class="cookie-btn cookie-btn-accept" @click="acceptAll">
+              Accept
+            </button>
+            <button type="button" class="cookie-btn cookie-btn-preferences" @click="openPreferences">
+              Preferences
+            </button>
+          </template>
+          <template v-else>
+            <button type="button" class="cookie-btn cookie-btn-save" @click="saveSelected">
+              Save Preferences
+            </button>
+            <button type="button" class="cookie-btn cookie-btn-back" @click="showPreferencePanel = false">
+              Back
+            </button>
+          </template>
+        </div>
       </div>
-    </section>
+    </div>
   </Teleport>
 </template>
 
 <style scoped>
-.cookie-overlay {
+.cookie-popup-container {
   position: fixed;
-  inset: 0;
+  bottom: 24px;
+  right: 24px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
   z-index: 9999;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(18, 18, 18, 0.42);
-  backdrop-filter: blur(6px);
+  font-family: 'Outfit', sans-serif;
+  animation: slideIn 0.3s ease-out;
 }
 
-.cookie-modal {
-  width: min(720px, 100%);
-  max-height: min(92vh, 820px);
-  overflow: hidden;
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.cookie-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  color: #141414;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 246, 230, 0.97)),
-    #fff4df;
-  border: 1px solid rgba(22, 22, 22, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
 }
 
 .cookie-header {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-  padding: 24px 28px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 24px 12px;
 }
 
-.cookie-brand {
-  margin: 0 0 4px;
-  font-size: 0.78rem;
+.cookie-title {
+  font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7b4b06;
-}
-
-.cookie-header h2 {
+  color: #111827;
   margin: 0;
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  line-height: 1.2;
 }
 
-.cookie-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-bottom: 1px solid rgba(20, 20, 20, 0.13);
-}
-
-.cookie-tabs button {
-  padding: 14px 10px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  color: #141414;
-  font: inherit;
-  font-weight: 800;
+.cookie-close-btn {
+  background: none;
+  border: none;
+  color: #111827;
   cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
-.cookie-tabs button.active {
-  border-color: #f6a21a;
-  color: #8c5300;
+.cookie-close-btn:hover {
+  opacity: 1;
 }
 
 .cookie-body {
+  padding: 0 24px 20px;
+  max-height: 280px;
   overflow-y: auto;
-  padding: 26px 28px;
 }
 
-.cookie-section h3 {
-  margin: 0 0 14px;
-  font-size: clamp(1.2rem, 2.2vw, 1.55rem);
-}
-
-.cookie-section p {
-  margin: 0 0 16px;
-  line-height: 1.75;
-  color: #252525;
-}
-
-.cookie-policy-link {
-  display: inline-flex;
-  margin-top: 4px;
-  color: #111;
-  font-weight: 800;
-  text-decoration: underline;
-  text-decoration-color: #f6a21a;
-  text-decoration-thickness: 3px;
-  text-underline-offset: 5px;
-}
-
-.cookie-category-list {
-  display: grid;
-  gap: 14px;
-  margin-top: 18px;
-}
-
-.cookie-category-card {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 18px;
-  align-items: center;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(20, 20, 20, 0.1);
-  border-radius: 18px;
-}
-
-.cookie-category-card h4 {
-  margin: 0 0 6px;
-  font-size: 1rem;
-}
-
-.cookie-category-card p {
+.cookie-text {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #374151;
   margin: 0;
-  font-size: 0.93rem;
-  line-height: 1.55;
 }
 
-.cookie-switch {
-  min-width: 124px;
-  display: inline-flex;
+.cookie-pref-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cookie-pref-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.cookie-pref-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cookie-pref-info {
+  flex: 1;
+}
+
+.cookie-pref-title-row {
+  display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  padding: 10px 12px;
-  border: 2px solid #141414;
-  border-radius: 999px;
-  background: #fff;
-  color: #141414;
-  font-weight: 800;
-  cursor: pointer;
+  margin-bottom: 4px;
 }
 
-.cookie-switch span {
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: #a0a0a0;
-}
-
-.cookie-switch.enabled {
-  background: #f6a21a;
-}
-
-.cookie-switch.enabled span {
-  background: #141414;
-}
-
-.cookie-switch.locked {
-  cursor: not-allowed;
-  opacity: 0.82;
-}
-
-.cookie-current-choice {
-  margin-top: 16px !important;
-  font-size: 0.9rem;
+.cookie-pref-title {
   font-weight: 700;
+  font-size: 0.95rem;
+  color: #111827;
 }
 
-.cookie-actions {
-  display: grid;
-  gap: 12px;
-  padding: 20px 28px 28px;
-  background: rgba(255, 255, 255, 0.5);
-  border-top: 1px solid rgba(20, 20, 20, 0.1);
+.cookie-tag-always {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #10b981;
+  background-color: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.cookie-button {
-  width: 100%;
-  min-height: 54px;
-  border: 2px solid #141414;
-  border-radius: 14px;
-  background: #f6a21a;
-  color: #141414;
-  font: inherit;
-  font-weight: 900;
+.cookie-pref-desc {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* iOS Switch CSS */
+.ios-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.ios-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ios-slider {
+  position: absolute;
   cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e5e7eb;
+  transition: .3s;
+  border-radius: 24px;
 }
 
-.cookie-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(120, 72, 0, 0.18);
-  background: #ffb238;
+.ios-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
-.cookie-button.equal {
-  background: #f6a21a;
+input:checked + .ios-slider {
+  background-color: #1e1b4b;
 }
 
-.cookie-button.secondary {
-  background: #f6a21a;
+input:checked + .ios-slider:before {
+  transform: translateX(20px);
 }
 
-.cookie-button.save {
-  background: #141414;
-  color: #f6a21a;
+.cookie-footer {
+  display: flex;
+  gap: 12px;
+  padding: 0 24px 24px;
 }
 
-@media (min-width: 700px) {
+.cookie-btn {
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.cookie-btn-accept {
+  background-color: #1e1b4b;
+  color: #ffffff;
+  flex: 1;
+}
+
+.cookie-btn-accept:hover {
+  background-color: #111030;
+}
+
+.cookie-btn-preferences {
+  background-color: #f3f4f6;
+  color: #1e1b4b;
+  flex: 1;
+}
+
+.cookie-btn-preferences:hover {
+  background-color: #e5e7eb;
+}
+
+.cookie-btn-save {
+  background-color: #1e1b4b;
+  color: #ffffff;
+  flex: 2;
+}
+
+.cookie-btn-save:hover {
+  background-color: #111030;
+}
+
+.cookie-btn-back {
+  background-color: #f3f4f6;
+  color: #1e1b4b;
+  flex: 1;
+}
+
+.cookie-btn-back:hover {
+  background-color: #e5e7eb;
+}
+
+@media (max-width: 640px) {
+  .cookie-popup-container {
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: max(0.75rem, env(safe-area-inset-left));
+    max-width: none;
+    right: max(0.75rem, env(safe-area-inset-right));
+    width: auto;
+  }
+
+  .cookie-card {
+    border-radius: 16px;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
   .cookie-header {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
+    padding: 18px 18px 10px;
   }
 
-  .cookie-actions {
-    grid-template-columns: repeat(3, 1fr);
+  .cookie-title {
+    font-size: 1.2rem;
   }
 
-  .cookie-button.save {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 520px) {
-  .cookie-overlay {
-    padding: 10px;
-    align-items: end;
+  .cookie-body {
+    overflow-y: auto;
+    padding: 0 18px 18px;
   }
 
-  .cookie-modal {
-    border-radius: 22px 22px 0 0;
-    max-height: 94vh;
+  .cookie-pref-row,
+  .cookie-pref-title-row,
+  .cookie-footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .cookie-header,
-  .cookie-body,
-  .cookie-actions {
-    padding-left: 18px;
-    padding-right: 18px;
+  .cookie-pref-toggle {
+    align-self: flex-start;
   }
 
-  .cookie-category-card {
-    grid-template-columns: 1fr;
+  .cookie-footer {
+    padding: 0 18px 18px;
   }
 
-  .cookie-switch {
+  .cookie-btn {
+    min-height: 44px;
     width: 100%;
   }
 }
