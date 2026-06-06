@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\NewNotification;
 use App\Models\Notification;
 use App\Models\TrainerBooking;
+use App\Models\TrainerDetail;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,20 @@ class BookingController extends Controller
 
         if ($conflict) {
             return ApiResponse::error('Trainer sudah memiliki jadwal di waktu tersebut.', [], 422);
+        }
+
+        // Validate total_price against trainer's hourly rate
+        $trainerDetail = TrainerDetail::where('user_id', $data['trainer_id'])->first();
+        if ($trainerDetail && $trainerDetail->hourly_rate > 0) {
+            $start = \Carbon\Carbon::parse($data['start_time']);
+            $end = \Carbon\Carbon::parse($data['end_time']);
+            $hours = max($start->diffInMinutes($end) / 60, 0.5);
+            $expectedMinPrice = $trainerDetail->hourly_rate * $hours * 0.5;
+            $expectedMaxPrice = $trainerDetail->hourly_rate * $hours * 2;
+
+            if (($data['total_price'] ?? 0) > 0 && ($data['total_price'] < $expectedMinPrice || $data['total_price'] > $expectedMaxPrice)) {
+                return ApiResponse::error('Harga tidak sesuai dengan tarif trainer.', [], 422);
+            }
         }
 
         $booking = DB::transaction(function () use ($data, $request) {
@@ -122,15 +137,27 @@ class BookingController extends Controller
         }
 
         $previousStatus = $booking->status;
+
+        // Enforce state machine: only allow valid transitions
+        if (!$booking->canTransitionTo($data['status'])) {
+            return ApiResponse::error(
+                "Tidak dapat mengubah status dari '{$previousStatus}' ke '{$data['status']}'.",
+                [],
+                422
+            );
+        }
+
         $booking->update(['status' => $data['status']]);
+
+        $memberName = $booking->member?->full_name ?? 'Member';
+        $trainerName = $booking->trainer?->full_name ?? 'Trainer';
+        $date = $booking->booking_date?->format('d M Y') ?? '';
 
         // Notify trainer when booking is confirmed (payment)
         if (
             $data['status'] === TrainerBooking::STATUS_CONFIRMED
             && $previousStatus !== TrainerBooking::STATUS_CONFIRMED
         ) {
-            $memberName = $booking->member?->full_name ?? 'Member';
-            $date = $booking->booking_date?->format('d M Y') ?? '';
             $price = number_format((int) $booking->total_price, 0, ',', '.');
 
             $notifConfirm = Notification::create([
@@ -151,6 +178,75 @@ class BookingController extends Controller
                 \App\Support\PushNotifier::send($notifConfirm->user_id, $notifConfirm->title, $notifConfirm->body);
             } catch (\Throwable $e) {
                 logger()->warning('Push notification send failed: ' . $e->getMessage());
+            }
+
+            // Notify member that their booking was confirmed
+            $notifMember = Notification::create([
+                'user_id'           => $booking->member_id,
+                'title'             => 'Booking Dikonfirmasi',
+                'body'              => "Sesi Anda dengan {$trainerName} pada {$date} telah dikonfirmasi oleh trainer.",
+                'notification_type' => 'booking_confirmed',
+                'is_read'           => false,
+            ]);
+
+            try {
+                broadcast(new NewNotification($notifMember));
+            } catch (\Throwable $e) {
+                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+            }
+        }
+
+        // Notify member when booking is rejected
+        if ($data['status'] === TrainerBooking::STATUS_REJECTED && $previousStatus !== TrainerBooking::STATUS_REJECTED) {
+            $notifReject = Notification::create([
+                'user_id'           => $booking->member_id,
+                'title'             => 'Booking Ditolak',
+                'body'              => "Maaf, sesi Anda dengan {$trainerName} pada {$date} telah ditolak oleh trainer.",
+                'notification_type' => 'booking_rejected',
+                'is_read'           => false,
+            ]);
+
+            try {
+                broadcast(new NewNotification($notifReject));
+            } catch (\Throwable $e) {
+                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+            }
+        }
+
+        // Notify other party when booking is cancelled
+        if ($data['status'] === TrainerBooking::STATUS_CANCELLED && $previousStatus !== TrainerBooking::STATUS_CANCELLED) {
+            $otherUserId = $userId === $booking->member_id ? $booking->trainer_id : $booking->member_id;
+            $actorName = $userId === $booking->member_id ? $memberName : $trainerName;
+
+            $notifCancel = Notification::create([
+                'user_id'           => $otherUserId,
+                'title'             => 'Booking Dibatalkan',
+                'body'              => "Sesi pada {$date} telah dibatalkan oleh {$actorName}.",
+                'notification_type' => 'booking_cancelled',
+                'is_read'           => false,
+            ]);
+
+            try {
+                broadcast(new NewNotification($notifCancel));
+            } catch (\Throwable $e) {
+                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+            }
+        }
+
+        // Notify member when session is completed
+        if ($data['status'] === TrainerBooking::STATUS_COMPLETED && $previousStatus !== TrainerBooking::STATUS_COMPLETED) {
+            $notifComplete = Notification::create([
+                'user_id'           => $booking->member_id,
+                'title'             => 'Sesi Selesai',
+                'body'              => "Sesi Anda dengan {$trainerName} pada {$date} telah selesai. Terima kasih!",
+                'notification_type' => 'booking_completed',
+                'is_read'           => false,
+            ]);
+
+            try {
+                broadcast(new NewNotification($notifComplete));
+            } catch (\Throwable $e) {
+                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
             }
         }
 

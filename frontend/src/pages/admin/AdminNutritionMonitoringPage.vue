@@ -64,6 +64,10 @@ function getStatus(total: number, limit: number) {
             <div style="margin-top: 1.25rem"><SkeletonTable :columns="5" :rows="8" /></div>
         </div>
         <template v-else>
+            <button class="button button-ghost" style="font-size: 0.85rem;" @click="http.downloadBlob('/admin/export/nutrition-monitoring', 'nutrition-monitoring.xlsx')">Export Excel</button>
+            <ExcelImportModal import-type="workouts" label="Import Excel" />
+        </div>
+        <!-- Summary Cards -->
         <div class="feature-grid">
             <FitnezCard>
                 <p class="eyebrow">Total Members</p>

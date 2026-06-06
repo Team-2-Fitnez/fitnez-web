@@ -22,14 +22,32 @@ const emit = defineEmits(['close'])
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const openSubmenu = ref<string | null>(null)
+
+function findParentForRoute(): string | null {
+  for (const item of props.items) {
+    if (item.submenu) {
+      for (const sub of item.submenu) {
+        if (route.path === sub.to) return item.label
+      }
+    }
+  }
+  return null
+}
+
+const manualToggle = ref<string | null>(null)
+
+const openSubmenu = computed(() => {
+  const routeParent = findParentForRoute()
+  if (routeParent) return routeParent
+  return manualToggle.value
+})
 
 function close() {
   emit('close')
 }
 
 function toggleSubmenu(label: string) {
-  openSubmenu.value = openSubmenu.value === label ? null : label
+  manualToggle.value = manualToggle.value === label ? null : label
 }
 
 function handleSubmenuClick(item: MenuItem) {
@@ -253,6 +271,62 @@ function getAdminIcon(label: string, fallback: string = '•') {
         @click="logout"
       >
         <svg class="w-5 h-5 text-red-500/70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    <nav class="sidebar-nav">
+      <template v-for="item in items" :key="item.label">
+        <!-- Menu dengan submenu -->
+        <div v-if="item.submenu">
+          <button
+            type="button"
+            :class="['sidebar-link', openSubmenu === item.label && 'sidebar-link-active']"
+            style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center;"
+            @click="toggleSubmenu(item.label)"
+          >
+            <span style="display: flex; align-items: center; gap: 0.75rem;">
+              <span>{{ item.icon || '•' }}</span>
+              <span>{{ item.label }}</span>
+            </span>
+            <span style="transition: transform 0.2s;" :style="{ transform: openSubmenu === item.label ? 'rotate(180deg)' : 'rotate(0deg)' }">▼</span>
+          </button>
+          <div v-if="openSubmenu === item.label" style="padding-left: 1rem; margin-top: 0.25rem;">
+            <RouterLink
+              v-for="sub in item.submenu"
+              :key="sub.to"
+              :to="sub.to"
+              :class="['sidebar-link', route.path === sub.to && 'sidebar-link-active']"
+              style="font-size: 0.9rem;"
+              @click="close"
+            >
+              <span>{{ sub.icon || '•' }}</span>
+              <span>{{ sub.label }}</span>
+            </RouterLink>
+          </div>
+        </div>
+
+        <!-- Menu biasa tanpa submenu -->
+        <a
+          v-else-if="item.external"
+          :href="item.to!"
+          class="sidebar-link"
+          @click="close"
+        >
+          <span>{{ item.icon || '•' }}</span>
+          <span>{{ item.label }}</span>
+        </a>
+        <RouterLink
+          v-else
+          :to="item.to!"
+          :class="['sidebar-link', route.path === item.to && 'sidebar-link-active']"
+          @click="close"
+        >
+          <span>{{ item.icon || '•' }}</span>
+          <span>{{ item.label }}</span>
+        </RouterLink>
+      </template>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button type="button" :class="['sidebar-link', collapsed && 'sidebar-link-collapsed']" style="width: 100%; text-align: left;" @click="logout" :title="collapsed ? 'Logout' : ''">
+        <span class="sidebar-icon">🚪</span>
         <span v-if="!collapsed">Logout</span>
       </button>
     </div>

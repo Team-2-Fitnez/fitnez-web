@@ -16,6 +16,13 @@ const summary = ref({ total_payments: 0, total_payment_amount: 0, paid_payments:
 
 function formatMoney(val: string | number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(val))
+import SkeletonList from '../../components/ui/SkeletonList.vue'
+import { useMemberPaymentAttendanceReportStore } from '../../stores/memberPaymentAttendanceReportStore'
+
+const store = useMemberPaymentAttendanceReportStore()
+
+function formatMoney(val: string | number) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(val))
 }
 
 function formatDate(val?: string | null) {
@@ -104,7 +111,10 @@ onMounted(() => {
         </table>
       </div>
     </FitnezCard>
+<<<<<<< HEAD
     </template>
+=======
+>>>>>>> origin/Trainer-Booking-Chat
   </WorkspaceLayout>
 </template>
 

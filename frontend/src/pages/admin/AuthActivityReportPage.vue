@@ -4,6 +4,8 @@ import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
+import ExcelImportModal from '../../components/ExcelImportModal.vue'
+import { http } from '../../api/http'
 import { useAuthActivityReportStore } from '../../stores/authActivityReportStore'
 
 const store = useAuthActivityReportStore()
@@ -52,6 +54,10 @@ onMounted(() => {
     subtitle="View who registered, who logged in successfully, and failed login activity."
     :sidebar-items="adminSidebarItems"
   >
+    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.75rem;">
+      <button class="button button-ghost" style="font-size: 0.85rem;" @click="http.downloadBlob('/admin/export/auth-activity', 'auth-activity.xlsx')">Export Excel</button>
+      <ExcelImportModal import-type="members" label="Import Excel" />
+    </div>
     <div class="report-stat-grid">
       <StatCard label="Total Users" :value="store.summary?.total_registered_users || 0" hint="Registered accounts" />
       <StatCard label="Registered Today" :value="store.summary?.registered_today || 0" hint="New users today" />

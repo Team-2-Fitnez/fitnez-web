@@ -87,9 +87,47 @@ onMounted(() => {
       <div class="notifications-shell">
         <SkeletonList v-if="initialLoading && !store.items.length" :rows="6" :style="shimmerStyle" />
 
-        <section v-else-if="store.items.length > 0" class="notification-group">
-          <div class="notification-panel-head">
-            <h3>Recent Activity Log</h3>
+    <!-- Loading -->
+    <SkeletonList v-if="store.loading && store.items.length === 0" :rows="8" />
+
+    <!-- Empty -->
+    <FitnezCard v-else-if="store.items.length === 0" style="padding: 3rem; text-align: center;">
+      <p class="text-muted">Belum ada notifikasi. Notifikasi muncul saat ada booking baru atau sesi dikonfirmasi.</p>
+    </FitnezCard>
+
+    <!-- Notification List -->
+    <div v-else style="display: grid; gap: 0.75rem;">
+      <FitnezCard
+        v-for="n in store.items"
+        :key="n.id"
+        style="cursor: pointer; transition: border-color 160ms ease;"
+        :style="!n.is_read ? 'border-color: var(--color-orange); background: rgba(244, 232, 227, 0.5);' : ''"
+        @click="!n.is_read && onItem(n.id)"
+      >
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <div
+            style="width: 0.5rem; min-height: 1rem; border-radius: 999px; flex-shrink: 0;"
+            :style="n.is_read ? 'background: rgba(0,0,0,0.1);' : 'background: var(--color-orange);'"
+          />
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+              <p style="font-weight: 900; font-size: 0.9rem;">{{ n.title }}</p>
+              <span
+                v-if="n.notification_type === 'payment_in'"
+                class="status status-success"
+                style="font-size: 0.65rem;"
+              >Pembayaran</span>
+              <span
+                v-else-if="n.notification_type === 'booking_request'"
+                class="status status-warning"
+                style="font-size: 0.65rem;"
+              >Jadwal</span>
+            </div>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.25rem;">{{ n.body }}</p>
+            <p style="font-size: 0.75rem; opacity: 0.4; margin-top: 0.25rem;">{{ formatTime(n.created_at) }}</p>
+          </div>
+
+          <div style="flex-shrink: 0; padding-left: 0.5rem; border-left: 1px solid rgba(0,0,0,0.05);">
             <button
               v-if="store.unreadCount > 0"
               type="button"

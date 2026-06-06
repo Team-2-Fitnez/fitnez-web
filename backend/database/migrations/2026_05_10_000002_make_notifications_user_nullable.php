@@ -12,7 +12,9 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('ALTER TABLE notifications ALTER COLUMN user_id DROP NOT NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE notifications ALTER COLUMN user_id DROP NOT NULL');
+        }
     }
 
     public function down(): void
@@ -21,6 +23,8 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('ALTER TABLE notifications ALTER COLUMN user_id SET NOT NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE notifications ALTER COLUMN user_id SET NOT NULL');
+        }
     }
 };

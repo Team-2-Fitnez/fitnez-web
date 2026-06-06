@@ -37,6 +37,7 @@ export const useBookingStore = defineStore('bookings', {
 
     async createBooking(payload: Record<string, unknown>) {
       await bookingsApi.create(payload)
+      this.page = 1
       await this.loadBookings()
     },
 

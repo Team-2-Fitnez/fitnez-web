@@ -57,8 +57,41 @@ async function loadTrainerStatus() {
       auth.user.trainer_status = response.data.status
       auth.user.can_access_trainer_workspace = response.data.can_access_trainer_workspace
     }
-  } catch {
+  } catch (e) {
     status.value = null
+  }
+}
+
+function onFileChange(event: Event, target: 'cv' | 'certificate') {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] || null
+
+  if (target === 'cv') cv.value = file
+  else certificate.value = file
+}
+
+async function submitTrainerApplication() {
+  error.value = ''
+  message.value = ''
+
+  if (!cv.value || !certificate.value) {
+    error.value = 'Please upload both CV and certificate as PDF files.'
+    return
+  }
+
+  loading.value = true
+
+  try {
+    await trainerApplicationApi.submit(cv.value, certificate.value, '', 0)
+    message.value = 'Trainer application submitted. Please wait for admin review.'
+    showDialog.value = false
+    cv.value = null
+    certificate.value = null
+    await loadTrainerStatus()
+  } catch (e: any) {
+    error.value = e?.message || 'Failed to submit trainer application.'
+  } finally {
+    loading.value = false
   }
 }
 

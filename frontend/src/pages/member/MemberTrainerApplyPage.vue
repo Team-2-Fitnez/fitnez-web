@@ -99,6 +99,8 @@ import { memberSidebarItems } from '../../components/layout/sidebarItems'
 const success = ref(false)
 const cvFile = ref<File | null>(null)
 const certificateFile = ref<File | null>(null)
+const cvError = ref('')
+const certificateError = ref('')
 
 const schema = toTypedSchema(z.object({
   specialization: z.string().min(1, 'Select your area of expertise.'),
@@ -113,14 +115,27 @@ const { handleSubmit, errors, values, isSubmitting, setFieldError } = useForm({
   },
 })
 
+function validateFile(file: File | null): string {
+  if (!file) return ''
+  if (file.type !== 'application/pdf') return 'Hanya file PDF yang diperbolehkan.'
+  if (file.size > MAX_FILE_SIZE) return 'Ukuran file maksimal 5 MB.'
+  return ''
+}
+
 function onCvChange(event: Event) {
   const target = event.target as HTMLInputElement
-  cvFile.value = target.files?.[0] || null
+  const file = target.files?.[0] || null
+  cvFile.value = file
+  cvError.value = validateFile(file)
+  if (cvError.value) cvFile.value = null
 }
 
 function onCertificateChange(event: Event) {
   const target = event.target as HTMLInputElement
-  certificateFile.value = target.files?.[0] || null
+  const file = target.files?.[0] || null
+  certificateFile.value = file
+  certificateError.value = validateFile(file)
+  if (certificateError.value) certificateFile.value = null
 }
 
 const onSubmit = handleSubmit(async () => {
@@ -130,7 +145,7 @@ const onSubmit = handleSubmit(async () => {
   }
 
   try {
-    await trainerApplicationApi.submit(cvFile.value, certificateFile.value)
+    await trainerApplicationApi.submit(cvFile.value, certificateFile.value, values.specialization!, values.experience_years!)
     success.value = true
     cvFile.value = null
     certificateFile.value = null

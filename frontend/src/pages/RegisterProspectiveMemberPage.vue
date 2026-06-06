@@ -506,6 +506,59 @@ function copyCode() {
         <div class="text-secondary-fixed-dim mt-4 md:mt-0 text-sm">
           © 2024 Fitnez Gym. All rights reserved.
         </div>
+          <div class="panel panel-blue" style="margin-top: 1.5rem;">
+            <p style="color: rgba(255,255,255,0.9); font-weight: 800;">Amount to Pay</p>
+            <p class="stat-value" style="color: white;">Rp {{ Number(registration.amount).toLocaleString('id-ID') }}</p>
+          </div>
+
+          <div class="panel" style="background: var(--color-cream); margin-top: 1rem;">
+            <p class="title-md">{{ selectedPackage?.name }}</p>
+            <p class="text-muted">{{ selectedPackage?.duration_months }} month(s)</p>
+          </div>
+
+          <p class="text-muted">
+            Save this registration code. Use it to check whether admin has approved your account.
+          </p>
+        </FitnezCard>
+
+        <FitnezCard>
+          <h2 class="title-md">Payment instruction</h2>
+          <p class="text-muted">Pay manually using the selected method, then upload payment proof.</p>
+
+          <div class="panel" style="margin-top: 1rem;">
+            <p class="title-md">{{ selectedMethod?.display_name }}</p>
+            <p class="text-muted">{{ selectedMethod?.instructions }}</p>
+
+            <div v-if="selectedMethod?.type === 'bank_transfer'" class="panel" style="background: var(--color-cream); margin-top: 1rem;">
+              <p>Bank: {{ selectedMethod.bank_name }}</p>
+              <p>Account Number: {{ selectedMethod.account_number }}</p>
+              <p>Account Name: {{ selectedMethod.account_name }}</p>
+            </div>
+
+            <img
+              v-if="selectedMethod?.type === 'qris'"
+              :src="selectedMethod.qris_image_url || ''"
+              alt="QRIS"
+              style="background: white; border: 1px solid var(--color-border); border-radius: var(--radius-md); height: 16rem; margin-top: 1rem; max-width: 100%; object-fit: contain; padding: 1rem; width: 16rem;"
+            />
+          </div>
+
+          <div class="panel" style="background: var(--color-cream); margin-top: 1rem;">
+            <p class="title-md">Upload payment proof</p>
+            <p class="text-muted">Use JPG, PNG, or WebP transaction screenshot.</p>
+            <input style="margin-top: 1rem; width: 100%;" type="file" accept="image/*" @change="onProofChange" />
+
+            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem;">
+              <FitnezButton :disabled="loading" @click="uploadProof">
+                {{ loading ? 'Uploading...' : 'Upload Proof' }}
+              </FitnezButton>
+              <RouterLink to="/registration-status" class="button button-black">Check Status</RouterLink>
+            </div>
+          </div>
+
+          <p v-if="message" class="alert alert-success">{{ message }}</p>
+          <p v-if="errors.fullName" class="alert alert-error">{{ errors.fullName }}</p>
+        </FitnezCard>
       </div>
     </footer>
   </div>

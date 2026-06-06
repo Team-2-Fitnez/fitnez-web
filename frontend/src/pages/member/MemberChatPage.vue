@@ -87,7 +87,10 @@ onUnmounted(() => chat.stopPolling())
               {{ c.name?.[0]?.toUpperCase() ?? '?' }}
             </div>
             <div style="flex: 1; min-width: 0;">
-              <p style="font-weight: 800; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ c.name }}</p>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <p style="font-weight: 800; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ c.name }}</p>
+                <span v-if="c.unread_count && c.unread_count > 0 && chat.activeContactId !== c.id" style="background: var(--color-blue); color: white; font-size: 0.6rem; font-weight: 900; border-radius: 999px; padding: 0.1rem 0.4rem; min-width: 1rem; text-align: center;">{{ c.unread_count }}</span>
+              </div>
               <p class="text-muted" style="font-size: 0.7rem; text-transform: capitalize;">{{ c.role }}</p>
             </div>
           </button>

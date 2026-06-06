@@ -20,6 +20,7 @@ const router = createRouter({
     { path: '/admin/prospective-members', name: 'admin-prospective-members', component: () => import('../pages/admin/ProspectiveMemberReviewPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/trainer-applications', name: 'admin-trainer-applications', component: () => import('../pages/admin/TrainerApplicationReviewPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/landing-visits', name: 'admin-landing-visits', component: () => import('../pages/admin/LandingVisitReportPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
+    { path: '/admin/auth-activity', name: 'admin-auth-activity', component: () => import('../pages/admin/AuthActivityReportPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/member-reports', name: 'admin-member-reports', component: () => import('../pages/admin/MemberPaymentAttendanceReportPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/nutrition-monitoring', name: 'admin-nutrition-monitoring', component: () => import('../pages/admin/AdminNutritionMonitoringPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/notifications', name: 'admin-notifications', component: () => import('../pages/admin/AdminNotificationsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
@@ -52,6 +53,7 @@ const router = createRouter({
     { path: '/trainer/members', name: 'trainer-members', component: () => import('../pages/trainer/TrainerMembersPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/chat', name: 'trainer-chat', component: () => import('../pages/trainer/TrainerChatPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/rent-history', name: 'trainer-rent-history', component: () => import('../pages/trainer/TrainerRentHistoryPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
+    { path: '/trainer/attendance', name: 'trainer-attendance', component: () => import('../pages/trainer/TrainerAttendancePage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/notifications', name: 'trainer-notifications', component: () => import('../pages/trainer/TrainerNotificationsPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/profile', name: 'trainer-profile', component: () => import('../pages/trainer/TrainerProfilePage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
 

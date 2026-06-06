@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TrainerBooking extends Model
 {
+    use HasFactory;
     protected $table = 'trainer_bookings';
 
     const CREATED_AT = 'created_at';
@@ -17,6 +19,19 @@ class TrainerBooking extends Model
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
     const STATUS_REJECTED = 'rejected';
+
+    const STATUS_TRANSITIONS = [
+        self::STATUS_PENDING   => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED, self::STATUS_REJECTED],
+        self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
+        self::STATUS_COMPLETED => [],
+        self::STATUS_CANCELLED => [],
+        self::STATUS_REJECTED  => [],
+    ];
+
+    public function canTransitionTo(string $newStatus): bool
+    {
+        return in_array($newStatus, self::STATUS_TRANSITIONS[$this->status] ?? [], true);
+    }
 
     protected $fillable = [
         'member_id',
@@ -32,7 +47,7 @@ class TrainerBooking extends Model
     ];
 
     protected $casts = [
-        'booking_date' => 'date',
+        'booking_date' => 'date:Y-m-d',
         'total_price' => 'decimal:2',
         'created_at' => 'datetime',
     ];

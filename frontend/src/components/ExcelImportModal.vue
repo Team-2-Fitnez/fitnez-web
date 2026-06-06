@@ -36,9 +36,9 @@ async function upload() {
   formData.append('type', props.importType)
 
   try {
-    const res = await http.post('/excel/import', formData) as any
+    const res = await http.post<{ job_id: string }>('/excel/import', formData)
 
-    const jobId = res.job_id
+    const jobId = res.data.job_id
     status.value = 'processing'
 
     eventSource = new EventSource(`/api/sse/${jobId}`)

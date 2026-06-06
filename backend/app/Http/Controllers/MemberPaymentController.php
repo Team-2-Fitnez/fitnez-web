@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NewNotification;
+use App\Models\Notification;
 use App\Models\Payment;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -50,6 +52,15 @@ class MemberPaymentController extends Controller
             'payment_date' => now(),
         ]);
 
+        $notif = Notification::create([
+            'user_id' => $payment->user_id,
+            'title' => 'Tagihan Baru',
+            'body' => 'Tagihan ' . $payment->invoice_number . ' sebesar Rp ' . number_format($payment->amount, 0, ',', '.') . ' telah dibuat.',
+            'notification_type' => 'payment_in',
+            'is_read' => false,
+        ]);
+        event(new NewNotification($notif));
+
         return ApiResponse::success('Demo payment created.', $payment);
     }
 
@@ -73,6 +84,15 @@ class MemberPaymentController extends Controller
             'payment_date' => now(),
             'payment_status' => 'paid',
         ]);
+
+        $notif = Notification::create([
+            'user_id' => $payment->user_id,
+            'title' => 'Payment Successful',
+            'body' => 'Payment ' . $payment->invoice_number . ' amount Rp ' . number_format($payment->amount, 0, ',', '.') . ' Has Been Confirmed.',
+            'notification_type' => 'payment_in',
+            'is_read' => false,
+        ]);
+        event(new NewNotification($notif));
 
         return ApiResponse::success('Demo payment successful! (Simulation)', $payment);
     }

@@ -358,6 +358,7 @@ export default {
 
   methods: {
     async fetchWorkouts() {
+      this.loading = true;
       try {
         const response = await api.get('/workout-plans');
         this.workouts = response.data;
@@ -367,15 +368,14 @@ export default {
     },
 
     onDateChange() {
-      if (!this.formData.date) return;
-      const parts = this.formData.date.split("-");
-      const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-      this.formData.day = daftarHari[dateObj.getDay()];
+      if (this.formData.date) {
+        const d = new Date(this.formData.date + 'T00:00:00');
+        this.formData.day = daftarHari[d.getDay()];
+      }
     },
 
     onCategoryChange() {
-
-      this.formData.name = "";
+      this.formData.name = '';
     },
 
     async handleSubmit() {
@@ -385,6 +385,17 @@ export default {
       }
 
       this.loading = true;
+      const payload = {
+        date: this.formData.date,
+        day: this.formData.day,
+        category: this.formData.category,
+        name: this.formData.name,
+        set: parseInt(this.formData.set) || 0,
+        weight: parseFloat(this.formData.weight) || 0,
+        reps: parseInt(this.formData.reps) || 0,
+        duration: parseInt(this.formData.duration) || 0,
+      };
+
       try {
         if (this.editId !== null) {
           await api.put(`/workout-plans/${this.editId}`, this.formData);
@@ -415,18 +426,14 @@ export default {
         reps: "",
         duration: ""
       };
+      this.editId = null;
     },
 
     async toggleWorkout(id) {
       const item = this.workouts.find(w => w.id === id);
       if (!item) return;
-      
-      const newCompletedState = !item.completed;
-      
       try {
-        await api.put(`/workout-plans/${id}`, {
-          completed: newCompletedState
-        });
+        await api.put(`/workout-plans/${id}`, { completed: !item.completed });
         await this.fetchWorkouts();
       } catch (error) {
         window.showFitnezToast('Failed to update workout status.', 'error');
@@ -445,7 +452,7 @@ export default {
         window.showFitnezToast('Failed to delete schedule.', 'error');
       }
     },
-    
+
     async clearAllWorkouts() {
       if (!confirm("Delete your entire workout schedule?")) return;
       try {

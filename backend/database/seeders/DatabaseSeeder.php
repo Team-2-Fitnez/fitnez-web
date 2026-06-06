@@ -2,9 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Attendance;
+use App\Models\Notification;
+use App\Models\Payment;
 use App\Models\Role;
 use App\Models\TrainerApplication;
+use App\Models\TrainerBooking;
 use App\Models\TrainerDetail;
+use App\Models\TrainerEarning;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -56,7 +61,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        User::query()->updateOrCreate(
+        $member = User::query()->updateOrCreate(
             ['email' => 'member@fitnez.test'],
             [
                 'full_name' => 'Fitnez Member',

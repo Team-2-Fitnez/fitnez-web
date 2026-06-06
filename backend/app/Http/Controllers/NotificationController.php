@@ -55,10 +55,14 @@ class NotificationController extends Controller
 
     public function trainerNotifications(Request $request)
     {
+        $perPage = min((int) $request->integer('per_page', 20), 100);
+
         $notifications = Notification::where('user_id', $request->user()->id)
-            ->whereIn('notification_type', ['rent', 'hire', 'schedule', 'classes'])
+            ->whereIn('notification_type', [
+                'booking_request', 'payment_in', 'hire', 'trainer_application',
+            ])
             ->orderByDesc('id')
-            ->get();
+            ->paginate($perPage);
 
         return ApiResponse::success('Trainer notifications loaded.', $notifications);
     }

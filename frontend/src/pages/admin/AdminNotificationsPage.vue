@@ -65,6 +65,7 @@
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import api from '@/api/axios'
+import { http } from '../../api/http';
 
 export default {
   name: 'AdminNotificationView',

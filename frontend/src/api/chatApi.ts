@@ -5,6 +5,7 @@ export type ChatContact = {
   name: string
   img: string | null
   role: string
+  unread_count?: number
 }
 
 export type ChatMsg = {
@@ -18,13 +19,21 @@ export type ChatMsg = {
   isMe: boolean
 }
 
+export type ChatMessagesResponse = {
+  data: ChatMsg[]
+  has_more: boolean
+  oldest_id: number | null
+}
+
 export const chatApi = {
   contacts() {
     return http.get<ChatContact[]>('/chat/contacts')
   },
 
-  messages(contactId: number) {
-    return http.get<ChatMsg[]>(`/chat/messages?contact_id=${contactId}`)
+  messages(contactId: number, before?: number) {
+    let url = `/chat/messages?contact_id=${contactId}`
+    if (before) url += `&before=${before}`
+    return http.get<ChatMessagesResponse>(url)
   },
 
   send(receiverId: number, message: string) {

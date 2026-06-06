@@ -69,7 +69,13 @@ window.showFitnezToast = (message: string, type: FitnezToastType = 'success') =>
   }, 4000)
 }
 
-// toggleSidebar was removed as desktop toggle is hidden
+const toggleSidebar = () => {
+  if (window.innerWidth < 1024) {
+    mobileOpen.value = !mobileOpen.value
+  } else {
+    isCollapsed.value = !isCollapsed.value
+  }
+}
 
 const requestPermission = async () => {
   if ('Notification' in window) {

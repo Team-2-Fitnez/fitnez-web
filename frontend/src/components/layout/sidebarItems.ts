@@ -1,4 +1,5 @@
 export const adminSidebarItems = [
+  { label: 'Home', to: '/', icon: '🌐', external: true },
   { label: 'Dashboard', to: '/admin/dashboard', icon: '📊' },
   { label: 'Payment Review', to: '/admin/prospective-members', icon: '🧾' },
   { label: 'Users', to: '/admin/users', icon: '👥' },
@@ -10,6 +11,7 @@ export const adminSidebarItems = [
 ]
 
 export const memberSidebarItems = [
+  { label: 'Home', to: '/', icon: '🌐', external: true },
   { label: 'Dashboard', to: '/member/dashboard', icon: '🏠' },
   { label: 'Workout Plan', to: '/member/workout-plan', icon: '🏋️' },
   { label: 'Meal Plan', to: '/member/meal-plan', icon: '🥗' },
@@ -31,7 +33,9 @@ export const memberSidebarItems = [
 ]
 
 export const trainerSidebarItems = [
+  { label: 'Home', to: '/', icon: '🌐', external: true },
   { label: 'Dashboard', to: '/trainer/dashboard', icon: '📊' },
+  { label: 'Attendance', to: '/trainer/attendance', icon: '✅' },
   { label: 'Schedule', to: '/trainer/schedule', icon: '🗓️' },
   { label: 'Classes', to: '/trainer/classes', icon: '🏃' },
   { label: 'Members', to: '/trainer/members', icon: '👥' },

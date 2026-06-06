@@ -101,7 +101,7 @@ class MealPlanController extends Controller
 
                 return [
                     'id'             => $plan->user_id,
-                    'name'           => $plan->user->name,
+                    'name'           => $plan->user->full_name,
                     'email'          => $plan->user->email,
                     'daily_limit'    => $plan->daily_limit,
                     'total_calories' => $totalCalories,

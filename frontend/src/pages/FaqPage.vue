@@ -112,6 +112,36 @@ onMounted(() => {
       window.showFitnezToast('Failed to load FAQs.', 'error')
     }
   })
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.toLowerCase()
+    result = result.filter(f =>
+      f.question.toLowerCase().includes(q) ||
+      f.answer.toLowerCase().includes(q)
+    )
+  }
+  return result
+})
+
+function highlight(text: string): string {
+  if (!searchQuery.value.trim()) return text
+  const q = searchQuery.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${q})`, 'gi')
+  return text.replace(regex, '<mark class="search-highlight">$1</mark>')
+}
+
+onMounted(async () => {
+  try {
+    const [faqRes, catRes] = await Promise.all([
+      http.get<FaqItem[]>('/faqs'),
+      http.get<string[]>('/faqs/categories'),
+    ])
+    faqs.value = faqRes.data
+    categories.value = catRes.data
+  } catch {
+    window.showFitnezToast('Gagal memuat FAQ.', 'error')
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
