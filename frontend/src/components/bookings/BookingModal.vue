@@ -8,33 +8,33 @@
         <p class="eyebrow" style="margin: 0; font-size: 0.7rem;">Session Booking</p>
         <h2 class="title-md" style="margin: 0; font-size: 1.25rem;">{{ trainer.name }}</h2>
         <p class="text-muted" style="margin-top: 0.15rem; font-size: 0.8rem;">
-          Tarif: <span style="font-weight: 800; color: var(--color-blue-dark);">{{ formatPrice(trainer.price) }}/jam</span>
+          Rate: <span style="font-weight: 800; color: var(--color-blue-dark);">{{ formatPrice(trainer.price) }}/hour</span>
         </p>
       </div>
     </div>
 
     <form @submit.prevent="onSubmit" class="form-grid">
       <div class="form-field">
-        <label class="form-label">Tanggal Sesi</label>
+        <label class="form-label">Session Date</label>
         <input v-model="booking_date" v-bind="booking_dateProps" type="date" :min="today" class="form-input" :class="{ 'input-error': errors.booking_date }" />
         <p v-if="errors.booking_date" class="field-error">{{ errors.booking_date }}</p>
       </div>
 
       <div class="time-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
         <div class="form-field">
-          <label class="form-label">Jam Mulai</label>
+          <label class="form-label">Start Time</label>
           <input v-model="start_time" v-bind="start_timeProps" type="time" class="form-input" :class="{ 'input-error': errors.start_time }" />
           <p v-if="errors.start_time" class="field-error">{{ errors.start_time }}</p>
         </div>
         <div class="form-field">
-          <label class="form-label">Jam Selesai</label>
+          <label class="form-label">End Time</label>
           <input v-model="end_time" v-bind="end_timeProps" type="time" class="form-input" :class="{ 'input-error': errors.end_time }" />
           <p v-if="errors.end_time" class="field-error">{{ errors.end_time }}</p>
         </div>
       </div>
 
       <div class="form-field">
-        <label class="form-label">Tipe Sesi</label>
+        <label class="form-label">Session Type</label>
         <div class="choice-grid session-type-grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <button
             v-for="type in (['online', 'offline'] as const)"
@@ -52,27 +52,27 @@
       </div>
 
       <div v-if="session_type === 'offline'" class="form-field animate-slide-down">
-        <label class="form-label">Lokasi Pertemuan</label>
-        <input v-model="location" v-bind="locationProps" type="text" class="form-input" placeholder="Nama gym atau alamat detail..." />
+        <label class="form-label">Meeting Location</label>
+        <input v-model="location" v-bind="locationProps" type="text" class="form-input" placeholder="Gym name or detailed address..." />
       </div>
 
       <div class="form-field">
-        <label class="form-label">Catatan Tambahan <span style="opacity: 0.4; font-weight: 400;">(opsional)</span></label>
-        <textarea v-model="member_notes" v-bind="member_notesProps" rows="2" class="form-input" style="resize: none;" placeholder="Target latihan, kondisi kesehatan, dll..." />
+        <label class="form-label">Additional Notes <span style="opacity: 0.4; font-weight: 400;">(optional)</span></label>
+        <textarea v-model="member_notes" v-bind="member_notesProps" rows="2" class="form-input" style="resize: none;" placeholder="Training goals, health conditions, etc..." />
       </div>
 
       <div v-if="estimatedPrice > 0" class="price-panel">
         <div>
-          <p class="stat-label" style="font-size: 0.75rem; margin: 0; color: var(--color-muted);">Estimasi Biaya</p>
-          <p class="text-muted" style="font-size: 0.75rem; margin: 0.15rem 0 0;">{{ durationHours }} jam × {{ formatPrice(trainer.price) }}</p>
+          <p class="stat-label" style="font-size: 0.75rem; margin: 0; color: var(--color-muted);">Estimated Cost</p>
+          <p class="text-muted" style="font-size: 0.75rem; margin: 0.15rem 0 0;">{{ durationHours }} hour × {{ formatPrice(trainer.price) }}</p>
         </div>
         <p style="font-weight: 900; font-size: 1.25rem; color: var(--color-orange); margin: 0;">{{ formatPrice(estimatedPrice) }}</p>
       </div>
 
       <div class="form-actions">
-        <button type="button" class="button button-ghost" @click="$emit('close')">Batal</button>
+        <button type="button" class="button button-ghost" @click="$emit('close')">Cancel</button>
         <button type="submit" class="button button-primary" :disabled="isSubmitting">
-          {{ isSubmitting ? 'Memproses...' : 'Konfirmasi Booking' }}
+          {{ isSubmitting ? 'Processing...' : 'Confirm Booking' }}
         </button>
       </div>
     </form>
@@ -94,16 +94,16 @@ const store = useBookingStore()
 const today = new Date().toISOString().split('T')[0]
 
 const schema = toTypedSchema(z.object({
-  booking_date: z.string().min(1, 'Pilih tanggal sesi.'),
-  start_time: z.string().min(1, 'Pilih jam mulai.'),
-  end_time: z.string().min(1, 'Pilih jam selesai.'),
+  booking_date: z.string().min(1, 'Please select a session date.'),
+  start_time: z.string().min(1, 'Please select a start time.'),
+  end_time: z.string().min(1, 'Please select an end time.'),
   session_type: z.enum(['online', 'offline']),
   location: z.string().optional().default(''),
   member_notes: z.string().optional().default(''),
 }).refine(data => {
   if (data.end_time <= data.start_time) return false
   return true
-}, { message: 'Jam selesai harus setelah jam mulai.', path: ['end_time'] }))
+}, { message: 'End time must be after start time.', path: ['end_time'] }))
 
 const { handleSubmit, errors, isSubmitting, setFieldError, defineField } = useForm({
   validationSchema: schema,
@@ -149,13 +149,13 @@ const onSubmit = handleSubmit(async (formValues) => {
       start_time: formValues.start_time,
       end_time: formValues.end_time,
       session_type: formValues.session_type,
-      location: formValues.session_type === 'offline' ? (formValues.location || 'Gym Utama') : 'Online Sesi',
+      location: formValues.session_type === 'offline' ? (formValues.location || 'Main Gym') : 'Online Session',
       member_notes: formValues.member_notes,
       total_price: estimatedPrice.value,
     })
     emit('booked')
   } catch (e: any) {
-    setFieldError('booking_date', e?.message || 'Gagal membuat booking.')
+    setFieldError('booking_date', e?.message || 'Failed to create booking.')
   }
 })
 </script>

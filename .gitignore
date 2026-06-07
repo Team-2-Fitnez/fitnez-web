@@ -32,4 +32,6 @@ Thumbs.db
 .idea/
 .vscode/
 
-
+# Windows Mark of the Web metadata copied into WSL/Linux
+*:Zone.Identifier
+Zone.Identifier

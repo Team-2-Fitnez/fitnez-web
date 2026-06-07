@@ -19,7 +19,7 @@ async function loadHistory() {
     const active = history.value.find((a: any) => !a.check_out_time)
     checkInStatus.value = active ? 'checked_in' : 'checked_out'
   } catch {
-    window.showFitnezToast('Gagal memuat riwayat.', 'error')
+    window.showFitnezToast('Failed to load history.', 'error')
   } finally {
     loading.value = false
     loaded.value = true
@@ -30,10 +30,10 @@ async function doCheckIn() {
   loading.value = true
   try {
     await http.post('/attendance/check-in', { attendance_type: 'trainer_checkin' })
-    window.showFitnezToast('Check-in berhasil!', 'success')
+    window.showFitnezToast('Check-in successful!', 'success')
     await loadHistory()
   } catch (e: any) {
-    window.showFitnezToast(e?.message || 'Gagal check-in.', 'error')
+    window.showFitnezToast(e?.message || 'Failed to check in.', 'error')
   } finally {
     loading.value = false
   }
@@ -43,10 +43,10 @@ async function doCheckOut() {
   loading.value = true
   try {
     await http.post('/attendance/check-out', {})
-    window.showFitnezToast('Check-out berhasil!', 'success')
+    window.showFitnezToast('Check-out successful!', 'success')
     await loadHistory()
   } catch (e: any) {
-    window.showFitnezToast(e?.message || 'Gagal check-out.', 'error')
+    window.showFitnezToast(e?.message || 'Failed to check out.', 'error')
   } finally {
     loading.value = false
   }
@@ -65,16 +65,16 @@ onMounted(loadHistory)
     role="trainer"
     sidebar-title="Trainer"
     title="Attendance"
-    subtitle="Check-in dan check-out kehadiran sesi melatih Anda."
+    subtitle="Check in and check out for your trainer attendance sessions."
     :sidebar-items="trainerSidebarItems"
   >
     <div style="display: grid; gap: 1.25rem;">
       <FitnezCard>
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
-            <p class="eyebrow">Presensi Hari Ini</p>
+            <p class="eyebrow">Today's Attendance</p>
             <h2 class="title-md">
-              {{ checkInStatus === 'checked_in' ? 'Anda sedang check-in' : checkInStatus === 'checked_out' ? 'Siap check-in' : '--' }}
+              {{ checkInStatus === 'checked_in' ? 'You are currently checked in' : checkInStatus === 'checked_out' ? 'Ready to check in' : '--' }}
             </h2>
           </div>
           <div style="display: flex; gap: 0.75rem;">
@@ -83,13 +83,13 @@ onMounted(loadHistory)
               class="button button-primary"
               :disabled="loading"
               @click="doCheckIn"
-            >{{ loading ? 'Memproses...' : 'Check-In' }}</button>
+            >{{ loading ? 'Processing...' : 'Check-In' }}</button>
             <button
               v-if="checkInStatus === 'checked_in'"
               class="button button-danger"
               :disabled="loading"
               @click="doCheckOut"
-            >{{ loading ? 'Memproses...' : 'Check-Out' }}</button>
+            >{{ loading ? 'Processing...' : 'Check-Out' }}</button>
           </div>
         </div>
       </FitnezCard>
@@ -97,15 +97,15 @@ onMounted(loadHistory)
       <SkeletonList v-if="!loaded && loading" :rows="5" />
 
       <FitnezCard v-else>
-        <p class="eyebrow">Riwayat Kehadiran</p>
+        <p class="eyebrow">Attendance History</p>
         <div class="responsive-table" style="margin-top: 1rem;">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Tanggal</th>
+                <th>Date</th>
                 <th>Check-In</th>
                 <th>Check-Out</th>
-                <th>Tipe</th>
+                <th>Type</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -115,10 +115,10 @@ onMounted(loadHistory)
                 <td>{{ item.check_in_time ? new Date(item.check_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-' }}</td>
                 <td>{{ item.check_out_time ? new Date(item.check_out_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-' }}</td>
                 <td>{{ item.attendance_type || '-' }}</td>
-                <td><span :class="['status', item.check_out_time ? 'status-success' : 'status-warning']">{{ item.check_out_time ? 'Selesai' : 'Aktif' }}</span></td>
+                <td><span :class="['status', item.check_out_time ? 'status-success' : 'status-warning']">{{ item.check_out_time ? 'Completed' : 'Active' }}</span></td>
               </tr>
               <tr v-if="!history.length">
-                <td colspan="5" class="empty-cell">Belum ada riwayat kehadiran.</td>
+                <td colspan="5" class="empty-cell">No attendance history yet.</td>
               </tr>
             </tbody>
           </table>

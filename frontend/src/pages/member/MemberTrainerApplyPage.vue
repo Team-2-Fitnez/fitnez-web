@@ -122,8 +122,8 @@ const [experience_years, experience_yearsProps] = defineField('experience_years'
 
 function validateFile(file: File | null): string {
   if (!file) return ''
-  if (file.type !== 'application/pdf') return 'Hanya file PDF yang diperbolehkan.'
-  if (file.size > MAX_FILE_SIZE) return 'Ukuran file maksimal 5 MB.'
+  if (file.type !== 'application/pdf') return 'Only PDF files are allowed.'
+  if (file.size > MAX_FILE_SIZE) return 'Maximum file size is 5 MB.'
   return ''
 }
 

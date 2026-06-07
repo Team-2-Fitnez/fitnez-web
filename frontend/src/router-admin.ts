@@ -22,7 +22,12 @@ const router = createRouter({
     { path: '/admin/check-in-logs', name: 'admin-check-in-logs', component: () => import('./pages/admin/AdminCheckInLogsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/classes', name: 'admin-classes', component: () => import('./pages/admin/AdminClassesPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/settings', name: 'admin-settings', component: () => import('./pages/admin/AdminSettingsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    { path: '/400', name: 'admin-bad-request', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 400 } },
+    { path: '/401', name: 'admin-unauthorized', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 401 } },
+    { path: '/403', name: 'admin-forbidden', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 403 } },
+    { path: '/408', name: 'admin-request-timeout', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 408 } },
+    { path: '/404', name: 'admin-not-found', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 404 } },
+    { path: '/:pathMatch(.*)*', redirect: '/404' },
   ],
 })
 

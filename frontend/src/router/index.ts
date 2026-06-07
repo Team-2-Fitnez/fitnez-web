@@ -14,7 +14,11 @@ const router = createRouter({
     { path: '/verify-otp', redirect: '/forgot-password' },
     { path: '/forgot-password', name: 'forgot-password', component: () => import('../pages/ForgotPasswordPage.vue') },
     { path: '/login/member', name: 'member-login', component: () => import('../pages/MemberLoginPage.vue') },
-    { path: '/404', name: 'not-found', component: () => import('../pages/NotFoundPage.vue'), meta: { statusCode: 404 } },
+    { path: '/400', name: 'bad-request', component: () => import('../pages/ClientErrorPage.vue'), meta: { statusCode: 400 } },
+    { path: '/401', name: 'unauthorized', component: () => import('../pages/ClientErrorPage.vue'), meta: { statusCode: 401 } },
+    { path: '/403', name: 'forbidden', component: () => import('../pages/ClientErrorPage.vue'), meta: { statusCode: 403 } },
+    { path: '/408', name: 'request-timeout', component: () => import('../pages/ClientErrorPage.vue'), meta: { statusCode: 408 } },
+    { path: '/404', name: 'not-found', component: () => import('../pages/ClientErrorPage.vue'), meta: { statusCode: 404 } },
 
     { path: '/admin/dashboard', name: 'admin-dashboard', component: () => import('../pages/admin/AdminDashboardPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/prospective-members', name: 'admin-prospective-members', component: () => import('../pages/admin/ProspectiveMemberReviewPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
@@ -47,7 +51,8 @@ const router = createRouter({
     { path: '/member/payments', name: 'member-payments', component: () => import('../pages/member/MemberPaymentsPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/classes', name: 'member-classes', component: () => import('../pages/member/MemberClassesPage.vue'), meta: { requiresAuth: true, role: 'member' } },
 
-    { path: '/trainer/daftar', name: 'trainer-apply', component: () => import('../pages/member/MemberTrainerApplyPage.vue'), meta: { requiresAuth: true, role: 'member' } },
+    { path: '/trainer/daftar', redirect: '/trainer/apply' },
+    { path: '/trainer/apply', name: 'trainer-apply', component: () => import('../pages/member/MemberTrainerApplyPage.vue'), meta: { requiresAuth: true, role: 'member' } },
 
     { path: '/trainer/dashboard', name: 'trainer-dashboard', component: () => import('../pages/trainer/TrainerDashboardPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/schedule', name: 'trainer-schedule', component: () => import('../pages/trainer/TrainerSchedulePage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },

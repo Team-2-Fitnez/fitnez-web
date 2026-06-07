@@ -20,7 +20,7 @@ export const memberSidebarItems = [
     icon: 'Trainer',
     submenu: [
       { label: 'Hire Trainer', to: '/member/hire-trainer', icon: 'Hire' },
-      { label: 'Register as Trainer', to: '/trainer/daftar', icon: 'Apply' },
+      { label: 'Register as Trainer', to: '/trainer/apply', icon: 'Apply' },
     ],
   },
   { label: 'Schedule', to: '/member/schedule', icon: 'Schedule' },

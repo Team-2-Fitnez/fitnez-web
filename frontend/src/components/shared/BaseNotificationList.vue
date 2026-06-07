@@ -39,7 +39,7 @@ const filteredNotifications = computed(() => {
 
 <template>
   <div class="base-notification-list">
-    <div v-if="filteredNotifications.length === 0" class="empty">Belum ada notifikasi.</div>
+    <div v-if="filteredNotifications.length === 0" class="empty">No notifications yet.</div>
     <ul v-else>
       <li v-for="notif in filteredNotifications" :key="notif.id" class="notification-item">
         <slot :notification="notif">

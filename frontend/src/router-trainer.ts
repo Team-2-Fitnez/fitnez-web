@@ -13,7 +13,12 @@ const router = createRouter({
     { path: '/trainer/rent-history', name: 'trainer-rent-history', component: () => import('./pages/trainer/TrainerRentHistoryPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/notifications', name: 'trainer-notifications', component: () => import('./pages/trainer/TrainerNotificationsPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
     { path: '/trainer/profile', name: 'trainer-profile', component: () => import('./pages/trainer/TrainerProfilePage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    { path: '/400', name: 'trainer-bad-request', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 400 } },
+    { path: '/401', name: 'trainer-unauthorized', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 401 } },
+    { path: '/403', name: 'trainer-forbidden', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 403 } },
+    { path: '/408', name: 'trainer-request-timeout', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 408 } },
+    { path: '/404', name: 'trainer-not-found', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 404 } },
+    { path: '/:pathMatch(.*)*', redirect: '/404' },
   ],
 })
 

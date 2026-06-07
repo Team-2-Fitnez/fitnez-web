@@ -116,7 +116,7 @@ useAutoRefresh(refreshData, 8000)
           </div>
         </div>
 
-        <!-- Card 4: Sudah Dicairkan -->
+        <!-- Card 4: Disbursed -->
         <div class="metric-box bg-white shadow-sm border border-gray-100">
           <div class="box-top">
             <span class="box-label">Disbursed</span>

@@ -17,8 +17,14 @@ const router = createRouter({
     { path: '/member/attendance', name: 'member-attendance', component: () => import('./pages/member/MemberAttendancePage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/payments', name: 'member-payments', component: () => import('./pages/member/MemberPaymentsPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/classes', name: 'member-classes', component: () => import('./pages/member/MemberClassesPage.vue'), meta: { requiresAuth: true, role: 'member' } },
-    { path: '/trainer/daftar', name: 'trainer-apply', component: () => import('./pages/member/MemberTrainerApplyPage.vue'), meta: { requiresAuth: true, role: 'member' } },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
+    { path: '/trainer/daftar', redirect: '/trainer/apply' },
+    { path: '/trainer/apply', name: 'trainer-apply', component: () => import('./pages/member/MemberTrainerApplyPage.vue'), meta: { requiresAuth: true, role: 'member' } },
+    { path: '/400', name: 'member-bad-request', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 400 } },
+    { path: '/401', name: 'member-unauthorized', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 401 } },
+    { path: '/403', name: 'member-forbidden', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 403 } },
+    { path: '/408', name: 'member-request-timeout', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 408 } },
+    { path: '/404', name: 'member-not-found', component: () => import('./pages/ClientErrorPage.vue'), meta: { statusCode: 404 } },
+    { path: '/:pathMatch(.*)*', redirect: '/404' },
   ],
 })
 

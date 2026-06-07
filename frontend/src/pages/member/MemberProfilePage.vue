@@ -78,7 +78,7 @@ async function enterTrainerWorkspace() {
 }
 
 function goToTrainerRegistration() {
-  router.push('/trainer/daftar')
+  router.push('/trainer/apply')
 }
 
 onMounted(loadTrainerStatus)

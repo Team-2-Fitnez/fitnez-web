@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('workout_plans', function (Blueprint $table) {
-            $table->string('status')->nullable()->after('completed');
-        });
+        if (Schema::hasTable('workout_plans') && ! Schema::hasColumn('workout_plans', 'status')) {
+            Schema::table('workout_plans', function (Blueprint $table) {
+                $table->string('status')->nullable()->after('completed');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('workout_plans', function (Blueprint $table) {
-            $table->dropColumn('status');
-        });
+        if (Schema::hasTable('workout_plans') && Schema::hasColumn('workout_plans', 'status')) {
+            Schema::table('workout_plans', function (Blueprint $table) {
+                $table->dropColumn('status');
+            });
+        }
     }
 };

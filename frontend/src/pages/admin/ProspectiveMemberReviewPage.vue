@@ -15,14 +15,14 @@ const { loading, run, shimmerStyle } = useDeferredLoading()
 
 const showRejectModal = ref(false)
 const selectedRegistrationId = ref<number | null>(null)
-const rejectionReasonOption = ref('Bukti transfer tidak valid / tidak terbaca (blurry)')
+const rejectionReasonOption = ref('The transfer proof is invalid or unreadable (blurry)')
 const customRejectionReason = ref('')
 const rejectionReasonOptions = [
-  'Bukti transfer tidak valid / tidak terbaca (blurry)',
-  'Nominal transfer tidak sesuai dengan harga paket',
-  'Transfer dikirim ke rekening/tujuan yang salah',
-  'Bukti transfer palsu atau sudah pernah digunakan',
-  'Lainnya'
+  'The transfer proof is invalid or unreadable (blurry)',
+  'The transferred amount does not match the package price',
+  'The transfer was sent to the wrong account or destination',
+  'The transfer proof is fake or has already been used',
+  'Other'
 ]
 
 onMounted(() => run(() => store.load()))
@@ -42,7 +42,7 @@ function closeRejectModal() {
 
 function submitRejection() {
   if (!selectedRegistrationId.value) return
-  const finalReason = rejectionReasonOption.value === 'Lainnya'
+  const finalReason = rejectionReasonOption.value === 'Other'
     ? customRejectionReason.value.trim()
     : rejectionReasonOption.value
 
@@ -135,29 +135,29 @@ function submitRejection() {
             <span class="material-symbols-outlined">gavel</span>
           </div>
           <div>
-            <h3 class="title-md" style="margin: 0; font-size: 1.25rem;">Tolak Registrasi</h3>
-            <p class="text-muted text-xs" style="margin-top: 0.25rem; font-size: 0.75rem;">Tentukan alasan penolakan manual payment.</p>
+            <h3 class="title-md" style="margin: 0; font-size: 1.25rem;">Reject Registrasi</h3>
+            <p class="text-muted text-xs" style="margin-top: 0.25rem; font-size: 0.75rem;">Choose the rejection reason for the manual payment.</p>
           </div>
         </div>
 
         <div class="modal-body">
           <div class="form-field">
-            <label class="form-label">Alasan Penolakan</label>
+            <label class="form-label">Rejection Reason</label>
             <select v-model="rejectionReasonOption" class="form-input custom-select">
               <option v-for="opt in rejectionReasonOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </div>
 
-          <div v-if="rejectionReasonOption === 'Lainnya'" class="form-field animate-slide-down">
-            <label class="form-label">Tulis Alasan Lainnya</label>
-            <textarea v-model="customRejectionReason" class="form-input custom-textarea" placeholder="Tulis alasan penolakan secara spesifik..." rows="3" required />
+          <div v-if="rejectionReasonOption === 'Other'" class="form-field animate-slide-down">
+            <label class="form-label">Write Another Reason</label>
+            <textarea v-model="customRejectionReason" class="form-input custom-textarea" placeholder="Write a specific rejection reason..." rows="3" required />
           </div>
         </div>
 
         <div class="form-actions">
-          <button class="button button-ghost" type="button" @click="closeRejectModal">Batal</button>
-          <button class="button button-danger" type="button" @click="submitRejection" :disabled="rejectionReasonOption === 'Lainnya' && !customRejectionReason.trim()">
-            Tolak Registrasi
+          <button class="button button-ghost" type="button" @click="closeRejectModal">Cancel</button>
+          <button class="button button-danger" type="button" @click="submitRejection" :disabled="rejectionReasonOption === 'Other' && !customRejectionReason.trim()">
+            Reject Registrasi
           </button>
         </div>
       </div>
