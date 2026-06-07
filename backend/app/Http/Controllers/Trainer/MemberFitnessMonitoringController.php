@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Trainer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Trainer\TrainerMonitoringRequest;
+use App\Models\FoodLog;
 use App\Models\MealPlan;
 use App\Models\NutritionCalculator;
 use App\Models\Role;
+use App\Models\TrainerBooking;
 use App\Models\User;
 use App\Models\WorkoutPlan;
 use App\Models\WorkoutTracking;
@@ -20,10 +22,26 @@ class MemberFitnessMonitoringController extends Controller
     public function summary(Request $request)
     {
         $memberRoleId = Role::query()->where('name', 'member')->value('id');
+        $trainerId = $request->user()->id;
+        $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
+        $now = now($tz);
+        $driver = DB::getDriverName();
 
         $memberQuery = User::query()
-            ->where('id', '!=', $request->user()->id)
-            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId));
+            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
+            ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $now, $driver) {
+                $query->where('trainer_id', $trainerId)
+                    ->whereIn('status', [TrainerBooking::STATUS_PENDING, TrainerBooking::STATUS_CONFIRMED])
+                    ->where(function ($q) use ($now, $driver) {
+                        if ($driver === 'sqlite') {
+                            $q->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
+                        } elseif ($driver === 'pgsql') {
+                            $q->whereRaw("(booking_date::text || ' ' || end_time || ':00')::timestamp + interval '1 hour' >= ?", [$now->toDateTimeString()]);
+                        } else {
+                            $q->whereRaw("DATE_ADD(CONCAT(booking_date, ' ', end_time, ':00'), INTERVAL 1 HOUR) >= ?", [$now->toDateTimeString()]);
+                        }
+                    });
+            });
 
         $membersPluckQuery = (clone $memberQuery)->pluck('id');
 
@@ -43,16 +61,24 @@ class MemberFitnessMonitoringController extends Controller
         $mealsPrev = MealPlan::query()->whereIn('user_id', $membersPluckQuery)->whereBetween('created_at', [now()->subDays(14), now()->subDays(7)])->count();
         $mealsTrend = $this->calculateTrend($mealsNow, $mealsPrev);
 
+        $recentTrackings = WorkoutTracking::query()
+            ->whereIn('user_id', $membersPluckQuery)
+            ->with(['user', 'workoutExercise.exercise'])
+            ->orderByDesc('logged_at')
+            ->limit(10)
+            ->get();
+
         return ApiResponse::success('Trainer monitoring summary loaded.', [
             'total_members' => $membersNow,
             'total_members_trend' => $membersTrend,
-            'active_workout_plans' => WorkoutPlan::query()->whereIn('user_id', $membersPluckQuery)->where('status', 'active')->count(),
+            'active_workout_plans' => WorkoutPlan::query()->whereIn('user_id', $membersPluckQuery)->where('completed', false)->count(),
             'active_workout_plans_trend' => $plansTrend,
             'completed_trackings' => WorkoutTracking::query()->whereIn('user_id', $membersPluckQuery)->where('is_completed', true)->count(),
             'completed_trackings_trend' => $logsTrend,
             'meal_plans' => MealPlan::query()->whereIn('user_id', $membersPluckQuery)->count(),
             'meal_plans_trend' => $mealsTrend,
             'nutrition_calculations' => NutritionCalculator::query()->whereIn('user_id', $membersPluckQuery)->count(),
+            'recent_trackings' => $recentTrackings,
         ]);
     }
 
@@ -69,11 +95,27 @@ class MemberFitnessMonitoringController extends Controller
         $data = $request->validated();
         $search = SearchTerm::contains($data['search'] ?? null);
         $memberRoleId = Role::query()->where('name', 'member')->value('id');
+        $trainerId = $request->user()->id;
+        $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
+        $now = now($tz);
+        $driver = DB::getDriverName();
 
         $members = User::query()
             ->with('role')
-            ->where('id', '!=', $request->user()->id)
             ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
+            ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $now, $driver) {
+                $query->where('trainer_id', $trainerId)
+                    ->whereIn('status', [TrainerBooking::STATUS_PENDING, TrainerBooking::STATUS_CONFIRMED])
+                    ->where(function ($q) use ($now, $driver) {
+                        if ($driver === 'sqlite') {
+                            $q->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
+                        } elseif ($driver === 'pgsql') {
+                            $q->whereRaw("(booking_date::text || ' ' || end_time || ':00')::timestamp + interval '1 hour' >= ?", [$now->toDateTimeString()]);
+                        } else {
+                            $q->whereRaw("DATE_ADD(CONCAT(booking_date, ' ', end_time, ':00'), INTERVAL 1 HOUR) >= ?", [$now->toDateTimeString()]);
+                        }
+                    });
+            })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('full_name', 'ilike', $search)
@@ -110,17 +152,39 @@ class MemberFitnessMonitoringController extends Controller
 
     public function show(Request $request, User $member)
     {
-        if ($member->roleName() === 'admin' || $member->id === $request->user()->id) {
+        if ($member->roleName() === 'admin') {
             return ApiResponse::error('This member cannot be opened from trainer monitoring.', [], 403);
+        }
+
+        $trainerId = $request->user()->id;
+        $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
+        $now = now($tz);
+        $driver = DB::getDriverName();
+
+        $hasActiveBooking = TrainerBooking::query()
+            ->where('member_id', $member->id)
+            ->where('trainer_id', $trainerId)
+            ->whereIn('status', [TrainerBooking::STATUS_PENDING, TrainerBooking::STATUS_CONFIRMED])
+            ->where(function ($query) use ($now, $driver) {
+                if ($driver === 'sqlite') {
+                    $query->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
+                } elseif ($driver === 'pgsql') {
+                    $query->whereRaw("(booking_date::text || ' ' || end_time || ':00')::timestamp + interval '1 hour' >= ?", [$now->toDateTimeString()]);
+                } else {
+                    $query->whereRaw("DATE_ADD(CONCAT(booking_date, ' ', end_time, ':00'), INTERVAL 1 HOUR) >= ?", [$now->toDateTimeString()]);
+                }
+            })
+            ->exists();
+
+        if (!$hasActiveBooking) {
+            return ApiResponse::error('Anda tidak memiliki akses booking aktif untuk memantau member ini.', [], 403);
         }
 
         $workoutPlans = WorkoutPlan::query()
             ->where('user_id', $member->id)
-            ->with(['workoutExercises' => function ($query) {
-                $query->with('exercise')->orderBy('day_of_week')->orderBy('id');
-            }])
             ->orderByDesc('date')
-            ->limit(10)
+            ->orderByDesc('id')
+            ->limit(30)
             ->get();
 
         $trackings = WorkoutTracking::query()
@@ -143,11 +207,22 @@ class MemberFitnessMonitoringController extends Controller
             ->limit(10)
             ->get();
 
+        $mealPlan = MealPlan::query()
+            ->where('user_id', $member->id)
+            ->first();
+
+        $foodLogs = FoodLog::query()
+            ->where('user_id', $member->id)
+            ->orderByDesc('logged_date')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
         return ApiResponse::success('Member fitness detail loaded.', [
             'member' => $member->load('role'),
             'summary' => [
                 'workout_plans' => WorkoutPlan::query()->where('user_id', $member->id)->count(),
-                'active_workout_plans' => WorkoutPlan::query()->where('user_id', $member->id)->where('status', 'active')->count(),
+                'active_workout_plans' => WorkoutPlan::query()->where('user_id', $member->id)->where('completed', false)->count(),
                 'completed_trackings' => WorkoutTracking::query()->where('user_id', $member->id)->where('is_completed', true)->count(),
                 'incomplete_trackings' => WorkoutTracking::query()->where('user_id', $member->id)->where('is_completed', false)->count(),
                 'meal_plans' => MealPlan::query()->where('user_id', $member->id)->count(),
@@ -157,6 +232,8 @@ class MemberFitnessMonitoringController extends Controller
             'workout_trackings' => $trackings,
             'nutrition' => $nutrition,
             'meal_plans' => $mealPlans,
+            'meal_plan' => $mealPlan,
+            'food_logs' => $foodLogs,
         ]);
     }
 }

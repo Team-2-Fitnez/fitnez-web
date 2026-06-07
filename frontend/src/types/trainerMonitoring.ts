@@ -27,12 +27,16 @@ export type WorkoutExercise = {
 export type WorkoutPlan = {
   id: number
   user_id: number
-  title: string
-  description?: string | null
-  start_date?: string | null
-  end_date?: string | null
+  name: string
+  category: string
+  date: string
+  day?: string | null
+  set: number
+  weight: number
+  reps: number
+  duration: number
+  completed: boolean
   status?: string | null
-  workout_exercises?: WorkoutExercise[]
 }
 
 export type WorkoutTracking = {
@@ -75,12 +79,10 @@ export type Meal = {
 export type MealPlan = {
   id: number
   user_id: number
-  title: string
-  total_calories?: string | number | null
-  protein_grams?: string | number | null
-  carbs_grams?: string | number | null
-  fat_grams?: string | number | null
-  plan_date: string
+  daily_limit?: number | string | null
+  bmr?: number | string | null
+  tdee?: number | string | null
+  target_kal?: number | string | null
   meals?: Meal[]
 }
 
@@ -103,6 +105,15 @@ export type TrainerMonitoringSummary = {
   nutrition_calculations: number
 }
 
+export type FoodLog = {
+  id: number
+  user_id: number
+  food_name: string
+  calories: number
+  logged_date: string
+  created_at: string
+}
+
 export type TrainerMemberFitnessDetail = {
   member: TrainerMonitoringMember
   summary: {
@@ -117,6 +128,8 @@ export type TrainerMemberFitnessDetail = {
   workout_trackings: WorkoutTracking[]
   nutrition?: NutritionCalculation | null
   meal_plans: MealPlan[]
+  meal_plan?: MealPlan | null
+  food_logs?: FoodLog[]
 }
 
 export type TrainerMonitoringMemberPage = Paginated<TrainerMonitoringMember>
