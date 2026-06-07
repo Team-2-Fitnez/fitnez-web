@@ -3,8 +3,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+
 class User extends Authenticatable {
+<<<<<<< Updated upstream
     use HasFactory, Notifiable;
+=======
+    use HasApiTokens, HasFactory, Notifiable;
+>>>>>>> Stashed changes
     protected $table='users'; const CREATED_AT='created_at'; const UPDATED_AT=null;
     protected $fillable=['email','password_hash','full_name','birth_date','phone','profile_picture_url','role_id','last_login','is_active','email_verified_at','membership_package_id','membership_started_at','membership_expires_at','free_class_access'];
     protected $hidden=['password_hash'];
