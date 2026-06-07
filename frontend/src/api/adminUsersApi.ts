@@ -22,12 +22,24 @@ function queryString(query: TableQuery) {
   return text ? `?${text}` : ''
 }
 
+export type AdminUserSummary = {
+  total_members: number
+  total_members_trend: number
+  new_members_this_month: number
+  new_members_this_month_trend: number
+  inactive_members: number
+  inactive_members_trend: number
+}
+
 export const adminUsersApi = {
   list(query: TableQuery) {
     return http.get<Paginated<FitnezUser>>(`/admin/users${queryString(query)}`)
   },
   roles() {
     return http.get<Role[]>('/admin/roles')
+  },
+  summary() {
+    return http.get<AdminUserSummary>('/admin/users/summary')
   },
   create(payload: Record<string, unknown>) {
     return http.post<FitnezUser>('/admin/users', payload)

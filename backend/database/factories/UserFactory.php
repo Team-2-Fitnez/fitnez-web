@@ -31,4 +31,31 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
         ];
     }
+
+    public function withRole(string $roleName): static
+    {
+        return $this->state(function () use ($roleName) {
+            $role = Role::query()->firstOrCreate(
+                ['name' => $roleName],
+                ['description' => ucfirst($roleName) . ' role']
+            );
+
+            return ['role_id' => $role->id];
+        });
+    }
+
+    public function admin(): static
+    {
+        return $this->withRole('admin');
+    }
+
+    public function member(): static
+    {
+        return $this->withRole('member');
+    }
+
+    public function trainer(): static
+    {
+        return $this->withRole('trainer');
+    }
 }

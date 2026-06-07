@@ -97,4 +97,48 @@ class UserManagementController extends Controller
     {
         return ApiResponse::success('Roles loaded.', Role::query()->orderBy('name')->limit(20)->get());
     }
+
+    public function summary()
+    {
+        $memberRoleId = Role::query()->where('name', 'member')->value('id');
+
+        $membersQuery = User::query()
+            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId));
+
+        // Use new database queries for counts to ensure correct scoping
+        $totalMembersNow = User::query()->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))->count();
+        $totalMembersPrev = User::query()->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))->where('created_at', '<=', now()->subDays(7))->count();
+        $totalMembersTrend = $this->calculateTrend($totalMembersNow, $totalMembersPrev);
+
+        $newMembersThisMonth = User::query()->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+        $newMembersLastMonth = User::query()->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
+            ->whereMonth('created_at', now()->subMonth()->month)
+            ->whereYear('created_at', now()->subMonth()->year)
+            ->count();
+        $newMembersTrend = $this->calculateTrend($newMembersThisMonth, $newMembersLastMonth);
+
+        $inactiveNow = User::query()->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))->where('is_active', false)->count();
+        $inactivePrev = User::query()->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))->where('is_active', false)->where('created_at', '<=', now()->subDays(7))->count();
+        $inactiveTrend = $this->calculateTrend($inactiveNow, $inactivePrev);
+
+        return ApiResponse::success('User management summary loaded.', [
+            'total_members' => $totalMembersNow,
+            'total_members_trend' => $totalMembersTrend,
+            'new_members_this_month' => $newMembersThisMonth,
+            'new_members_this_month_trend' => $newMembersTrend,
+            'inactive_members' => $inactiveNow,
+            'inactive_members_trend' => $inactiveTrend,
+        ]);
+    }
+
+    private function calculateTrend(float $current, float $previous): float
+    {
+        if ($previous == 0) {
+            return $current > 0 ? 100.0 : 0.0;
+        }
+        return round((($current - $previous) / $previous) * 100, 1);
+    }
 }

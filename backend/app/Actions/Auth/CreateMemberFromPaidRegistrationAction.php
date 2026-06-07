@@ -30,6 +30,7 @@ class CreateMemberFromPaidRegistrationAction
                 'full_name' => $registration->full_name,
                 'email' => $registration->email,
                 'phone' => $registration->phone,
+                'birth_date' => $registration->birth_date,
                 'password_hash' => $registration->password_hash,
                 'role_id' => $role->id,
                 'is_active' => true,

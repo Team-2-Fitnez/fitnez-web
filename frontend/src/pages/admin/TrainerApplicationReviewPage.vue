@@ -4,13 +4,76 @@ import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import { trainerApplicationApi, type TrainerApplication } from '../../api/trainerApplicationApi'
+import SkeletonTable from '../../components/ui/SkeletonTable.vue'
+import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const items = ref<TrainerApplication[]>([])
+const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
 const loading = ref(false)
 const search = ref('')
 const status = ref('')
 const error = ref('')
 const message = ref('')
+
+const showModal = ref(false)
+const modalType = ref<'approve' | 'reject'>('approve')
+const selectedRow = ref<TrainerApplication | null>(null)
+const modalSpecialization = ref('')
+const modalBiography = ref('')
+const modalExperienceYears = ref(0)
+const modalHourlyRate = ref(0)
+const modalNotes = ref('')
+
+function openApproveModal(row: TrainerApplication) {
+  selectedRow.value = row
+  modalType.value = 'approve'
+  modalSpecialization.value = ''
+  modalBiography.value = ''
+  modalExperienceYears.value = 0
+  modalHourlyRate.value = 0
+  modalNotes.value = ''
+  showModal.value = true
+}
+
+function openRejectModal(row: TrainerApplication) {
+  selectedRow.value = row
+  modalType.value = 'reject'
+  modalNotes.value = ''
+  showModal.value = true
+}
+
+function closeModal() {
+  showModal.value = false
+  selectedRow.value = null
+}
+
+async function submitModal() {
+  if (!selectedRow.value) return
+  error.value = ''
+  message.value = ''
+
+  try {
+    if (modalType.value === 'approve') {
+      await trainerApplicationApi.approve(selectedRow.value.id, {
+        specialization: modalSpecialization.value || 'General Fitness',
+        biography: modalBiography.value || 'Approved Fitnez trainer.',
+        experience_years: modalExperienceYears.value,
+        hourly_rate: modalHourlyRate.value,
+        admin_notes: modalNotes.value || 'Approved by admin.',
+      })
+      message.value = 'Trainer application approved.'
+    } else {
+      if (!modalNotes.value.trim()) return
+      await trainerApplicationApi.reject(selectedRow.value.id, modalNotes.value)
+      message.value = 'Trainer application rejected.'
+    }
+    closeModal()
+    await load()
+  } catch (e: any) {
+    error.value = e?.message || 'Failed to process application.'
+  }
+}
 
 async function load() {
   loading.value = true
@@ -30,46 +93,17 @@ async function load() {
   }
 }
 
-async function approve(row: TrainerApplication) {
-  error.value = ''
-  message.value = ''
-
+async function openDocument(row: TrainerApplication, type: 'cv' | 'certificate') {
   try {
-    await trainerApplicationApi.approve(row.id, {
-      specialization: 'General Fitness',
-      biography: 'Approved Fitnez trainer.',
-      experience_years: 0,
-      hourly_rate: 0,
-      admin_notes: 'Approved by admin.',
-    })
-    message.value = 'Trainer application approved.'
-    await load()
-  } catch (e: any) {
-    error.value = e?.message || 'Failed to approve application.'
+    await trainerApplicationApi.downloadDocument(row.id, type)
+  } catch {
+    // Fallback to URL-based download
+    window.open(trainerApplicationApi.documentUrl(row.id, type), '_blank')
   }
 }
 
-async function reject(row: TrainerApplication) {
-  const reason = window.prompt('Write rejection reason for this trainer application:')
-  if (!reason) return
-
-  error.value = ''
-  message.value = ''
-
-  try {
-    await trainerApplicationApi.reject(row.id, reason)
-    message.value = 'Trainer application rejected.'
-    await load()
-  } catch (e: any) {
-    error.value = e?.message || 'Failed to reject application.'
-  }
-}
-
-function openDocument(row: TrainerApplication, type: 'cv' | 'certificate') {
-  window.open(trainerApplicationApi.documentUrl(row.id, type), '_blank')
-}
-
-onMounted(load)
+onMounted(() => run(load))
+useAutoRefresh(load, 8000)
 </script>
 
 <template>
@@ -103,7 +137,9 @@ onMounted(load)
         <p v-if="error" class="alert alert-error">{{ error }}</p>
         <p v-if="message" class="alert alert-info">{{ message }}</p>
 
-        <div class="data-table-wrapper">
+        <SkeletonTable v-if="initialLoading && !items.length" :columns="6" :rows="8" :style="shimmerStyle" />
+
+        <div v-else class="data-table-wrapper">
           <table class="data-table" style="min-width: 980px;">
             <thead>
               <tr>
@@ -135,8 +171,8 @@ onMounted(load)
                 <td>{{ row.admin_notes || '-' }}</td>
                 <td>
                   <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                    <button v-if="row.status !== 'approved'" class="btn-mini" type="button" @click="approve(row)">Approve</button>
-                    <button v-if="row.status !== 'rejected'" class="btn-mini danger" type="button" @click="reject(row)">Reject</button>
+                    <button v-if="row.status !== 'approved'" class="btn-mini" type="button" @click="openApproveModal(row)">Approve</button>
+                    <button v-if="row.status !== 'rejected'" class="btn-mini danger" type="button" @click="openRejectModal(row)">Reject</button>
                   </div>
                 </td>
               </tr>
@@ -147,16 +183,58 @@ onMounted(load)
                 </td>
               </tr>
 
-              <tr v-if="loading">
-                <td colspan="6" style="padding-block: 2.5rem; text-align: center; font-weight: 800; color: var(--color-muted);">
-                  Loading trainer applications...
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
       </div>
     </FitnezCard>
+
+    <!-- Approve/Reject Modal -->
+    <div v-if="showModal && selectedRow" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-card">
+        <h3 class="title-md">{{ modalType === 'approve' ? 'Approve Trainer' : 'Reject Trainer' }}</h3>
+        <p class="text-muted text-sm mb-4">{{ selectedRow.user?.full_name || 'Unknown' }}</p>
+
+        <template v-if="modalType === 'approve'">
+          <div class="form-field">
+            <label class="form-label">Specialization</label>
+            <input v-model="modalSpecialization" class="form-input" placeholder="Yoga, Strength Training, etc." />
+          </div>
+          <div class="form-field">
+            <label class="form-label">Biography</label>
+            <textarea v-model="modalBiography" class="form-input" placeholder="Short trainer description" rows="2" />
+          </div>
+          <div class="form-row">
+            <div class="form-field flex-1">
+              <label class="form-label">Years of Experience</label>
+              <input v-model.number="modalExperienceYears" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-field flex-1">
+              <label class="form-label">Hourly Rate (Rp)</label>
+              <input v-model.number="modalHourlyRate" type="number" min="0" class="form-input" />
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Admin Notes</label>
+            <textarea v-model="modalNotes" class="form-input" placeholder="Notes (optional)" rows="2" />
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="form-field">
+            <label class="form-label">Rejection Reason</label>
+            <textarea v-model="modalNotes" class="form-input" placeholder="Write the rejection reason..." rows="3" required />
+          </div>
+        </template>
+
+        <div class="form-actions">
+          <button class="button button-ghost" type="button" @click="closeModal">Cancel</button>
+          <button class="button button-primary" type="button" @click="submitModal" :disabled="modalType === 'reject' && !modalNotes.trim()">
+            {{ modalType === 'approve' ? 'Approve' : 'Reject' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </WorkspaceLayout>
 </template>
 
@@ -191,4 +269,29 @@ onMounted(load)
   font-weight: 900;
   text-transform: capitalize;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+.form-field { margin-bottom: 1rem; }
+.form-label { display: block; font-weight: 500; margin-bottom: 0.25rem; font-size: 0.85rem; }
+.form-input { width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; }
+.form-row { display: flex; gap: 1rem; }
+.form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
 </style>

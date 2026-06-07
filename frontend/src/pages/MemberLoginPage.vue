@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import FitnezButton from '../components/ui/FitnezButton.vue'
 import FitnezCard from '../components/ui/FitnezCard.vue'
 import FitnezInput from '../components/ui/FitnezInput.vue'
 
-const router = useRouter()
 const auth = useAuthStore()
 
 const email = ref('')
@@ -22,8 +20,13 @@ async function submit() {
     await auth.memberLogin(email.value, password.value)
     auth.initialized = true
 
-    if (auth.user?.role === 'admin') await router.push('/admin/dashboard')
-    else await router.push('/member/dashboard')
+    if (auth.user?.role === 'admin') {
+      window.location.href = '/admin.html'
+    } else if (auth.user?.role === 'trainer' || auth.user?.can_access_trainer_workspace) {
+      window.location.href = '/trainer.html'
+    } else {
+      window.location.href = '/member.html'
+    }
   } catch (e: any) {
     error.value = e?.message || 'Login failed. Please check your email and password.'
   } finally {

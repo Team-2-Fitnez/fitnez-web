@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ApproveTrainerApplicationRequest;
 use App\Http\Requests\Admin\IndexTableRequest;
 use App\Http\Requests\Admin\RejectTrainerApplicationRequest;
+use App\Events\NewNotification;
+use App\Models\Notification;
 use App\Models\TrainerApplication;
 use App\Models\TrainerDetail;
 use App\Support\ApiResponse;
@@ -61,6 +63,20 @@ class TrainerApplicationReviewController extends Controller
             ]
         );
 
+        $notif = Notification::create([
+            'user_id' => $application->user_id,
+            'title' => 'Pendaftaran Trainer Disetujui',
+            'body' => 'Selamat! Pendaftaran Anda sebagai trainer telah disetujui. Anda sekarang dapat mengakses Trainer Workspace.',
+            'notification_type' => 'trainer_application',
+            'is_read' => false,
+        ]);
+
+        try {
+            broadcast(new NewNotification($notif));
+        } catch (\Throwable $e) {
+            logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+        }
+
         return ApiResponse::success('Trainer application approved.', $application->fresh(['user.role', 'reviewer']));
     }
 
@@ -79,6 +95,20 @@ class TrainerApplicationReviewController extends Controller
             'admin_notes' => $data['admin_notes'],
         ])->save();
 
+        $notif = Notification::create([
+            'user_id' => $application->user_id,
+            'title' => 'Pendaftaran Trainer Ditinjau Ulang',
+            'body' => 'Pendaftaran Trainer Anda belum dapat disetujui. Silahkan cek catatan admin dan coba lagi.',
+            'notification_type' => 'trainer_application',
+            'is_read' => false,
+        ]);
+
+        try {
+            broadcast(new NewNotification($notif));
+        } catch (\Throwable $e) {
+            logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+        }
+
         return ApiResponse::success('Trainer application rejected.', $application->fresh(['user.role', 'reviewer']));
     }
 
@@ -95,5 +125,23 @@ class TrainerApplicationReviewController extends Controller
         }
 
         return Storage::disk('local')->download($path, $type.'-'.$application->id.'.pdf');
+    }
+
+    /**
+     * Stream the document for browser viewing (via fetch with Authorization header).
+     */
+    public function stream(TrainerApplication $application, string $type)
+    {
+        $path = match ($type) {
+            'cv' => $application->cv_document_url,
+            'certificate' => $application->certificate_document_url,
+            default => null,
+        };
+
+        if (! $path || ! Storage::disk('local')->exists($path)) {
+            return ApiResponse::error('Requested trainer document was not found.', [], 404);
+        }
+
+        return Storage::disk('local')->response($path);
     }
 }

@@ -1,6 +1,9 @@
 import { authApi } from '../api/authApi'
 import type { RegisterProspectiveMemberPayload } from '../types/auth'
 
+const AUTH_TOKEN_KEY = 'fitnez_access_token'
+const AUTH_USER_KEY = 'fitnez_auth_user'
+
 export const authService = {
   async registerProspectiveMember(payload: RegisterProspectiveMemberPayload) {
     return authApi.registerProspectiveMember(payload)
@@ -12,6 +15,12 @@ export const authService = {
 
   async verifyLoginOtp(email: string, otp: string) {
     const response = await authApi.verifyLoginOtp(email, otp)
+    if (response.data.access_token) {
+      localStorage.setItem(AUTH_TOKEN_KEY, response.data.access_token)
+    }
+    if (response.data.user) {
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.data.user))
+    }
     return response.data
   },
 
@@ -27,7 +36,11 @@ export const authService = {
     const response = await authApi.memberLogin(email, password)
 
     if (response.data.access_token) {
-      localStorage.setItem('fitnez_access_token', response.data.access_token)
+      localStorage.setItem(AUTH_TOKEN_KEY, response.data.access_token)
+    }
+
+    if (response.data.user) {
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.data.user))
     }
 
     return response.data
@@ -35,6 +48,7 @@ export const authService = {
 
   async logout() {
     await authApi.logout().catch(() => null)
-    localStorage.removeItem('fitnez_access_token')
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_USER_KEY)
   },
 }

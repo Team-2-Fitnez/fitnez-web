@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -8,13 +7,17 @@ import StatCard from '../../components/ui/StatCard.vue'
 import { trainerApplicationApi } from '../../api/trainerApplicationApi'
 import { useAuthStore } from '../../stores/authStore'
 
-const router = useRouter()
 const auth = useAuthStore()
 
 async function switchToMember() {
-  const response = await trainerApplicationApi.leaveWorkspace()
-  if (auth.user) auth.user = response.data.user
-  await router.push(response.data.redirect_to)
+  try {
+    const response = await trainerApplicationApi.leaveWorkspace()
+    if (auth.user) auth.user = response.data.user
+    window.showFitnezToast('Successfully switched to Member Workspace', 'success');
+    window.location.href = '/member.html'
+  } catch (error) {
+    window.showFitnezToast('Failed to switch workspace', 'error');
+  }
 }
 </script>
 

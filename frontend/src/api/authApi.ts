@@ -21,7 +21,7 @@ export const authApi = {
   },
 
   verifyLoginOtp(email: string, otp: string) {
-    return http.post<{ user: FitnezUser; purpose: string }>('/auth/verify-login-otp', {
+    return http.post<LoginResult & { purpose: string }>('/auth/verify-login-otp', {
       email,
       otp,
       channel: 'web',

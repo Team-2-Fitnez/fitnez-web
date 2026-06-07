@@ -1,1 +1,10 @@
-export function getApiErrorMessage(error:unknown, fallback='Request failed'){ const e=error as {payload?:{message?:string};message?:string}; return e?.payload?.message || e?.message || fallback }
+interface ApiError {
+  response?: { data?: { message?: string } }
+  payload?: { message?: string }
+  message?: string
+}
+
+export function getApiErrorMessage(error: unknown, fallback = 'Request failed'): string {
+  const e = error as ApiError
+  return e?.response?.data?.message || e?.payload?.message || e?.message || fallback
+}

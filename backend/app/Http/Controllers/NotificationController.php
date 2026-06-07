@@ -29,7 +29,7 @@ class NotificationController extends Controller
         return ApiResponse::success('Unread notifications loaded.', ['count' => $count]);
     }
 
-    public function markAsRead(Request $request, Notification $notification)
+    public function markAsReadIndividual(Request $request, Notification $notification)
     {
         $belongsToCurrentUser = (int) $notification->user_id === (int) $request->user()->id;
         $isGlobalNotification = is_null($notification->user_id);
@@ -41,5 +41,29 @@ class NotificationController extends Controller
         $notification->update(['is_read' => true]);
 
         return ApiResponse::success('Notification marked as read.', $notification->fresh());
+    }
+
+    public function markAllRead(Request $request)
+    {
+        Notification::query()
+            ->visibleTo($request->user())
+            ->unread()
+            ->update(['is_read' => true]);
+
+        return ApiResponse::success('All notifications marked as read.');
+    }
+
+    public function trainerNotifications(Request $request)
+    {
+        $perPage = min((int) $request->integer('per_page', 20), 100);
+
+        $notifications = Notification::where('user_id', $request->user()->id)
+            ->whereIn('notification_type', [
+                'booking_request', 'payment_in', 'hire', 'trainer_application',
+            ])
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        return ApiResponse::success('Trainer notifications loaded.', $notifications);
     }
 }

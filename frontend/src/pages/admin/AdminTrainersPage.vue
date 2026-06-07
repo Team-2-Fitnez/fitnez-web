@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import RoleLayout from '../../components/layout/RoleLayout.vue'
+import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 </script>
 
 <template>
-  <RoleLayout role="admin" sidebar-title="Admin" title="Trainers" subtitle="Manage trainer profiles, specialization, and availability." :sidebar-items="adminSidebarItems">
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Trainers" subtitle="Manage trainer profiles, specialization, and availability." :sidebar-items="adminSidebarItems">
     <div class="grid gap-4 md:grid-cols-3">
       <StatCard label="Status" value="UI Ready" hint="Prepared page" />
       <StatCard label="Next Step" value="API" hint="Connect backend later" />
@@ -19,5 +19,5 @@ import StatCard from '../../components/ui/StatCard.vue'
         This page is intentionally prepared as a clean UI placeholder. Connect tables, filters, forms, and API logic when the feature backend is finalized.
       </p>
     </FitnezCard>
-  </RoleLayout>
+  </WorkspaceLayout>
 </template>

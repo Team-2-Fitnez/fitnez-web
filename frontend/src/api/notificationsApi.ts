@@ -12,4 +12,8 @@ export const notificationsApi = {
   markAsRead(id: number) {
     return http.patch<NotificationItem>(`/notifications/${id}/read`)
   },
+  markAllRead() {
+    return http.patch<null>('/notifications/read-all')
+  },
 }
+

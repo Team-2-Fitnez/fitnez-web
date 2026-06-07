@@ -8,7 +8,7 @@ class CreateMemberFromApprovedRegistrationAction {
             $registration->loadMissing('package');
             $role=Role::query()->firstOrCreate(['name'=>'member'],['description'=>'Fitnez member']);
             $user=User::query()->create([
-                'full_name'=>$registration->full_name,'email'=>$registration->email,'phone'=>$registration->phone,
+                'full_name'=>$registration->full_name,'email'=>$registration->email,'phone'=>$registration->phone,'birth_date'=>$registration->birth_date,
                 'password_hash'=>$registration->password_hash,'role_id'=>$role->id,'is_active'=>true,'email_verified_at'=>now(),
                 'membership_package_id'=>$registration->package->id,'membership_started_at'=>now(),
                 'membership_expires_at'=>now()->addMonths($registration->package->duration_months),

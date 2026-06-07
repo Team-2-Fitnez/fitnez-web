@@ -39,10 +39,16 @@ export const trainerApplicationApi = {
     return http.get<TrainerApplicationStatusResult>('/trainer/application')
   },
 
-  submit(cv: File, certificate: File) {
+  apply(payload: Record<string, unknown>) {
+    return http.post('/trainer/application', payload)
+  },
+
+  submit(cv: File, certificate: File, specialization: string, experience_years: number) {
     const form = new FormData()
     form.append('cv', cv)
     form.append('certificate', certificate)
+    form.append('specialization', specialization)
+    form.append('experience_years', String(experience_years))
     return http.post<TrainerApplication>('/trainer/application', form)
   },
 
@@ -68,5 +74,17 @@ export const trainerApplicationApi = {
 
   documentUrl(id: number, type: 'cv' | 'certificate') {
     return http.url(`/admin/trainer-applications/${id}/documents/${type}`)
+  },
+
+  async downloadDocument(id: number, type: 'cv' | 'certificate') {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
+    const response = await fetch(`${baseUrl}/admin/trainer-applications/${id}/documents/${type}/stream`, {
+      headers: { 'Authorization': `Bearer ${http.token()}` },
+    })
+    if (!response.ok) throw new Error('Failed to download document')
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
   },
 }

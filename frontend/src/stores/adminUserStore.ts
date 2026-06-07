@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { adminUsersApi, type TableQuery } from '../api/adminUsersApi'
+import { adminUsersApi, type TableQuery, type AdminUserSummary } from '../api/adminUsersApi'
 import type { FitnezUser } from '../types/auth'
 import type { Role } from '../types/masterData'
 
@@ -7,7 +7,9 @@ export const useAdminUserStore = defineStore('adminUsers', {
   state: () => ({
     items: [] as FitnezUser[],
     roles: [] as Role[],
+    summary: null as AdminUserSummary | null,
     loading: false,
+    loadingSummary: false,
     search: '',
     role: '',
     status: '',
@@ -41,6 +43,15 @@ export const useAdminUserStore = defineStore('adminUsers', {
     async loadRoles() {
       const response = await adminUsersApi.roles()
       this.roles = response.data
+    },
+    async loadSummary() {
+      this.loadingSummary = true
+      try {
+        const response = await adminUsersApi.summary()
+        this.summary = response.data
+      } finally {
+        this.loadingSummary = false
+      }
     },
 
     async create(payload: Record<string, unknown>) {
