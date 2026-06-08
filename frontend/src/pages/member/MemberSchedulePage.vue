@@ -11,9 +11,9 @@ import { useAutoRefresh } from '../../composables/useAutoRefresh'
 const store = useBookingStore()
 const route = useRoute()
 
-type BookingFilter = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'
+type BookingFilter = 'all' | 'pending' | 'pending_payment' | 'confirmed' | 'completed' | 'cancelled'
 
-const filters: BookingFilter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled']
+const filters: BookingFilter[] = ['all', 'pending', 'pending_payment', 'confirmed', 'completed', 'cancelled']
 const filter = ref<BookingFilter>('all')
 const selectedDate = ref('')
 
@@ -23,8 +23,9 @@ const currentYear = ref(now.getFullYear())
 
 const filterLabels: Record<BookingFilter, string> = {
   all: 'All',
-  pending: 'Pending',
-  confirmed: 'Confirmed',
+  pending: 'Need Payment',
+  pending_payment: 'Pending Review',
+  confirmed: 'Active',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
@@ -39,19 +40,41 @@ const currentMonthYear = computed(() => {
 const filteredBookings = computed(() => {
   return store.bookings.filter((booking) => {
     const statusMatch = filter.value === 'all' || booking.status === filter.value
-    const dateMatch = !selectedDate.value || (booking.booking_date || '').startsWith(selectedDate.value)
+    const dateMatch = !selectedDate.value || (booking.start_date || '').startsWith(selectedDate.value)
     return statusMatch && dateMatch
   })
 })
 
 const pendingCount = computed(() => store.bookings.filter(b => b.status === 'pending').length)
+const pendingPaymentCount = computed(() => store.bookings.filter(b => b.status === 'pending_payment').length)
 const confirmedCount = computed(() => store.bookings.filter(b => b.status === 'confirmed').length)
 const completedCount = computed(() => store.bookings.filter(b => b.status === 'completed').length)
+
+const pendingUploadBookingId = ref<number | null>(null)
+const uploadFile = ref<File | null>(null)
+const uploading = ref(false)
+const uploadError = ref('')
+
+async function submitPaymentProof() {
+  if (!uploadFile.value || !pendingUploadBookingId.value) return
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    await store.uploadPaymentProof(pendingUploadBookingId.value, uploadFile.value)
+    pendingUploadBookingId.value = null
+    uploadFile.value = null
+    window.showFitnezToast('Payment proof submitted. Admin will verify within 2x24 hours.', 'success')
+  } catch (e: any) {
+    uploadError.value = e?.message || 'Upload failed.'
+  } finally {
+    uploading.value = false
+  }
+}
 
 const groupedBookings = computed(() => {
   const groups = new Map<string, typeof store.bookings>()
   filteredBookings.value.forEach((booking) => {
-    const key = (booking.booking_date || '').substring(0, 10) || 'No date'
+    const key = (booking.start_date || '').substring(0, 10) || 'No date'
     groups.set(key, [...(groups.get(key) || []), booking])
   })
 
@@ -88,6 +111,39 @@ const calendarDays = computed(() => {
   return days
 })
 
+// Session dates expand
+const expandedSessions = ref(new Set<number>())
+const sessionDatesMap = ref<Map<number, string[]>>(new Map())
+const sessionTimesMap = ref<Map<number, string>>(new Map())
+const sessionLoadingMap = ref<Map<number, boolean>>(new Map())
+
+async function toggleSessions(bookingId: number) {
+  if (expandedSessions.value.has(bookingId)) {
+    expandedSessions.value.delete(bookingId)
+    return
+  }
+  if (!sessionDatesMap.value.has(bookingId)) {
+    sessionLoadingMap.value.set(bookingId, true)
+    try {
+      const res = await store.fetchSessionDates(bookingId)
+      sessionDatesMap.value.set(bookingId, res.dates)
+      sessionTimesMap.value.set(bookingId, res.session_time)
+    } finally {
+      sessionLoadingMap.value.set(bookingId, false)
+    }
+  }
+  expandedSessions.value.add(bookingId)
+}
+
+function hasBookingOnDate(dateStr: string): boolean {
+  if (!dateStr) return false
+  for (const booking of store.bookings) {
+    const dates = sessionDatesMap.value.get(booking.id)
+    if (dates && dates.includes(dateStr)) return true
+  }
+  return false
+}
+
 function prevMonth() {
   if (currentMonth.value === 0) {
     currentMonth.value = 11
@@ -115,8 +171,8 @@ function getDayStatuses(dateStr: string) {
   if (!dateStr) return []
   return [...new Set(
     store.bookings
-      .filter(booking => (booking.booking_date || '').startsWith(dateStr))
-      .map(booking => booking.status || 'pending')
+      .filter(booking => (booking.start_date || '').startsWith(dateStr))
+      .map(booking => booking.status || 'pending_payment')
   )].slice(0, 3)
 }
 
@@ -137,16 +193,12 @@ function formatPrice(n: number | string | null | undefined) {
   }).format(Number(n || 0))
 }
 
-function shortTime(value?: string | null) {
-  return value ? value.substring(0, 5) : '--:--'
-}
-
 function statusLabel(value?: string | null) {
-  if (value === 'pending') return 'Pending'
-  if (value === 'confirmed') return 'Confirmed'
+  if (value === 'pending') return 'Need Payment'
+  if (value === 'pending_payment') return 'Pending Review'
+  if (value === 'confirmed') return 'Active'
   if (value === 'completed') return 'Completed'
   if (value === 'cancelled') return 'Cancelled'
-  if (value === 'rejected') return 'Rejected'
   return value || 'Pending'
 }
 
@@ -162,7 +214,7 @@ async function cancelBooking(id: number) {
 onMounted(() => {
   store.loadBookings()
   if (route.query.booking === 'success') {
-    window.showFitnezToast('Booking successful! Check schedule in the Schedule menu.', 'success')
+    window.showFitnezToast('Booking created! Please make payment to activate.', 'success')
   }
 })
 useAutoRefresh(() => store.loadBookings(), 8000)
@@ -173,15 +225,22 @@ useAutoRefresh(() => store.loadBookings(), 8000)
     role="member"
     sidebar-title="Member"
     title="Workout Schedule"
-    subtitle="View and manage your workout session schedule with your trainer."
+    subtitle="View and manage your monthly training subscriptions."
     :sidebar-items="memberSidebarItems"
   >
     <section class="member-schedule-layout">
       <div v-if="pendingCount > 0" class="schedule-alert">
-        <span class="material-symbols-outlined">pending_actions</span>
+        <span class="material-symbols-outlined">payments</span>
         <div>
-          <p>{{ pendingCount }} booking(s) waiting for confirmation</p>
-          <small>Trainer will confirm your schedule soon.</small>
+          <p>{{ pendingCount }} booking(s) need payment proof</p>
+          <small>Upload your payment receipt to proceed.</small>
+        </div>
+      </div>
+      <div v-else-if="pendingPaymentCount > 0" class="schedule-alert" style="background: #eff6ff; border-color: #93c5fd;">
+        <span class="material-symbols-outlined">hourglass_top</span>
+        <div>
+          <p>{{ pendingPaymentCount }} booking(s) waiting for admin confirmation</p>
+          <small>Admin will verify your payment within 2x24 hours.</small>
         </div>
       </div>
 
@@ -246,7 +305,11 @@ useAutoRefresh(() => store.loadBookings(), 8000)
               </div>
               <div>
                 <strong>{{ pendingCount }}</strong>
-                <span>Pending</span>
+                <span>Need Pay</span>
+              </div>
+              <div>
+                <strong>{{ pendingPaymentCount }}</strong>
+                <span>Review</span>
               </div>
               <div>
                 <strong>{{ confirmedCount }}</strong>
@@ -254,7 +317,7 @@ useAutoRefresh(() => store.loadBookings(), 8000)
               </div>
               <div>
                 <strong>{{ completedCount }}</strong>
-                <span>Completed</span>
+                <span>Done</span>
               </div>
             </div>
           </article>
@@ -263,8 +326,8 @@ useAutoRefresh(() => store.loadBookings(), 8000)
         <section class="schedule-right schedule-card">
           <div class="list-head">
             <div>
-              <p class="eyebrow">Session List</p>
-              <h3>{{ selectedDate ? formatDate(selectedDate) : 'All Schedules' }}</h3>
+              <p class="eyebrow">Booking List</p>
+              <h3>{{ selectedDate ? formatDate(selectedDate) : 'All Bookings' }}</h3>
             </div>
             <router-link to="/member/hire-trainer" class="button button-primary button-small">
               Find Trainer
@@ -290,7 +353,7 @@ useAutoRefresh(() => store.loadBookings(), 8000)
           <div v-else-if="filteredBookings.length === 0" class="empty-schedule-card">
             <span class="material-symbols-outlined">calendar_today</span>
             <p>
-              {{ filter === 'all' ? 'No workout schedule yet.' : `No schedules with status "${filterLabels[filter]}".` }}
+              {{ filter === 'all' ? 'No bookings yet.' : `No bookings with status "${filterLabels[filter]}".` }}
             </p>
             <router-link to="/member/hire-trainer" class="button button-primary">
               Hire a Trainer Now
@@ -308,47 +371,75 @@ useAutoRefresh(() => store.loadBookings(), 8000)
               </div>
 
               <article v-for="booking in group.bookings" :key="booking.id" class="session-card">
-                <div class="time-tile">
-                  <strong>{{ shortTime(booking.start_time) }}</strong>
-                  <span>{{ shortTime(booking.end_time) }}</span>
-                </div>
-
                 <div class="session-body">
                   <div class="session-top">
                     <div>
                       <span class="status-chip">{{ statusLabel(booking.status) }}</span>
                       <h4>{{ booking.trainer?.full_name ?? 'Trainer' }}</h4>
-                      <p>{{ booking.session_type }} - {{ booking.location || 'Fitnez Gym' }}</p>
+                      <p>{{ booking.sessions_per_week }}×/week · {{ booking.session_time }} · {{ booking.session_days?.join(', ') || '-' }}</p>
                     </div>
-                    <StatusBadge :status="booking.status || 'pending'" />
+                    <StatusBadge :status="booking.status || 'pending_payment'" />
                   </div>
 
                   <div class="meta-grid">
                     <div>
-                      <span>Cost</span>
-                      <strong>{{ formatPrice(booking.total_price) }}</strong>
+                      <span>Monthly Cost</span>
+                      <strong>{{ formatPrice(booking.total_member_price) }}</strong>
                     </div>
                     <div>
-                      <span>Type</span>
-                      <strong>{{ booking.session_type || '-' }}</strong>
+                      <span>Sessions</span>
+                      <strong>{{ booking.total_sessions }} total ({{ booking.sessions_per_week }}/week)</strong>
                     </div>
                     <div>
-                      <span>Date</span>
-                      <strong>{{ formatDate(booking.booking_date) }}</strong>
+                      <span>Period</span>
+                      <strong>{{ booking.start_date }} – {{ booking.end_date }}</strong>
                     </div>
                   </div>
 
                   <p v-if="booking.member_notes" class="session-note">{{ booking.member_notes }}</p>
-                  <p v-if="booking.status === 'pending'" class="status-note pending">Waiting for confirmation from trainer.</p>
-                  <p v-else-if="booking.status === 'confirmed'" class="status-note confirmed">Schedule confirmed. Please coordinate via Chat.</p>
-                  <p v-else-if="booking.status === 'rejected'" class="status-note rejected">Booking rejected by trainer. Please choose another time.</p>
+                  <p v-if="booking.status === 'pending'" class="status-note pending">Upload payment proof to proceed.</p>
+                  <p v-else-if="booking.status === 'pending_payment'" class="status-note pending">Awaiting admin payment verification.</p>
+                  <p v-else-if="booking.status === 'confirmed'" class="status-note confirmed">Booking active. Coordinate with your trainer via Chat.</p>
 
-                  <div v-if="booking.status === 'confirmed' || booking.status === 'pending'" class="session-actions">
+                  <button
+                    v-if="booking.status === 'confirmed'"
+                    class="button button-ghost button-small"
+                    style="margin-top: 0.5rem;"
+                    @click="toggleSessions(booking.id)"
+                  >
+                    {{ expandedSessions.has(booking.id) ? 'Hide' : 'Show' }} Session Dates
+                  </button>
+
+                  <div v-if="expandedSessions.has(booking.id)" class="session-dates-list">
+                    <div v-if="sessionLoadingMap.get(booking.id)" class="session-date-item loading">
+                      Loading sessions...
+                    </div>
+                    <div
+                      v-else
+                      v-for="date in (sessionDatesMap.get(booking.id) || [])"
+                      :key="date"
+                      class="session-date-item"
+                    >
+                      <span class="material-symbols-outlined">fitness_center</span>
+                      <span>{{ formatDate(date) }}</span>
+                      <span class="session-time-badge">{{ sessionTimesMap.get(booking.id) || booking.session_time }}</span>
+                    </div>
+                  </div>
+
+                  <div v-if="booking.status !== 'completed' && booking.status !== 'cancelled'" class="session-actions" style="flex-wrap: wrap;">
+                    <button
+                      v-if="booking.status === 'pending'"
+                      class="button button-primary button-small"
+                      type="button"
+                      @click="pendingUploadBookingId = booking.id"
+                    >
+                      Upload Payment Proof
+                    </button>
                     <router-link v-if="booking.status === 'confirmed'" :to="`/member/chat?contact=${booking.trainer_id}`" class="button button-primary button-small">
                       Chat Trainer
                     </router-link>
                     <button class="button button-danger-ghost button-small" type="button" @click="cancelBooking(booking.id)">
-                      Cancel Session
+                      Cancel
                     </button>
                   </div>
                 </div>
@@ -358,6 +449,50 @@ useAutoRefresh(() => store.loadBookings(), 8000)
         </section>
       </div>
     </section>
+
+    <!-- Upload Payment Proof Modal -->
+    <Teleport to="body">
+      <div v-if="pendingUploadBookingId" class="modal-backdrop" @click.self="pendingUploadBookingId = null">
+        <div class="modal-card">
+          <div class="modal-header">
+            <div class="modal-icon">
+              <span class="material-symbols-outlined">cloud_upload</span>
+            </div>
+            <div>
+              <p class="eyebrow" style="margin: 0; font-size: 0.7rem;">Payment Proof</p>
+              <h2 class="title-md" style="margin: 0; font-size: 1.15rem;">Upload Transfer Receipt</h2>
+            </div>
+          </div>
+
+          <div class="upload-section">
+            <label class="form-label">Screenshot / Photo of Payment</label>
+            <div class="upload-zone" :class="{ 'has-file': uploadFile }" @click="($refs.uf as HTMLInputElement)?.click()">
+              <input ref="uf" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="(e: any) => { const f = e.target?.files?.[0]; if (f) { uploadFile = f; uploadError = '' } }" />
+              <template v-if="!uploadFile">
+                <span class="material-symbols-outlined upload-icon">cloud_upload</span>
+                <p>Tap to select screenshot</p>
+                <small>JPG, PNG, or WebP. Max 4MB.</small>
+              </template>
+              <template v-else>
+                <span class="material-symbols-outlined upload-icon success">check_circle</span>
+                <p>{{ uploadFile.name }}</p>
+                <small>{{ (uploadFile.size / 1024).toFixed(0) }} KB</small>
+              </template>
+            </div>
+            <p v-if="uploadError" class="field-error">{{ uploadError }}</p>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="button button-ghost" @click="pendingUploadBookingId = null; uploadFile = null; uploadError = ''">
+              Cancel
+            </button>
+            <button type="button" class="button button-primary" :disabled="!uploadFile || uploading" @click="submitPaymentProof">
+              {{ uploading ? 'Uploading...' : 'Submit Proof' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </WorkspaceLayout>
 </template>
 
@@ -367,462 +502,544 @@ useAutoRefresh(() => store.loadBookings(), 8000)
   gap: 1.25rem;
 }
 
-.schedule-alert,
-.schedule-card {
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 1.25rem;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
-}
-
 .schedule-alert {
-  align-items: center;
   display: flex;
   gap: 1rem;
-  padding: 1rem 1.15rem;
-}
-
-.schedule-alert > span {
-  align-items: center;
+  padding: 1rem;
   background: #fffbeb;
-  border-radius: 999px;
-  color: #b45309;
-  display: inline-flex;
-  height: 2.6rem;
-  justify-content: center;
-  width: 2.6rem;
+  border: 1px solid #fde68a;
+  border-radius: 1rem;
+  align-items: center;
 }
 
 .schedule-alert p {
-  color: #0f172a;
-  font-weight: 950;
+  font-weight: 800;
+  font-size: 0.9rem;
   margin: 0;
 }
 
 .schedule-alert small {
-  color: #64748b;
-  font-weight: 800;
+  font-size: 0.75rem;
+  color: #92400e;
 }
 
 .schedule-grid {
-  align-items: start;
   display: grid;
+  grid-template-columns: 320px 1fr;
   gap: 1.25rem;
-  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.45fr);
+  align-items: start;
 }
 
 .schedule-left {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
 .schedule-card {
-  min-width: 0;
-  padding: clamp(1rem, 2vw, 1.4rem);
+  background: white;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
-.eyebrow {
-  color: #2563eb;
-  font-size: 0.72rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.calendar-header,
-.list-head,
-.session-top {
-  align-items: flex-start;
+.calendar-header {
   display: flex;
-  gap: 1rem;
   justify-content: space-between;
-}
-
-.calendar-header h3,
-.list-head h3 {
-  color: #0f172a;
-  font-size: 1.2rem;
-  font-weight: 950;
-  margin-top: 0.25rem;
-  text-transform: capitalize;
-}
-
-.calendar-nav {
-  display: flex;
-  gap: 0.45rem;
-}
-
-.calendar-nav button {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  color: #475569;
-  cursor: pointer;
-  display: inline-flex;
-  height: 2.35rem;
-  justify-content: center;
-  width: 2.35rem;
+  margin-bottom: 1rem;
 }
 
-.weekday-grid,
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+.calendar-header h3 {
+  font-size: 1rem;
+  font-weight: 900;
+  margin: 0.15rem 0 0;
 }
 
 .weekday-grid {
-  color: #94a3b8;
-  font-size: 0.7rem;
-  font-weight: 950;
-  gap: 0.35rem;
-  margin: 1.25rem 0 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 0.5rem;
 }
 
 .calendar-grid {
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
 }
 
 .day-cell {
-  aspect-ratio: 1 / 1;
-  background: #f8fafc;
-  border: 1px solid transparent;
-  border-radius: 0.8rem;
-  color: #475569;
-  cursor: pointer;
+  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
-  font-size: 0.82rem;
-  font-weight: 950;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 0.45rem;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s ease;
+  position: relative;
 }
 
-.day-cell:disabled {
-  cursor: default;
-  opacity: 0;
+.day-cell:hover:not(:disabled) {
+  background: #f1f5f9;
 }
 
 .day-cell.today {
-  border-color: #2563eb;
-  color: #1d4ed8;
+  background: var(--color-blue);
+  color: white;
 }
 
 .day-cell.selected {
-  background: #2563eb;
-  color: #ffffff;
+  outline: 2px solid var(--color-blue);
+  outline-offset: -2px;
 }
 
-.day-cell.has-booking {
-  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+.day-cell:disabled {
+  opacity: 0.2;
 }
 
 .dot-row {
   display: flex;
-  gap: 0.15rem;
-  justify-content: center;
-  min-height: 0.35rem;
+  gap: 2px;
+  margin-top: 2px;
 }
 
 .dot-row b {
-  border-radius: 999px;
-  display: block;
-  height: 0.32rem;
-  width: 0.32rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
 }
 
-.dot-pending { background: #f59e0b; }
-.dot-confirmed { background: #10b981; }
-.dot-completed { background: #2563eb; }
-.dot-cancelled,
-.dot-rejected { background: #ef4444; }
+.dot-pending_payment { background: #f59e0b; }
+.dot-confirmed { background: #22c55e; }
+.dot-completed { background: #64748b; }
+.dot-cancelled { background: #ef4444; }
 
 .clear-date {
-  background: #eff6ff;
-  border: 0;
-  border-radius: 999px;
-  color: #1d4ed8;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 950;
-  margin-top: 1rem;
-  padding: 0.6rem 0.85rem;
   width: 100%;
+  margin-top: 0.5rem;
+  border: none;
+  background: transparent;
+  color: var(--color-blue);
+  font-weight: 700;
+  font-size: 0.75rem;
+  cursor: pointer;
 }
 
 .summary-grid {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 .summary-grid div {
+  text-align: center;
+  padding: 0.5rem;
   background: #f8fafc;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 1rem;
-  padding: 0.9rem;
+  border-radius: 0.75rem;
 }
 
 .summary-grid strong {
-  color: #0f172a;
   display: block;
-  font-size: 1.45rem;
-  font-weight: 950;
-}
-
-.summary-grid span {
-  color: #64748b;
-  font-size: 0.75rem;
+  font-size: 1.25rem;
   font-weight: 900;
 }
 
-.schedule-right {
+.summary-grid span {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.list-head {
   display: flex;
-  flex-direction: column;
-  gap: 1.15rem;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
 }
 
 .status-tabs {
   display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
-  gap: 0.55rem;
 }
 
 .filter-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  color: #475569;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #f1f5f9;
+  font-size: 0.75rem;
+  font-weight: 700;
   cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 950;
-  padding: 0.58rem 0.95rem;
+  transition: 0.15s ease;
 }
 
 .filter-btn.active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
+  background: var(--color-blue);
+  color: white;
 }
 
-.loading-list,
-.session-groups,
-.session-group {
+.loading-list {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .empty-schedule-card {
-  align-items: center;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 3rem 1rem;
   text-align: center;
+  padding: 3rem;
 }
 
-.empty-schedule-card > span {
-  color: #2563eb;
-  font-size: 3rem;
+.session-groups {
+  display: grid;
+  gap: 1rem;
 }
 
-.empty-schedule-card p {
-  color: #64748b;
-  font-weight: 900;
+.session-group {
+  display: grid;
+  gap: 0.5rem;
 }
 
 .date-divider {
-  align-items: center;
   display: flex;
-  gap: 0.8rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.date-divider > span {
-  background: #2563eb;
-  border: 5px solid #eff6ff;
-  border-radius: 999px;
-  height: 1.25rem;
-  width: 1.25rem;
+.date-divider span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-blue);
+  flex-shrink: 0;
 }
 
 .date-divider strong {
-  color: #0f172a;
-  display: block;
-  font-weight: 950;
+  font-size: 0.85rem;
 }
 
 .date-divider small {
+  font-size: 0.7rem;
   color: #64748b;
   display: block;
-  font-size: 0.72rem;
-  font-weight: 800;
 }
 
 .session-card {
-  background: #ffffff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
   border-radius: 1rem;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 5rem minmax(0, 1fr);
   padding: 1rem;
-}
-
-.time-tile {
-  align-items: center;
-  background: #eff6ff;
-  border-radius: 1rem;
-  color: #1d4ed8;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 5rem;
-}
-
-.time-tile strong {
-  font-size: 1.1rem;
-  font-weight: 950;
-}
-
-.time-tile span {
-  color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 900;
+  border: 1px solid rgba(0,0,0,0.06);
 }
 
 .session-body {
-  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.session-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .status-chip {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #e2e8f0;
   color: #475569;
-  display: inline-flex;
-  font-size: 0.7rem;
-  font-weight: 950;
-  margin-bottom: 0.45rem;
-  padding: 0.25rem 0.55rem;
 }
 
 .session-top h4 {
-  color: #0f172a;
-  font-size: 1.08rem;
-  font-weight: 950;
-  margin: 0;
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 900;
 }
 
 .session-top p {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
   color: #64748b;
-  font-size: 0.85rem;
-  font-weight: 800;
-  margin: 0.2rem 0 0;
-  text-transform: capitalize;
 }
 
 .meta-grid {
   display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 1rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
 .meta-grid div {
-  background: #f8fafc;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 0.85rem;
-  min-width: 0;
-  padding: 0.75rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 0.5rem;
 }
 
 .meta-grid span {
-  color: #64748b;
   display: block;
-  font-size: 0.7rem;
-  font-weight: 950;
-  text-transform: uppercase;
+  font-size: 0.65rem;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .meta-grid strong {
-  color: #0f172a;
-  display: block;
-  font-size: 0.84rem;
-  font-weight: 950;
-  margin-top: 0.25rem;
-  overflow-wrap: anywhere;
-}
-
-.session-note,
-.status-note {
-  border-radius: 0.85rem;
   font-size: 0.85rem;
-  font-weight: 800;
-  margin: 1rem 0 0;
-  padding: 0.75rem;
+  font-weight: 900;
 }
 
 .session-note {
-  background: #f8fafc;
+  font-size: 0.8rem;
+  font-style: italic;
   color: #475569;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 0.5rem;
 }
 
-.status-note.pending { background: #fffbeb; color: #92400e; }
-.status-note.confirmed { background: #f0fdf4; color: #166534; }
-.status-note.rejected { background: #fef2f2; color: #991b1b; }
+.status-note {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-note.pending { color: #d97706; }
+.status-note.confirmed { color: #16a34a; }
+.status-note.rejected { color: #dc2626; }
 
 .session-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
 }
 
-@media (max-width: 1120px) {
+.session-dates-list {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.session-date-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+}
+
+.session-date-item .material-symbols-outlined {
+  font-size: 1rem;
+  color: var(--color-blue);
+}
+
+.session-time-badge {
+  margin-left: auto;
+  background: var(--color-blue);
+  color: white;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.session-date-item.loading {
+  justify-content: center;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Upload Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 28, 48, 0.45);
+  backdrop-filter: blur(8px);
+  padding: 1rem;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.modal-card {
+  width: min(100%, 440px);
+  display: grid;
+  gap: 1.25rem;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 1.75rem;
+  box-shadow: 0 24px 60px rgba(11, 28, 48, 0.18);
+}
+
+.modal-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding-bottom: 1rem;
+}
+
+.modal-icon {
+  background: rgba(54, 90, 130, 0.1);
+  color: var(--color-blue);
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+  display: grid;
+  gap: 0.35rem;
+  place-items: center;
+}
+
+.upload-zone:hover {
+  border-color: var(--color-blue);
+  background: #f0f4ff;
+}
+
+.upload-zone.has-file {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.upload-icon {
+  font-size: 2rem !important;
+  color: #94a3b8;
+}
+
+.upload-icon.success {
+  color: #22c55e;
+}
+
+.upload-zone p {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.upload-zone small {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.form-label {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-blue-dark);
+}
+
+.field-error {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  font-weight: 600;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.button {
+  align-items: center;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.4rem 1rem;
+  transition: 160ms ease;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button-primary {
+  background: var(--color-blue);
+  color: white;
+}
+
+.button-primary:hover {
+  background: var(--color-blue-dark);
+}
+
+.button-ghost {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: var(--color-muted);
+}
+
+.button-ghost:hover {
+  background: #f1f5f9;
+}
+
+.button-danger-ghost {
+  background: transparent;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+}
+
+.button-danger-ghost:hover {
+  background: #fef2f2;
+}
+
+.button-small {
+  font-size: 0.7rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
+}
+
+@media (max-width: 900px) {
   .schedule-grid {
     grid-template-columns: 1fr;
   }
 
-  .schedule-left {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.65fr);
-  }
-}
-
-@media (max-width: 760px) {
-  .schedule-left,
-  .summary-grid,
   .meta-grid {
     grid-template-columns: 1fr;
-  }
-
-  .list-head,
-  .calendar-header,
-  .session-top,
-  .schedule-alert {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .session-card {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .time-tile {
-    align-items: flex-start;
-    min-height: auto;
-    padding: 0.85rem;
-  }
-
-  .session-actions {
-    flex-direction: column;
   }
 }
 </style>
