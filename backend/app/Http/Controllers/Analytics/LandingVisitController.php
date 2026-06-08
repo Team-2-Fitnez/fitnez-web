@@ -20,4 +20,17 @@ class LandingVisitController extends Controller
             'visited_at' => $visit->visited_at?->toISOString(),
         ], 201);
     }
+
+    public function heartbeat(StoreLandingVisitRequest $request, LandingVisitTracker $tracker)
+    {
+        $visit = $tracker->heartbeat($request->validated(), $request, $request->user());
+
+        return ApiResponse::success('Landing visit heartbeat tracked.', [
+            'id' => $visit->id,
+            'visitor_uuid' => $visit->visitor_uuid,
+            'session_uuid' => $visit->session_uuid,
+            'visited_at' => $visit->visited_at?->toISOString(),
+            'last_seen_at' => $visit->last_seen_at?->toISOString(),
+        ]);
+    }
 }

@@ -165,7 +165,7 @@ onMounted(() => {
     window.showFitnezToast('Booking successful! Check schedule in the Schedule menu.', 'success')
   }
 })
-useAutoRefresh(() => store.loadBookings(), 8000)
+useAutoRefresh(() => store.loadBookings(true), 8000)
 </script>
 
 <template>

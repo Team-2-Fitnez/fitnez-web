@@ -12,7 +12,6 @@ const router = createRouter({
     { path: '/admin/visitor-analytics', name: 'admin-visitor-analytics', component: () => import('./pages/admin/VisitorAnalyticsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/auth-activity', name: 'admin-auth-activity', component: () => import('./pages/admin/AuthActivityReportPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/member-reports', redirect: '/admin/check-in-logs' },
-    { path: '/admin/nutrition-monitoring', name: 'admin-nutrition-monitoring', component: () => import('./pages/admin/AdminNutritionMonitoringPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/notifications', name: 'admin-notifications', component: () => import('./pages/admin/AdminNotificationsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/users', name: 'admin-users', component: () => import('./pages/admin/AdminUsersPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/trainers', name: 'admin-trainers', component: () => import('./pages/admin/AdminTrainersPage.vue'), meta: { requiresAuth: true, role: 'admin' } },

@@ -23,6 +23,7 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        \Illuminate\Support\Carbon::setTestNow(now()->startOfDay()->addHours(12));
 
         $this->memberRole = Role::factory()->member()->create();
         $this->trainerRole = Role::factory()->trainer()->create();
@@ -38,6 +39,12 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         $this->member = User::factory()->create([
             'role_id' => $this->memberRole->id,
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow();
+        parent::tearDown();
     }
 
     private function getLocalNow()
@@ -170,4 +177,38 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         $response = $this->getJson("/api/trainer/member-monitoring/members/{$this->member->id}");
         $response->assertStatus(403);
     }
+
+    public function test_trainer_can_see_another_trainer_as_member_with_active_booking(): void
+    {
+        $this->authenticateAs($this->trainer);
+        $now = $this->getLocalNow();
+
+        $trainerAsMember = User::factory()->create([
+            'role_id' => $this->trainerRole->id,
+        ]);
+
+        TrainerBooking::factory()->create([
+            'member_id' => $trainerAsMember->id,
+            'trainer_id' => $this->trainer->id,
+            'booking_date' => $now->toDateString(),
+            'start_time' => $now->copy()->subMinutes(10)->format('H:i'),
+            'end_time' => $now->copy()->addMinutes(30)->format('H:i'),
+            'status' => TrainerBooking::STATUS_CONFIRMED,
+        ]);
+
+        // Summary
+        $response = $this->getJson('/api/trainer/member-monitoring/summary');
+        $response->assertStatus(200);
+        $this->assertEquals(1, $response->json('data.total_members'));
+
+        // List members
+        $response = $this->getJson('/api/trainer/member-monitoring/members');
+        $response->assertStatus(200);
+        $this->assertCount(1, $response->json('data.data'));
+
+        // Show details
+        $response = $this->getJson("/api/trainer/member-monitoring/members/{$trainerAsMember->id}");
+        $response->assertStatus(200);
+    }
 }
+

@@ -154,6 +154,24 @@
                 </div>
               </article>
             </div>
+
+            <div v-if="notificationLastPage > 1" class="pager-bar">
+              <p>Page {{ notificationPage }} of {{ notificationLastPage }}</p>
+              <div class="pagination">
+                <button type="button" :disabled="notificationPage <= 1" @click="goNotificationPage(notificationPage - 1)">‹</button>
+                <button
+                  v-for="page in visibleNotificationPages"
+                  :key="page"
+                  type="button"
+                  :class="{ active: Number(page) === Number(notificationPage), disabled: page === '...' }"
+                  :disabled="page === '...'"
+                  @click="goNotificationPage(page)"
+                >
+                  {{ page }}
+                </button>
+                <button type="button" :disabled="notificationPage >= notificationLastPage" @click="goNotificationPage(notificationPage + 1)">›</button>
+              </div>
+            </div>
           </section>
 
         </div>
@@ -179,6 +197,10 @@ export default {
       kemarin: [],
       hariIni: [],
       besok: [],
+      notificationPage: 1,
+      notificationLastPage: 1,
+      notificationPerPage: 10,
+      notificationTotal: 0,
       readDummyIds: JSON.parse(localStorage.getItem('fitnez_read_notifs') || '[]'),
       refreshInterval: null,
     }
@@ -186,6 +208,14 @@ export default {
   computed: {
     hasUnreadNotifications() {
       return this.realNotifications.some(n => !n.is_read)
+    },
+    visibleNotificationPages() {
+      const last = Number(this.notificationLastPage)
+      const current = Number(this.notificationPage)
+      if (last <= 5) return Array.from({ length: last }, (_, i) => i + 1)
+      if (current <= 2) return [1, 2, 3, '...', last]
+      if (current >= last - 1) return [1, '...', last - 2, last - 1, last]
+      return [1, '...', current - 1, current, current + 1, '...', last]
     }
   },
   async mounted() {
@@ -206,8 +236,10 @@ export default {
     async fetchNotificationsSilent() {
       try {
         // 1. Fetch general notifications
-        const respNotif = await api.get('/notifications')
-        const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
+        const respNotif = await api.get(`/notifications?page=${this.notificationPage}&per_page=${this.notificationPerPage}`)
+        const notificationPayload = respNotif.data || {}
+        const rawRealNotifs = Array.isArray(notificationPayload) ? notificationPayload : (notificationPayload.data || [])
+        this.syncNotificationPagination(notificationPayload)
         
         this.realNotifications = rawRealNotifs.map(n => ({
           ...n,
@@ -237,8 +269,10 @@ export default {
       try {
         this.loading = true
         // 1. Fetch general notifications
-        const respNotif = await api.get('/notifications')
-        const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
+        const respNotif = await api.get(`/notifications?page=${this.notificationPage}&per_page=${this.notificationPerPage}`)
+        const notificationPayload = respNotif.data || {}
+        const rawRealNotifs = Array.isArray(notificationPayload) ? notificationPayload : (notificationPayload.data || [])
+        this.syncNotificationPagination(notificationPayload)
         
         this.realNotifications = rawRealNotifs.map(n => ({
           ...n,
@@ -265,6 +299,27 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+
+    syncNotificationPagination(payload) {
+      if (Array.isArray(payload)) {
+        this.notificationPage = 1
+        this.notificationLastPage = 1
+        this.notificationTotal = payload.length
+        return
+      }
+
+      this.notificationPage = payload.current_page || this.notificationPage
+      this.notificationLastPage = payload.last_page || 1
+      this.notificationTotal = payload.total || 0
+    },
+
+    async goNotificationPage(page) {
+      if (typeof page === 'string') return
+      if (page < 1 || page > this.notificationLastPage || page === this.notificationPage) return
+
+      this.notificationPage = page
+      await this.fetchNotifications()
     },
 
     groupWorkoutReminders(reminders) {
@@ -495,6 +550,56 @@ export default {
   gap: 0.75rem;
 }
 
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  padding-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pagination button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0 0.55rem;
+}
+
+.pagination button.active {
+  background: #0058be;
+  border-color: #0058be;
+  color: #ffffff;
+}
+
+.pagination button:disabled {
+  background: #f8fafc;
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
 .notification-item {
   align-items: flex-start;
   background: #ffffff;
@@ -660,5 +765,17 @@ export default {
 
 .opacity-75 {
   opacity: 0.75;
+}
+
+@media (max-width: 760px) {
+  .pager-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+  }
 }
 </style>

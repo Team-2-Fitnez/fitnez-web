@@ -21,17 +21,16 @@ class MemberFitnessMonitoringController extends Controller
 {
     public function summary(Request $request)
     {
-        $memberRoleId = Role::query()->where('name', 'member')->value('id');
         $trainerId = $request->user()->id;
         $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
         $now = now($tz);
         $driver = DB::getDriverName();
 
         $memberQuery = User::query()
-            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
+            ->whereHas('role', fn ($q) => $q->whereIn('name', ['member', 'trainer']))
             ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $now, $driver) {
                 $query->where('trainer_id', $trainerId)
-                    ->whereIn('status', [TrainerBooking::STATUS_PENDING, TrainerBooking::STATUS_CONFIRMED])
+                    ->where('status', TrainerBooking::STATUS_CONFIRMED)
                     ->where(function ($q) use ($now, $driver) {
                         if ($driver === 'sqlite') {
                             $q->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
@@ -94,7 +93,6 @@ class MemberFitnessMonitoringController extends Controller
     {
         $data = $request->validated();
         $search = SearchTerm::contains($data['search'] ?? null);
-        $memberRoleId = Role::query()->where('name', 'member')->value('id');
         $trainerId = $request->user()->id;
         $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
         $now = now($tz);
@@ -102,10 +100,10 @@ class MemberFitnessMonitoringController extends Controller
 
         $members = User::query()
             ->with('role')
-            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
+            ->whereHas('role', fn ($q) => $q->whereIn('name', ['member', 'trainer']))
             ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $now, $driver) {
                 $query->where('trainer_id', $trainerId)
-                    ->whereIn('status', [TrainerBooking::STATUS_PENDING, TrainerBooking::STATUS_CONFIRMED])
+                    ->where('status', TrainerBooking::STATUS_CONFIRMED)
                     ->where(function ($q) use ($now, $driver) {
                         if ($driver === 'sqlite') {
                             $q->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
@@ -164,7 +162,7 @@ class MemberFitnessMonitoringController extends Controller
         $hasActiveBooking = TrainerBooking::query()
             ->where('member_id', $member->id)
             ->where('trainer_id', $trainerId)
-            ->whereIn('status', [TrainerBooking::STATUS_PENDING, TrainerBooking::STATUS_CONFIRMED])
+            ->where('status', TrainerBooking::STATUS_CONFIRMED)
             ->where(function ($query) use ($now, $driver) {
                 if ($driver === 'sqlite') {
                     $query->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);

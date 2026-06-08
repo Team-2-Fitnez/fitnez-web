@@ -127,6 +127,61 @@ const activePeriodLabel = computed(() => {
 
   return `${start} - ${end}`
 })
+const visiblePaymentsPages = computed(() => {
+  const last = Number(store.paymentsLastPage)
+  const current = Number(store.paymentsPage)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+const visibleAttendancePages = computed(() => {
+  const last = Number(store.attendanceLastPage)
+  const current = Number(store.attendancePage)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPaymentsPage(page: number | string) {
+  if (typeof page === 'string') return
+  if (page < 1 || page > store.paymentsLastPage || page === store.paymentsPage) return
+  store.paymentsPage = page
+  store.loadPayments()
+}
+
+function goToAttendancePage(page: number | string) {
+  if (typeof page === 'string') return
+  if (page < 1 || page > store.attendanceLastPage || page === store.attendancePage) return
+  store.attendancePage = page
+  store.loadAttendance()
+}
 
 // Filter Actions
 function applyFilters() {
@@ -158,9 +213,9 @@ onMounted(() => {
   // Silent polling every 10 seconds in the background
   pollInterval = window.setInterval(async () => {
     try {
-      await store.loadSummary()
-      await store.loadPayments()
-      await store.loadAttendance()
+      await store.loadSummary(true)
+      await store.loadPayments(true)
+      await store.loadAttendance(true)
     } catch (err) {
       console.error('Polling operations data failed', err)
     }
@@ -354,9 +409,19 @@ onBeforeUnmount(() => {
 
           <div class="pager-bar">
             <p>Page {{ store.paymentsPage }} of {{ store.paymentsLastPage }}</p>
-            <div>
-              <button type="button" :disabled="store.paymentsPage <= 1" @click="store.previousPaymentsPage">Previous</button>
-              <button type="button" :disabled="store.paymentsPage >= store.paymentsLastPage" @click="store.nextPaymentsPage">Next</button>
+            <div class="pagination">
+              <button type="button" class="pagination-arrow" :disabled="store.paymentsPage <= 1" @click="goToPaymentsPage(store.paymentsPage - 1)">‹</button>
+              <button
+                v-for="page in visiblePaymentsPages"
+                :key="page"
+                :class="{ active: Number(page) === Number(store.paymentsPage), disabled: page === '...' }"
+                :disabled="page === '...'"
+                type="button"
+                @click="goToPaymentsPage(page)"
+              >
+                {{ page }}
+              </button>
+              <button type="button" class="pagination-arrow" :disabled="store.paymentsPage >= store.paymentsLastPage" @click="goToPaymentsPage(store.paymentsPage + 1)">›</button>
             </div>
           </div>
         </section>
@@ -410,9 +475,19 @@ onBeforeUnmount(() => {
 
           <div class="pager-bar">
             <p>Page {{ store.attendancePage }} of {{ store.attendanceLastPage }}</p>
-            <div>
-              <button type="button" :disabled="store.attendancePage <= 1" @click="store.previousAttendancePage">Previous</button>
-              <button type="button" :disabled="store.attendancePage >= store.attendanceLastPage" @click="store.nextAttendancePage">Next</button>
+            <div class="pagination">
+              <button type="button" class="pagination-arrow" :disabled="store.attendancePage <= 1" @click="goToAttendancePage(store.attendancePage - 1)">‹</button>
+              <button
+                v-for="page in visibleAttendancePages"
+                :key="page"
+                :class="{ active: Number(page) === Number(store.attendancePage), disabled: page === '...' }"
+                :disabled="page === '...'"
+                type="button"
+                @click="goToAttendancePage(page)"
+              >
+                {{ page }}
+              </button>
+              <button type="button" class="pagination-arrow" :disabled="store.attendancePage >= store.attendanceLastPage" @click="goToAttendancePage(store.attendancePage + 1)">›</button>
             </div>
           </div>
         </section>
@@ -861,6 +936,47 @@ td {
 .pager-bar button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination button {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pagination button.active {
+  background: #0058be;
+  color: white;
+  border-color: #0058be;
+}
+
+.pagination button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 
 @media (max-width: 1280px) {

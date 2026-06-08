@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import { useProspectiveMemberStore } from '../../stores/prospectiveMemberStore'
@@ -27,6 +27,34 @@ const rejectionReasonOptions = [
 
 onMounted(() => run(() => store.load()))
 useAutoRefresh(() => store.load(), 8000)
+
+const visiblePages = computed(() => {
+  const last = Number(store.lastPage)
+  const current = Number(store.page)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPage(p: number | string) {
+  if (typeof p === 'string') return
+  if (p < 1 || p > store.lastPage || p === store.page) return
+  store.page = p
+  store.load()
+}
 
 function openRejectModal(id: number) {
   selectedRegistrationId.value = id
@@ -124,6 +152,23 @@ function submitRejection() {
             </tr>
           </tbody>
         </table>
+      </div>
+      <div class="pager-bar">
+        <p>Page {{ store.page }} of {{ store.lastPage }}</p>
+        <div class="pagination">
+          <button type="button" class="pagination-arrow" :disabled="store.page <= 1" @click="goToPage(store.page - 1)">‹</button>
+          <button
+            v-for="p in visiblePages"
+            :key="p"
+            :class="{ active: Number(p) === Number(store.page), disabled: p === '...' }"
+            :disabled="p === '...'"
+            type="button"
+            @click="goToPage(p)"
+          >
+            {{ p }}
+          </button>
+          <button type="button" class="pagination-arrow" :disabled="store.page >= store.lastPage" @click="goToPage(store.page + 1)">›</button>
+        </div>
       </div>
     </FitnezCard>
 
@@ -313,5 +358,62 @@ function submitRejection() {
 @keyframes slideDown {
   from { transform: translateY(-10px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.10);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination button {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pagination button.active {
+  background: #0058be;
+  color: white;
+  border-color: #0058be;
+}
+
+.pagination button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 </style>

@@ -23,15 +23,15 @@ export const useBookingStore = defineStore('bookings', {
       }
     },
 
-    async loadBookings() {
-      this.loading = true
+    async loadBookings(silent = false) {
+      if (!silent) this.loading = true
       try {
         const response = await bookingsApi.list(this.page)
         this.bookings = response.data.data
         this.page = response.data.current_page
         this.lastPage = response.data.last_page
       } finally {
-        this.loading = false
+        if (!silent) this.loading = false
       }
     },
 
