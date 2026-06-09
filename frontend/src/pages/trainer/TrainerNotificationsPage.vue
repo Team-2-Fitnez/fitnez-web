@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import { useNotificationStore } from '../../stores/notificationStore'
@@ -68,6 +68,20 @@ async function markAllRead() {
   await store.markAllRead()
 }
 
+const visiblePages = computed(() => {
+  const last = Number(store.lastPage)
+  const current = Number(store.page)
+  if (last <= 5) return Array.from({ length: last }, (_, i) => i + 1)
+  if (current <= 2) return [1, 2, 3, '...', last]
+  if (current >= last - 1) return [1, '...', last - 2, last - 1, last]
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPage(page: number | string) {
+  if (typeof page === 'string') return
+  store.goToPage(page)
+}
+
 async function refreshData() {
   await Promise.all([store.load(), store.loadUnreadCount()])
 }
@@ -132,6 +146,24 @@ useAutoRefresh(refreshData, 8000)
                 <span :class="['status-pill', statusClass(item)]">{{ statusLabel(item) }}</span>
               </div>
             </article>
+          </div>
+
+          <div v-if="store.lastPage > 1" class="pager-bar">
+            <p>Page {{ store.page }} of {{ store.lastPage }}</p>
+            <div class="pagination">
+              <button type="button" :disabled="store.page <= 1 || store.loading" @click="goToPage(store.page - 1)">‹</button>
+              <button
+                v-for="page in visiblePages"
+                :key="page"
+                type="button"
+                :class="{ active: Number(page) === Number(store.page), disabled: page === '...' }"
+                :disabled="page === '...' || store.loading"
+                @click="goToPage(page)"
+              >
+                {{ page }}
+              </button>
+              <button type="button" :disabled="store.page >= store.lastPage || store.loading" @click="goToPage(store.page + 1)">›</button>
+            </div>
           </div>
         </section>
 
@@ -242,6 +274,57 @@ useAutoRefresh(refreshData, 8000)
 .notification-list {
   display: grid;
   gap: 0.85rem;
+}
+
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pagination button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0 0.55rem;
+}
+
+.pagination button.active {
+  background: #0058be;
+  border-color: #0058be;
+  color: #ffffff;
+}
+
+.pagination button:disabled {
+  background: #f8fafc;
+  color: #cbd5e1;
+  cursor: not-allowed;
 }
 
 .notification-item {
@@ -448,6 +531,16 @@ useAutoRefresh(refreshData, 8000)
   .notification-mainline {
     flex-direction: column;
     gap: 0.25rem;
+  }
+
+  .pager-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
   }
 }
 </style>

@@ -226,11 +226,27 @@ async function payload(): Promise<LandingVisitPayload> {
 }
 
 export const landingVisitService = {
-  async trackCurrentLandingPage() {
+  async trackCurrentLandingPage(path?: string) {
     try {
-      await landingVisitApi.track(await payload())
+      const p = await payload()
+      if (path) {
+        p.route_path = path
+      }
+      await landingVisitApi.track(p)
     } catch {
       // Tracking must never block landing page UX.
+    }
+  },
+
+  async heartbeatCurrentLandingPage(path?: string) {
+    try {
+      const p = await payload()
+      if (path) {
+        p.route_path = path
+      }
+      await landingVisitApi.heartbeat(p)
+    } catch {
+      // Heartbeat must never block landing page UX.
     }
   },
 
@@ -239,7 +255,7 @@ export const landingVisitService = {
 
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
-        this.trackCurrentLandingPage()
+        this.heartbeatCurrentLandingPage()
       }
     }, 30000)
 
