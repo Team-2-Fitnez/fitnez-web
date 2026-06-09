@@ -70,8 +70,8 @@ class TrainerManagementController extends Controller
 
         $trainer = DB::transaction(function () use ($data) {
             $role = Role::query()->firstOrCreate(
-                ['name' => 'trainer'],
-                ['description' => 'Fitnez personal trainer']
+                ['name' => 'member'],
+                ['description' => 'Fitnez member/user']
             );
 
             $user = User::query()->create([

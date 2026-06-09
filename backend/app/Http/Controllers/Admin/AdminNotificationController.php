@@ -7,18 +7,15 @@ use App\Models\ProspectiveMemberRegistration;
 use App\Models\TrainerApplication;
 use App\Models\User;
 use App\Support\ApiResponse;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminNotificationController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
-        $page = max((int) $request->integer('page', 1), 1);
-        $perPage = min(max((int) $request->integer('per_page', 10), 1), 50);
-
         $pendingMembers = ProspectiveMemberRegistration::orderByDesc('id')
+            ->limit(10)
             ->get()
             ->map(fn($item) => [
                 'id' => 'member_' . $item->id,
@@ -32,6 +29,7 @@ class AdminNotificationController extends Controller
             ]);
 
         $pendingTrainers = TrainerApplication::with('user')->orderByDesc('id')
+            ->limit(10)
             ->get()
             ->map(fn($item) => [
                 'id' => 'trainer_' . $item->id,
@@ -64,24 +62,8 @@ class AdminNotificationController extends Controller
             ->sortByDesc('created_at')
             ->values();
 
-        $pageItems = $allNotifications
-            ->forPage($page, $perPage)
-            ->values();
-
-        $paginated = new LengthAwarePaginator(
-            $pageItems,
-            $allNotifications->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url()]
-        );
-
         return ApiResponse::success('Admin notifications loaded.', [
-            'notifications' => $paginated->items(),
-            'current_page' => $paginated->currentPage(),
-            'last_page' => $paginated->lastPage(),
-            'per_page' => $paginated->perPage(),
-            'total' => $paginated->total(),
+            'notifications' => $allNotifications,
         ]);
     }
 

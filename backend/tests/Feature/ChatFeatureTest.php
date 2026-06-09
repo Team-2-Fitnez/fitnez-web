@@ -32,11 +32,6 @@ class ChatFeatureTest extends TestCase
     {
         $this->authenticateAs($this->member);
 
-        TrainerBooking::factory()->confirmed()->create([
-            'member_id' => $this->member->id,
-            'trainer_id' => $this->trainer->id,
-        ]);
-
         $response = $this->postJson('/api/chat/messages', [
             'receiver_id' => $this->trainer->id,
             'message' => 'Hello, I would like to discuss my training plan.',
@@ -60,11 +55,6 @@ class ChatFeatureTest extends TestCase
     {
         $this->authenticateAs($this->member);
 
-        TrainerBooking::factory()->confirmed()->create([
-            'member_id' => $this->member->id,
-            'trainer_id' => $this->trainer->id,
-        ]);
-
         $this->postJson('/api/chat/messages', [
             'receiver_id' => $this->trainer->id,
             'message' => 'Test notification.',
@@ -76,23 +66,11 @@ class ChatFeatureTest extends TestCase
         ]);
     }
 
-    public function test_send_message_without_confirmed_booking_is_blocked(): void
+    public function test_contacts_includes_active_booking_partners(): void
     {
         $this->authenticateAs($this->member);
 
-        $response = $this->postJson('/api/chat/messages', [
-            'receiver_id' => $this->trainer->id,
-            'message' => 'Hello, I want to chat.',
-        ]);
-
-        $response->assertStatus(403);
-    }
-
-    public function test_contacts_includes_confirmed_booking_partners(): void
-    {
-        $this->authenticateAs($this->member);
-
-        TrainerBooking::factory()->confirmed()->create([
+        TrainerBooking::factory()->pending()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id,
         ]);

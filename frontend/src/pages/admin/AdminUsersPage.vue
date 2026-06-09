@@ -136,38 +136,18 @@ function setPackageFilter(value: string) {
   store.load()
 }
 
-function goToPage(page: number | string) {
-  if (typeof page === 'string') return
+function goToPage(page: number) {
   if (page < 1 || page > store.lastPage || page === store.page) return
   store.page = page
   store.load()
 }
 
-const visiblePages = computed(() => {
-  const last = Number(store.lastPage)
-  const current = Number(store.page)
-  if (last <= 5) {
-    return Array.from({ length: last }, (_, i) => i + 1)
-  }
-  if (current <= 2) {
-    return [1, 2, 3, '...', last]
-  }
-  if (current >= last - 1) {
-    return [1, '...', last - 2, last - 1, last]
-  }
-  if (current === 3) {
-    return [1, 2, 3, 4, '...', last]
-  }
-  if (current === last - 2) {
-    return [1, '...', last - 3, last - 2, last - 1, last]
-  }
-  return [1, '...', current - 1, current, current + 1, '...', last]
-})
+const visiblePages = computed(() => Array.from({ length: Math.min(store.lastPage, 3) }, (_, index) => index + 1))
 const firstItem = computed(() => (store.total === 0 ? 0 : (store.page - 1) * store.perPage + 1))
 const lastItem = computed(() => Math.min(store.page * store.perPage, store.total))
 
 async function refreshData() {
-  await Promise.all([store.load(true), store.loadSummary(true)])
+  await Promise.all([store.load(), store.loadSummary()])
 }
 
 onMounted(() => {
@@ -312,16 +292,7 @@ useAutoRefresh(refreshData, 10000)
           <span>Showing {{ firstItem }}-{{ lastItem }} of {{ store.total.toLocaleString('en-US') }}</span>
           <div class="pagination">
             <button :disabled="store.page <= 1" type="button" aria-label="Previous page" @click="goToPage(store.page - 1)" class="pagination-arrow">‹</button>
-            <button
-              v-for="page in visiblePages"
-              :key="page"
-              :class="{ active: Number(page) === Number(store.page), disabled: page === '...' }"
-              :disabled="page === '...'"
-              type="button"
-              @click="goToPage(page)"
-            >
-              {{ page }}
-            </button>
+            <button v-for="page in visiblePages" :key="page" :class="{ active: page === store.page }" type="button" @click="goToPage(page)">{{ page }}</button>
             <button :disabled="store.page >= store.lastPage" type="button" aria-label="Next page" @click="goToPage(store.page + 1)" class="pagination-arrow">›</button>
           </div>
         </footer>

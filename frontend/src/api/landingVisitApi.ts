@@ -25,16 +25,6 @@ export const landingVisitApi = {
     }>('/analytics/landing-visit', payload)
   },
 
-  heartbeat(payload: LandingVisitPayload) {
-    return http.post<{
-      id: number
-      visitor_uuid: string
-      session_uuid: string
-      visited_at: string
-      last_seen_at: string
-    }>('/analytics/landing-visit/heartbeat', payload)
-  },
-
   list(query: Record<string, unknown>) {
     return http.get<Paginated<LandingVisit>>(`/admin/landing-visits${queryString(query)}`)
   },

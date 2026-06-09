@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -44,62 +44,6 @@ onMounted(() => {
   store.loadLogs()
   store.loadRegistrations()
 })
-
-const visibleLogsPages = computed(() => {
-  const last = Number(store.logsLastPage)
-  const current = Number(store.logsPage)
-  if (last <= 5) {
-    return Array.from({ length: last }, (_, i) => i + 1)
-  }
-  if (current <= 2) {
-    return [1, 2, 3, '...', last]
-  }
-  if (current >= last - 1) {
-    return [1, '...', last - 2, last - 1, last]
-  }
-  if (current === 3) {
-    return [1, 2, 3, 4, '...', last]
-  }
-  if (current === last - 2) {
-    return [1, '...', last - 3, last - 2, last - 1, last]
-  }
-  return [1, '...', current - 1, current, current + 1, '...', last]
-})
-
-const visibleRegistrationsPages = computed(() => {
-  const last = Number(store.registrationsLastPage)
-  const current = Number(store.registrationsPage)
-  if (last <= 5) {
-    return Array.from({ length: last }, (_, i) => i + 1)
-  }
-  if (current <= 2) {
-    return [1, 2, 3, '...', last]
-  }
-  if (current >= last - 1) {
-    return [1, '...', last - 2, last - 1, last]
-  }
-  if (current === 3) {
-    return [1, 2, 3, 4, '...', last]
-  }
-  if (current === last - 2) {
-    return [1, '...', last - 3, last - 2, last - 1, last]
-  }
-  return [1, '...', current - 1, current, current + 1, '...', last]
-})
-
-function goToLogsPage(p: number | string) {
-  if (typeof p === 'string') return
-  if (p < 1 || p > store.logsLastPage || p === store.logsPage) return
-  store.logsPage = p
-  store.loadLogs()
-}
-
-function goToRegistrationsPage(p: number | string) {
-  if (typeof p === 'string') return
-  if (p < 1 || p > store.registrationsLastPage || p === store.registrationsPage) return
-  store.registrationsPage = p
-  store.loadRegistrations()
-}
 </script>
 
 <template>
@@ -222,19 +166,9 @@ function goToRegistrationsPage(p: number | string) {
 
         <div class="pager-bar">
           <p>{{ store.logsTotal }} logs · Page {{ store.logsPage }} of {{ store.logsLastPage }}</p>
-          <div class="pagination">
-            <button type="button" class="pagination-arrow" :disabled="store.logsPage <= 1" @click="goToLogsPage(store.logsPage - 1)">‹</button>
-            <button
-              v-for="p in visibleLogsPages"
-              :key="p"
-              :class="{ active: Number(p) === Number(store.logsPage), disabled: p === '...' }"
-              :disabled="p === '...'"
-              type="button"
-              @click="goToLogsPage(p)"
-            >
-              {{ p }}
-            </button>
-            <button type="button" class="pagination-arrow" :disabled="store.logsPage >= store.logsLastPage" @click="goToLogsPage(store.logsPage + 1)">›</button>
+          <div>
+            <button class="button button-ghost button-small" :disabled="store.logsPage <= 1" @click="store.previousLogsPage">Previous</button>
+            <button class="button button-ghost button-small" :disabled="store.logsPage >= store.logsLastPage" @click="store.nextLogsPage">Next</button>
           </div>
         </div>
       </FitnezCard>
@@ -310,19 +244,9 @@ function goToRegistrationsPage(p: number | string) {
 
         <div class="pager-bar">
           <p>{{ store.registrationsTotal }} records · Page {{ store.registrationsPage }} of {{ store.registrationsLastPage }}</p>
-          <div class="pagination">
-            <button type="button" class="pagination-arrow" :disabled="store.registrationsPage <= 1" @click="goToRegistrationsPage(store.registrationsPage - 1)">‹</button>
-            <button
-              v-for="p in visibleRegistrationsPages"
-              :key="p"
-              :class="{ active: Number(p) === Number(store.registrationsPage), disabled: p === '...' }"
-              :disabled="p === '...'"
-              type="button"
-              @click="goToRegistrationsPage(p)"
-            >
-              {{ p }}
-            </button>
-            <button type="button" class="pagination-arrow" :disabled="store.registrationsPage >= store.registrationsLastPage" @click="goToRegistrationsPage(store.registrationsPage + 1)">›</button>
+          <div>
+            <button class="button button-ghost button-small" :disabled="store.registrationsPage <= 1" @click="store.previousRegistrationsPage">Previous</button>
+            <button class="button button-ghost button-small" :disabled="store.registrationsPage >= store.registrationsLastPage" @click="store.nextRegistrationsPage">Next</button>
           </div>
         </div>
       </FitnezCard>
@@ -516,46 +440,5 @@ function goToRegistrationsPage(p: number | string) {
   .mobile-detail-grid {
     grid-template-columns: 1fr;
   }
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pagination button {
-  background: white;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  min-width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  padding: 0;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.pagination button.active {
-  background: #0058be;
-  color: white;
-  border-color: #0058be;
-}
-
-.pagination button:disabled {
-  color: #cbd5e1;
-  cursor: not-allowed;
-  background: #f8fafc;
 }
 </style>
