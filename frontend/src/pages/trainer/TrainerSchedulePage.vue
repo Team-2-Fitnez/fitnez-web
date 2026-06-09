@@ -10,61 +10,82 @@ import { useAutoRefresh } from '../../composables/useAutoRefresh'
 const store = useBookingStore()
 const { run } = useDeferredLoading()
 const hasLoadedBookings = ref(false)
-const activeTab = ref('Upcoming') // Upcoming, History, Request
+const activeTab = ref('Upcoming') // Upcoming, History
 
-// Checkbox Filters — mapped to database values: 'online' and 'offline'
-const filterOnline = ref(true)
-const filterOffline = ref(true)
-
-function formatTime(iso: string) {
+function formatDate(date: string) {
   try {
-    return new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(iso))
+    return new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(date))
   } catch {
-    return iso
+    return date
   }
 }
 
-function formatPrice(n: number) {
+function formatPrice(n: number | string | null | undefined) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(n)
+  }).format(Number(n || 0))
 }
 
-async function updateStatus(id: number, status: string) {
-  await store.updateStatus(id, status)
-  store.loadBookings() // Reload list to reflect changes immediately
+function statusLabel(value?: string | null) {
+  if (value === 'confirmed') return 'Active'
+  if (value === 'completed') return 'Completed'
+  if (value === 'cancelled') return 'Cancelled'
+  return value || 'Unknown'
 }
 
-// Filtered Bookings list based on checkboxes
-const filteredBookings = computed(() => {
-  return store.bookings.filter((b) => {
-    const type = (b.session_type || '').toLowerCase()
-    if (type === 'online' && !filterOnline.value) return false
-    if (type === 'offline' && !filterOffline.value) return false
-    return true
-  })
-})
+const dayLabels: Record<string, string> = {
+  monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
+  friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
+}
 
 // Tab Filters
 const upcomingBookings = computed(() => {
-  return filteredBookings.value.filter((b) => b.status === 'confirmed')
-})
-
-const requestBookings = computed(() => {
-  return filteredBookings.value.filter((b) => b.status === 'pending')
+  return store.bookings.filter((b) => b.status === 'confirmed')
 })
 
 const pastBookings = computed(() => {
-  return filteredBookings.value.filter((b) => ['completed', 'rejected', 'cancelled'].includes(b.status ?? ''))
+  return store.bookings.filter((b) => ['completed', 'cancelled'].includes(b.status ?? ''))
 })
 
 const currentList = computed(() => {
   if (activeTab.value === 'Upcoming') return upcomingBookings.value
-  if (activeTab.value === 'Request') return requestBookings.value
   return pastBookings.value
 })
+
+// Session dates expand
+const expandedSessions = ref(new Set<number>())
+const sessionDatesMap = ref<Map<number, string[]>>(new Map())
+const sessionTimesMap = ref<Map<number, string>>(new Map())
+const sessionLoadingMap = ref<Map<number, boolean>>(new Map())
+
+async function toggleSessions(bookingId: number) {
+  if (expandedSessions.value.has(bookingId)) {
+    expandedSessions.value.delete(bookingId)
+    return
+  }
+  if (!sessionDatesMap.value.has(bookingId)) {
+    sessionLoadingMap.value.set(bookingId, true)
+    try {
+      const res = await store.fetchSessionDates(bookingId)
+      sessionDatesMap.value.set(bookingId, res.dates)
+      sessionTimesMap.value.set(bookingId, res.session_time)
+    } finally {
+      sessionLoadingMap.value.set(bookingId, false)
+    }
+  }
+  expandedSessions.value.add(bookingId)
+}
+
+async function completeBooking(id: number) {
+  try {
+    await store.updateStatus(id, 'completed')
+    window.showFitnezToast('Booking marked as completed.', 'success')
+  } catch {
+    window.showFitnezToast('Failed to complete booking.', 'error')
+  }
+}
 
 // Interactive Calendar with month/year navigation
 const now = new Date()
@@ -119,18 +140,9 @@ const calendarDays = computed(() => {
   return days
 })
 
-function getDayDots(dateStr: string) {
-  if (!dateStr) return []
-  
-  const dateBookings = store.bookings.filter(b => b.booking_date.startsWith(dateStr))
-  
-  const dots: string[] = []
-  dateBookings.forEach(b => {
-    const type = (b.session_type || '').toLowerCase()
-    if (type === 'online' && !dots.includes('online')) dots.push('online')
-    if (type === 'offline' && !dots.includes('offline')) dots.push('offline')
-  })
-  return dots
+function hasSessionOnDate(dateStr: string): boolean {
+  if (!dateStr) return false
+  return store.bookings.some(b => b.status === 'confirmed' || b.status === 'completed')
 }
 
 onMounted(() => {
@@ -190,39 +202,13 @@ useAutoRefresh(() => store.loadBookings(), 8000)
               >
                 <span v-if="d.day">{{ d.day }}</span>
                 
-                <!-- Indicators Dots -->
-                <div v-if="d.day" class="dots-wrapper">
-                  <span v-for="dot in getDayDots(d.dateStr)" :key="dot" :class="['dot-indicator', `dot-${dot}`]"></span>
+                <div v-if="d.day && hasSessionOnDate(d.dateStr)" class="dots-wrapper">
+                  <span class="dot-indicator dot-active"></span>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Kategori Sesi Filters -->
-          <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex-1">
-            <h3 class="font-bold text-gray-900 mb-4">Session Category</h3>
-            <div class="checkboxes-stack">
-              <label class="checkbox-label-card">
-                <input
-                  v-model="filterOnline"
-                  type="checkbox"
-                  class="custom-checkbox"
-                />
-                <span class="checkbox-text">Online Session</span>
-                <span class="dot-indicator dot-online w-3 h-3 rounded-full"></span>
-              </label>
-
-              <label class="checkbox-label-card">
-                <input
-                  v-model="filterOffline"
-                  type="checkbox"
-                  class="custom-checkbox"
-                />
-                <span class="checkbox-text">Offline Session</span>
-                <span class="dot-indicator dot-offline w-3 h-3 rounded-full"></span>
-              </label>
-            </div>
-          </div>
         </div>
 
         <!-- RIGHT COLUMN: SCHEDULE LISTING -->
@@ -242,12 +228,7 @@ useAutoRefresh(() => store.loadBookings(), 8000)
             >
               Session History
             </button>
-            <button
-              :class="['tab-link', { 'tab-active': activeTab === 'Request' }]"
-              @click="activeTab = 'Request'"
-            >
-              Session Requests
-            </button>
+
           </div>
 
           <!-- SESSION LISTING SCROLLER -->
@@ -263,22 +244,22 @@ useAutoRefresh(() => store.loadBookings(), 8000)
                 <div class="flex justify-between items-start mb-4">
                   <div>
                     <h4 class="member-name">{{ b.member?.full_name ?? 'Member' }}</h4>
-                    <p class="session-desc-meta uppercase tracking-wider">{{ b.session_type }} - {{ b.location || 'Fitnez Gym' }}</p>
+                    <p class="session-desc-meta">{{ b.sessions_per_week }}×/week · {{ b.session_time }} · {{ b.session_days?.map((d: string) => dayLabels[d] || d).join(', ') || '-' }}</p>
                   </div>
                   <span
-                    :class="['status-pill border', b.status === 'pending' ? 'bg-amber-100 text-amber-800 border-amber-200' : b.status === 'confirmed' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200']"
+                    :class="['status-pill border', b.status === 'pending_payment' ? 'bg-amber-100 text-amber-800 border-amber-200' : b.status === 'confirmed' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200']"
                   >
-                    {{ b.status === 'pending' ? 'Pending Confirmation' : b.status === 'confirmed' ? 'Confirmed' : b.status }}
+                    {{ statusLabel(b.status) }}
                   </span>
                 </div>
 
                 <div class="session-time-block mb-4">
                   <div class="flex items-center gap-2 font-bold text-gray-800">
                     <span class="material-symbols-outlined text-sm">calendar_today</span>
-                    <span>{{ formatTime(b.booking_date) }}</span>
+                    <span>{{ b.start_date }} – {{ b.end_date }}</span>
                   </div>
                   <div class="text-xs text-gray-500 font-bold mt-1">
-                    At {{ b.start_time.substring(0, 5) }} - {{ b.end_time.substring(0, 5) }}
+                    {{ b.total_sessions }} sessions · {{ b.session_time }} · {{ b.sessions_per_week }}×/week
                   </div>
                 </div>
 
@@ -287,15 +268,39 @@ useAutoRefresh(() => store.loadBookings(), 8000)
                   <p class="notes-text">"{{ b.member_notes }}"</p>
                 </div>
 
-                <div class="session-card-footer mt-auto">
-                  <p class="session-price">{{ formatPrice(Number(b.total_price)) }}</p>
-                  
-                  <div v-if="b.status === 'pending'" class="flex gap-2">
-                    <button class="btn-ghost-small" @click="updateStatus(b.id, 'rejected')">Reject</button>
-                    <button class="btn-primary-small" @click="updateStatus(b.id, 'confirmed')">Accept</button>
+                <div v-if="b.status === 'confirmed'" class="mb-3">
+                  <button
+                    class="text-blue-600 font-bold text-xs flex items-center gap-1 hover:text-blue-800"
+                    @click="toggleSessions(b.id)"
+                  >
+                    <span class="material-symbols-outlined text-sm">{{ expandedSessions.has(b.id) ? 'expand_less' : 'expand_more' }}</span>
+                    {{ expandedSessions.has(b.id) ? 'Hide' : 'Show' }} Session Dates
+                  </button>
+                  <div v-if="expandedSessions.has(b.id)" class="session-dates-grid mt-2">
+                    <div v-if="sessionLoadingMap.get(b.id)" class="text-xs text-gray-400 italic p-2">Loading...</div>
+                    <div
+                      v-else
+                      v-for="date in (sessionDatesMap.get(b.id) || [])"
+                      :key="date"
+                      class="session-date-chip"
+                    >
+                      <span>{{ formatDate(date) }}</span>
+                      <span class="time-badge">{{ sessionTimesMap.get(b.id) || b.session_time }}</span>
+                    </div>
                   </div>
-                  <div v-else-if="b.status === 'confirmed'" class="flex gap-2">
-                    <button class="btn-primary-small" @click="updateStatus(b.id, 'completed')">Complete</button>
+                </div>
+
+                <div class="session-card-footer mt-auto">
+                  <div class="flex items-center justify-between">
+                    <p class="session-price">{{ formatPrice(b.total_trainer_price) }} earnings</p>
+                    <button
+                      v-if="b.status === 'confirmed'"
+                      class="btn-primary-small"
+                      type="button"
+                      @click="completeBooking(b.id)"
+                    >
+                      Complete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -309,10 +314,10 @@ useAutoRefresh(() => store.loadBookings(), 8000)
                 <span class="material-symbols-outlined xmark-icon">calendar_today</span>
               </div>
               <h3 class="empty-title">
-                {{ activeTab === 'Upcoming' ? 'No active sessions yet' : activeTab === 'Request' ? 'No incoming requests yet' : 'No session history yet' }}
+                {{ activeTab === 'Upcoming' ? 'No active sessions yet' : 'No session history yet' }}
               </h3>
               <p class="empty-desc">
-                {{ activeTab === 'Upcoming' ? 'You do not have any training sessions scheduled for today or the next few days.' : activeTab === 'Request' ? 'There are currently no training session booking requests from members.' : 'All completed or rejected sessions will be saved in the history.' }}
+                {{ activeTab === 'Upcoming' ? 'You do not have any training sessions scheduled for today or the next few days.' : 'All completed or cancelled sessions will be saved in the history.' }}
               </p>
             </div>
           </div>
@@ -785,5 +790,37 @@ useAutoRefresh(() => store.loadBookings(), 8000)
     min-height: 2.75rem;
     width: 100%;
   }
+}
+
+.session-dates-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.session-date-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  border-radius: 0.5rem;
+}
+
+.time-badge {
+  background: var(--color-blue);
+  color: white;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.session-desc-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.15rem;
 }
 </style>

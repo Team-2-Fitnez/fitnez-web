@@ -71,7 +71,9 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
     // Bookings
     Route::get('/bookings',[BookingController::class,'index']);
     Route::post('/bookings',[BookingController::class,'store']);
+    Route::post('/bookings/{booking}/upload-proof',[BookingController::class,'uploadPaymentProof']);
     Route::patch('/bookings/{id}/status',[BookingController::class,'updateStatus']);
+    Route::get('/bookings/{booking}/session-dates',[BookingController::class,'sessionDates']);
 
     // Workout Plans
     Route::delete('/workout-plans/clear-all', [WorkoutPlanController::class, 'clearAll']);
@@ -89,7 +91,7 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
 
     Route::prefix('trainer')->middleware(EnsureTrainerWorkspaceAccess::class)->group(function(){
         Route::get('/member-monitoring/summary',[MemberFitnessMonitoringController::class,'summary']); Route::get('/member-monitoring/members',[MemberFitnessMonitoringController::class,'members']); Route::get('/member-monitoring/members/{member}',[MemberFitnessMonitoringController::class,'show']);
-        Route::get('/incoming-rent-history/summary',[IncomingRentHistoryController::class,'summary']); Route::get('/incoming-rent-history',[IncomingRentHistoryController::class,'index']);
+        Route::get('/incoming-rent-history/summary',[IncomingRentHistoryController::class,'summary']); Route::get('/incoming-rent-history/breakdown',[IncomingRentHistoryController::class,'breakdown']); Route::get('/incoming-rent-history',[IncomingRentHistoryController::class,'index']);
     });
 
     // Meal Plan & Food Log (member)
@@ -116,6 +118,11 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::get('/users/summary', [UserManagementController::class, 'summary']);
         Route::apiResource('users',UserManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('trainers',TrainerManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('schedules',ScheduleManagementController::class)->parameters(['schedules'=>'schedule'])->only(['index','store','update','destroy']);
         
+        // Booking Payment Management
+        Route::get('/bookings/pending-payments', [BookingController::class, 'pendingPayments']);
+        Route::post('/bookings/{booking}/confirm-payment', [BookingController::class, 'confirmPayment']);
+        Route::post('/bookings/{booking}/reject-payment', [BookingController::class, 'rejectPayment']);
+        
         Route::get('/notifications', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'index']);
         Route::post('/approve/{id}', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'approve']);
         Route::post('/reject/{id}', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'reject']);
@@ -125,6 +132,8 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
             Route::get('/landing-visits', [ExcelExportController::class, 'landingVisits']);
             Route::get('/auth-activity', [ExcelExportController::class, 'authActivity']);
             Route::get('/member-reports', [ExcelExportController::class, 'memberReports']);
+            Route::get('/member-reports/sse', [ExcelExportController::class, 'memberReportsSse']);
+            Route::get('/member-reports/download/{filename}', [ExcelExportController::class, 'memberReportsDownload'])->where('filename', '.*');
             Route::get('/payments', [ExcelExportController::class, 'payments']);
             Route::get('/attendance', [ExcelExportController::class, 'attendance']);
             Route::get('/nutrition-monitoring', [ExcelExportController::class, 'nutritionMonitoring']);

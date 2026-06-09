@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
@@ -11,6 +11,25 @@ const store = useTrainerMemberMonitoringStore()
 const router = useRouter()
 const activeTab = ref('Overview')
 const tabs = ['Overview', 'Workout Plans', 'Nutrition & Meals', 'Progress']
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+const searchQuery = ref('')
+
+const filteredMembers = computed(() => {
+  const q = searchQuery.value.toLowerCase()
+  if (!q) return store.members
+  return store.members.filter(
+    (m) =>
+      m.full_name?.toLowerCase().includes(q) ||
+      m.email?.toLowerCase().includes(q)
+  )
+})
+
+function onSearchInput(value: string) {
+  searchQuery.value = value
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => store.setSearch(value), 300)
+}
 
 // Dynamic computed properties based on database data
 const currentPlan = computed(() => {
@@ -122,6 +141,9 @@ onMounted(() => {
   store.loadSummary()
   store.loadMembers()
 })
+onUnmounted(() => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+})
 useAutoRefresh(refreshData, 8000)
 </script>
 
@@ -220,7 +242,7 @@ useAutoRefresh(refreshData, 8000)
                 class="search-input"
                 style="padding-left: 2.75rem !important;"
                 placeholder="Search members..."
-                @input="store.setSearch(($event.target as HTMLInputElement).value)"
+                @input="onSearchInput(($event.target as HTMLInputElement).value)"
               />
             </div>
           </div>
@@ -229,7 +251,7 @@ useAutoRefresh(refreshData, 8000)
             <SkeletonList v-if="store.loadingMembers && !store.members.length" :rows="8" :avatar="true" />
 
             <button
-              v-for="member in store.members"
+              v-for="member in filteredMembers"
               :key="member.id"
               type="button"
               :class="['member-row-btn', { 'row-btn-active': store.selected?.member.id === member.id }]"
@@ -246,7 +268,7 @@ useAutoRefresh(refreshData, 8000)
               <span class="material-symbols-outlined chevron-icon">chevron_right</span>
             </button>
 
-            <div v-if="!store.members.length && !store.loadingMembers" class="empty-state-list">
+            <div v-if="!filteredMembers.length && !store.loadingMembers" class="empty-state-list">
               <p>No members found.</p>
               <span>Try a different search term.</span>
             </div>

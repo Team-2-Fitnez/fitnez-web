@@ -142,7 +142,10 @@ onMounted(() => run(() => store.loadTrainers()))
         </div>
 
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-          <p style="font-weight: 900; color: var(--color-orange);">{{ formatPrice(trainer.price) }}/hour</p>
+          <div style="display: flex; flex-direction: column;">
+            <p style="font-weight: 900; color: var(--color-orange);">{{ formatPrice(trainer.member_price) }}/session</p>
+            <small style="font-size: 0.65rem; color: #94a3b8;">Base price: {{ formatPrice(trainer.base_price) }}/session</small>
+          </div>
           <button class="button button-primary button-small" @click="selectedTrainer = trainer">
             Book Session
           </button>

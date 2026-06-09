@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { trainerRentHistoryApi } from '../api/trainerRentHistoryApi'
-import type { TrainerRentHistory, TrainerRentSummary } from '../types/trainerRentHistory'
+import type { TrainerRentHistory, TrainerRentSummary, TrainerIncomeBreakdown } from '../types/trainerRentHistory'
 
 export const useTrainerRentHistoryStore = defineStore('trainerRentHistory', {
   state: () => ({
     summary: null as TrainerRentSummary | null,
+    breakdown: null as TrainerIncomeBreakdown | null,
     items: [] as TrainerRentHistory[],
     loading: false,
     loadingSummary: false,
@@ -27,6 +28,15 @@ export const useTrainerRentHistoryStore = defineStore('trainerRentHistory', {
         this.summary = response.data
       } finally {
         this.loadingSummary = false
+      }
+    },
+
+    async loadBreakdown() {
+      try {
+        const response = await trainerRentHistoryApi.breakdown()
+        this.breakdown = response.data
+      } catch {
+        // silently fail — breakdown is supplementary
       }
     },
 
@@ -55,7 +65,13 @@ export const useTrainerRentHistoryStore = defineStore('trainerRentHistory', {
     refresh() {
       this.page = 1
       this.loadSummary()
+      this.loadBreakdown()
       this.load()
+    },
+
+    async refreshTable() {
+      this.page = 1
+      await this.load()
     },
 
     nextPage() {

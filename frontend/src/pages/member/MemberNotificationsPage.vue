@@ -16,7 +16,8 @@
               <h3>Your Workout Schedule</h3>
             </div>
 
-            <SkeletonList v-if="loading" :rows="6" />
+            <SkeletonList v-if="initialLoading" :rows="6" />
+            <SkeletonList v-else-if="loading" :rows="6" />
             <div v-else-if="hariIni.length === 0 && besok.length === 0 && kemarin.length === 0" class="empty-state-card">
               <span class="material-symbols-outlined empty-icon-symbol">calendar_today</span>
               <h4>No training schedule</h4>
@@ -116,7 +117,8 @@
               </button>
             </div>
 
-            <SkeletonList v-if="loading" :rows="6" />
+            <SkeletonList v-if="initialLoading && !store.items.length" :rows="6" />
+            <SkeletonList v-else-if="loading" :rows="6" />
             <div v-else-if="realNotifications.length === 0" class="empty-state-card">
               <span class="material-symbols-outlined empty-icon-symbol">notifications_paused</span>
               <h4>No notifications yet</h4>
@@ -162,199 +164,194 @@
   </WorkspaceLayout>
 </template>
 
-<script>
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import SkeletonList from '../../components/ui/SkeletonList.vue'
-import api from '@/api/axios'
+import { useNotificationStore } from '../../stores/notificationStore'
+import { useDeferredLoading } from '../../composables/useDeferredLoading'
+import { http } from '../../api/http'
+import type { NotificationItem } from '../../types/dashboard'
 
-export default {
-  name: 'MemberNotificationsPage',
-  components: { WorkspaceLayout, SkeletonList },
-  data() {
-    return {
-      loading: true,
-      memberSidebarItems,
-      realNotifications: [],
-      kemarin: [],
-      hariIni: [],
-      besok: [],
-      readDummyIds: JSON.parse(localStorage.getItem('fitnez_read_notifs') || '[]'),
-      refreshInterval: null,
+const store = useNotificationStore()
+const { loading: initialLoading, run } = useDeferredLoading()
+
+const loading = ref(true)
+const realNotifications = ref<NotificationItem[]>([])
+const kemarin = ref<any[]>([])
+const hariIni = ref<any[]>([])
+const besok = ref<any[]>([])
+const readDummyIds = ref<number[]>(JSON.parse(localStorage.getItem('fitnez_read_notifs') || '[]'))
+let refreshInterval: ReturnType<typeof setInterval> | null = null
+
+const hasUnreadNotifications = computed(() =>
+  realNotifications.value.some(n => !n.is_read)
+)
+
+function groupWorkoutReminders(reminders: any[]) {
+  kemarin.value = []
+  hariIni.value = []
+  besok.value = []
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  reminders.forEach(n => {
+    const d = new Date(n.group_date)
+    d.setHours(0, 0, 0, 0)
+
+    if (d.getTime() === today.getTime()) {
+      hariIni.value.push(n)
+    } else if (d.getTime() <= yesterday.getTime()) {
+      kemarin.value.push(n)
+    } else if (d.getTime() >= tomorrow.getTime()) {
+      besok.value.push(n)
     }
-  },
-  computed: {
-    hasUnreadNotifications() {
-      return this.realNotifications.some(n => !n.is_read)
-    }
-  },
-  async mounted() {
-    await this.fetchNotifications()
-    this.refreshInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        // Do a silent refresh in background without setting full screen loading overlay
-        this.fetchNotificationsSilent()
-      }
-    }, 8000)
-  },
-  beforeUnmount() {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval)
-    }
-  },
-  methods: {
-    async fetchNotificationsSilent() {
-      try {
-        // 1. Fetch general notifications
-        const respNotif = await api.get('/notifications')
-        const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
-        
-        this.realNotifications = rawRealNotifs.map(n => ({
-          ...n,
-          is_read: n.is_read || this.readDummyIds.includes(n.id)
-        }))
+  })
+}
 
-        // 2. Fetch workout plans
-        const respWorkout = await api.get('/workout-plans')
-        const workoutPlans = Array.isArray(respWorkout.data) ? respWorkout.data : (respWorkout.data?.data || [])
-        
-        const reminders = workoutPlans.map(w => ({
-          id: 'workout-' + w.id,
-          title: w.name,
-          body: `${w.category} - ${w.reps} reps x ${w.set} set - ${w.weight}kg`,
-          created_at: w.created_at,
-          group_date: w.date,
-          is_read: !!w.completed,
-          type: 'workout'
-        }))
+function getLogIconName(type: string) {
+  if (type === 'payment' || type === 'invoice') return 'payments'
+  if (type === 'class' || type === 'booking') return 'event_available'
+  return 'info'
+}
 
-        this.groupWorkoutReminders(reminders)
-      } catch (error) {
-        // ignore background error
-      }
-    },
-    async fetchNotifications() {
-      try {
-        this.loading = true
-        // 1. Fetch general notifications
-        const respNotif = await api.get('/notifications')
-        const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
-        
-        this.realNotifications = rawRealNotifs.map(n => ({
-          ...n,
-          is_read: n.is_read || this.readDummyIds.includes(n.id)
-        }))
-
-        // 2. Fetch workout plans
-        const respWorkout = await api.get('/workout-plans')
-        const workoutPlans = Array.isArray(respWorkout.data) ? respWorkout.data : (respWorkout.data?.data || [])
-        
-        const reminders = workoutPlans.map(w => ({
-          id: 'workout-' + w.id,
-          title: w.name,
-          body: `${w.category} - ${w.reps} reps x ${w.set} set - ${w.weight}kg`,
-          created_at: w.created_at,
-          group_date: w.date,
-          is_read: !!w.completed,
-          type: 'workout'
-        }))
-
-        this.groupWorkoutReminders(reminders)
-      } catch (error) {
-        window.showFitnezToast('Failed to load notifications.', 'error')
-      } finally {
-        this.loading = false
-      }
-    },
-
-    groupWorkoutReminders(reminders) {
-      this.kemarin = []
-      this.hariIni = []
-      this.besok = []
-
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      const yesterday = new Date(today)
-      yesterday.setDate(yesterday.getDate() - 1)
-
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-
-      reminders.forEach(n => {
-        const d = new Date(n.group_date)
-        d.setHours(0, 0, 0, 0)
-
-        if (d.getTime() === today.getTime()) {
-          this.hariIni.push(n)
-        } else if (d.getTime() <= yesterday.getTime()) {
-          this.kemarin.push(n)
-        } else if (d.getTime() >= tomorrow.getTime()) {
-          this.besok.push(n)
-        }
-      })
-    },
-
-    getLogIconName(type) {
-      if (type === 'payment' || type === 'invoice') return 'payments'
-      if (type === 'class' || type === 'booking') return 'event_available'
-      return 'info'
-    },
-
-    getLogIconClass(type) {
-      return {
-        'notification-icon-trainer': type === 'payment' || type === 'invoice',
-        'notification-icon-member': type === 'class' || type === 'booking',
-        'notification-icon-system': !type || (type !== 'payment' && type !== 'invoice' && type !== 'class' && type !== 'booking')
-      }
-    },
-
-    getLogPrefix(type) {
-      if (type === 'payment' || type === 'invoice') return 'Payment'
-      if (type === 'class' || type === 'booking') return 'Class Session'
-      return 'Information'
-    },
-
-    formatTime(dateStr) {
-      if (!dateStr) return '--:--'
-      const date = new Date(dateStr)
-      if (isNaN(date.getTime())) return '--:--'
-      
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      })
-    },
-
-    async markAsRead(id) {
-      if (typeof id === 'string' && id.startsWith('workout-')) {
-        if (!this.readDummyIds.includes(id)) {
-          this.readDummyIds.push(id)
-          localStorage.setItem('fitnez_read_notifs', JSON.stringify(this.readDummyIds))
-        }
-        return
-      }
-
-      try {
-        await api.patch(`/notifications/${id}/read`)
-        await this.fetchNotifications()
-      } catch (error) {
-        window.showFitnezToast('Failed to update read status.', 'error')
-      }
-    },
-
-    async markAllReadMember() {
-      try {
-        await api.patch('/notifications/read-all')
-        await this.fetchNotifications()
-        window.showFitnezToast('All notifications marked as read.', 'success')
-      } catch (e) {
-        window.showFitnezToast('Failed to update read status.', 'error')
-      }
-    }
+function getLogIconClass(type: string) {
+  return {
+    'notification-icon-trainer': type === 'payment' || type === 'invoice',
+    'notification-icon-member': type === 'class' || type === 'booking',
+    'notification-icon-system': !type || (type !== 'payment' && type !== 'invoice' && type !== 'class' && type !== 'booking')
   }
 }
+
+function getLogPrefix(type: string) {
+  if (type === 'payment' || type === 'invoice') return 'Payment'
+  if (type === 'class' || type === 'booking') return 'Class Session'
+  return 'Information'
+}
+
+function formatTime(dateStr: string) {
+  if (!dateStr) return '--:--'
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return '--:--'
+  
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
+
+async function fetchNotificationsSilent() {
+  try {
+    const respNotif = await http.get<{ data: any[] }>('/notifications')
+    const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
+    
+    realNotifications.value = rawRealNotifs.map((n: any) => ({
+      ...n,
+      is_read: n.is_read || readDummyIds.value.includes(n.id)
+    }))
+
+    const respWorkout = await http.get<{ data: any[] }>('/workout-plans')
+    const workoutPlans = Array.isArray(respWorkout.data) ? respWorkout.data : (respWorkout.data?.data || [])
+    
+    const reminders = workoutPlans.map((w: any) => ({
+      id: 'workout-' + w.id,
+      title: w.name,
+      body: `${w.category} - ${w.reps} reps x ${w.set} set - ${w.weight}kg`,
+      created_at: w.created_at,
+      group_date: w.date,
+      is_read: !!w.completed,
+      type: 'workout'
+    }))
+
+    groupWorkoutReminders(reminders)
+  } catch {
+    // ignore background error
+  }
+}
+
+async function fetchNotifications() {
+  try {
+    loading.value = true
+    await store.load()
+    await store.loadUnreadCount()
+
+    const respNotif = await http.get<{ data: any[] }>('/notifications')
+    const rawRealNotifs = Array.isArray(respNotif.data) ? respNotif.data : (respNotif.data?.data || [])
+    
+    realNotifications.value = rawRealNotifs.map((n: any) => ({
+      ...n,
+      is_read: n.is_read || readDummyIds.value.includes(n.id)
+    }))
+
+    const respWorkout = await http.get<{ data: any[] }>('/workout-plans')
+    const workoutPlans = Array.isArray(respWorkout.data) ? respWorkout.data : (respWorkout.data?.data || [])
+    
+    const reminders = workoutPlans.map((w: any) => ({
+      id: 'workout-' + w.id,
+      title: w.name,
+      body: `${w.category} - ${w.reps} reps x ${w.set} set - ${w.weight}kg`,
+      created_at: w.created_at,
+      group_date: w.date,
+      is_read: !!w.completed,
+      type: 'workout'
+    }))
+
+    groupWorkoutReminders(reminders)
+  } catch {
+    window.showFitnezToast?.('Failed to load notifications.', 'error')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function markAsRead(id: number | string) {
+  if (typeof id === 'string' && id.startsWith('workout-')) {
+    if (!readDummyIds.value.includes(id as any)) {
+      readDummyIds.value.push(id as any)
+      localStorage.setItem('fitnez_read_notifs', JSON.stringify(readDummyIds.value))
+    }
+    return
+  }
+
+  try {
+    await http.patch(`/notifications/${id}/read`)
+    await fetchNotifications()
+  } catch {
+    window.showFitnezToast?.('Failed to update read status.', 'error')
+  }
+}
+
+async function markAllReadMember() {
+  try {
+    await http.patch('/notifications/read-all')
+    await fetchNotifications()
+    window.showFitnezToast?.('All notifications marked as read.', 'success')
+  } catch {
+    window.showFitnezToast?.('Failed to update read status.', 'error')
+  }
+}
+
+onMounted(() => {
+  run(fetchNotifications)
+  refreshInterval = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      fetchNotificationsSilent()
+    }
+  }, 8000)
+})
+
+onUnmounted(() => {
+  if (refreshInterval) clearInterval(refreshInterval)
+})
 </script>
 
 <style scoped>

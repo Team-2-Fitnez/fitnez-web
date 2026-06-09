@@ -6,142 +6,149 @@ use App\Events\NewNotification;
 use App\Models\Notification;
 use App\Models\TrainerBooking;
 use App\Models\TrainerDetail;
+use App\Models\TrainerEarning;
 use App\Support\ApiResponse;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
 {
-    /**
-     * List bookings for the authenticated user (member or trainer).
-     */
     public function index(Request $request)
     {
         $bookings = TrainerBooking::query()
             ->with(['trainer:id,full_name,profile_picture_url', 'member:id,full_name'])
             ->forUser($request->user()->id)
-            ->orderByDesc('booking_date')
+            ->orderByDesc('start_date')
             ->paginate($request->integer('per_page', 20));
 
         return ApiResponse::success('Bookings loaded.', $bookings);
     }
 
-    /**
-     * Create a new booking and notify the trainer.
-     */
     public function store(Request $request)
     {
         $data = $request->validate([
-            'trainer_id'   => 'required|integer|exists:users,id',
-            'booking_date' => 'required|date|after_or_equal:today',
-            'start_time'   => 'required|date_format:H:i',
-            'end_time'     => 'required|date_format:H:i|after:start_time',
-            'session_type' => 'required|in:online,offline',
-            'location'     => 'nullable|string|max:255',
-            'member_notes' => 'nullable|string|max:1000',
-            'total_price'  => 'nullable|numeric|min:0',
+            'trainer_id'              => 'required|integer|exists:users,id',
+            'start_date'              => 'required|date|after_or_equal:today',
+            'sessions_per_week'       => 'required|integer|in:3,5,7',
+            'session_days'            => 'required|array|size:' . $request->input('sessions_per_week'),
+            'session_days.*'          => 'required|string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
+            'session_time'            => 'required|date_format:H:i',
+            'member_notes'            => 'nullable|string|max:1000',
         ]);
 
-        // Check for scheduling conflicts
+        $trainerDetail = TrainerDetail::where('user_id', $data['trainer_id'])->firstOrFail();
+
+        if (($trainerDetail->base_price ?? 0) <= 0) {
+            return ApiResponse::error('Trainer pricing not configured. Contact admin.', [], 422);
+        }
+
+        $basePrice = (float) $trainerDetail->base_price;
+        $memberPrice = $basePrice * 1.5;
+
+        $start = Carbon::parse($data['start_date']);
+        $end = $start->copy()->addWeeks(4)->subDay();
+
         $conflict = TrainerBooking::query()
             ->where('trainer_id', $data['trainer_id'])
-            ->where('booking_date', $data['booking_date'])
-            ->whereNotIn('status', [TrainerBooking::STATUS_CANCELLED, TrainerBooking::STATUS_REJECTED])
-            ->where('start_time', '<', $data['end_time'])
-            ->where('end_time', '>', $data['start_time'])
+            ->whereNotIn('status', [TrainerBooking::STATUS_CANCELLED])
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('start_date', [$start, $end])
+                  ->orWhereBetween('end_date', [$start, $end]);
+            })
             ->exists();
 
         if ($conflict) {
-            return ApiResponse::error('Trainer sudah memiliki jadwal di waktu tersebut.', [], 422);
+            return ApiResponse::error('Trainer already has an active booking in this period.', [], 422);
         }
 
-        // Validate total_price against trainer's hourly rate
-        $trainerDetail = TrainerDetail::where('user_id', $data['trainer_id'])->first();
-        if ($trainerDetail && $trainerDetail->hourly_rate > 0) {
-            $start = \Carbon\Carbon::parse($data['start_time']);
-            $end = \Carbon\Carbon::parse($data['end_time']);
-            $hours = max($start->diffInMinutes($end) / 60, 0.5);
-            $expectedMinPrice = $trainerDetail->hourly_rate * $hours * 0.5;
-            $expectedMaxPrice = $trainerDetail->hourly_rate * $hours * 2;
+        $totalSessions = $data['sessions_per_week'] * 4;
+        $totalMemberPrice = $totalSessions * $memberPrice;
+        $totalTrainerPrice = $totalSessions * $basePrice;
 
-            if (($data['total_price'] ?? 0) > 0 && ($data['total_price'] < $expectedMinPrice || $data['total_price'] > $expectedMaxPrice)) {
-                return ApiResponse::error('Harga tidak sesuai dengan tarif trainer.', [], 422);
-            }
-        }
-
-        $booking = DB::transaction(function () use ($data, $request) {
+        $booking = DB::transaction(function () use ($data, $start, $end, $totalSessions, $basePrice, $memberPrice, $totalMemberPrice, $totalTrainerPrice, $request) {
             $booking = TrainerBooking::create([
-                'member_id'    => $request->user()->id,
-                'trainer_id'   => $data['trainer_id'],
-                'booking_date' => $data['booking_date'],
-                'start_time'   => $data['start_time'],
-                'end_time'     => $data['end_time'],
-                'session_type' => $data['session_type'],
-                'location'     => $data['location'] ?? 'Gym Utama',
-                'member_notes' => $data['member_notes'] ?? null,
-                'total_price'  => $data['total_price'] ?? 0,
-                'status'       => TrainerBooking::STATUS_PENDING,
+                'member_id'                => $request->user()->id,
+                'trainer_id'               => $data['trainer_id'],
+                'start_date'               => $start,
+                'end_date'                 => $end,
+                'sessions_per_week'        => $data['sessions_per_week'],
+                'session_days'             => $data['session_days'],
+                'session_time'             => $data['session_time'],
+                'member_notes'             => $data['member_notes'] ?? null,
+                'base_price_per_session'   => $basePrice,
+                'member_price_per_session' => $memberPrice,
+                'total_member_price'       => $totalMemberPrice,
+                'total_trainer_price'      => $totalTrainerPrice,
+                'total_sessions'           => $totalSessions,
+                'status'                   => TrainerBooking::STATUS_PENDING,
             ]);
 
             $booking->load(['trainer:id,full_name', 'member:id,full_name']);
 
-            // Notify the trainer about the new booking request
-            $memberName = $booking->member?->full_name ?? 'Member';
-            $date = $booking->booking_date?->format('d M Y') ?? '';
-
-            $notif = Notification::create([
-                'user_id'           => $booking->trainer_id,
-                'title'             => 'Permintaan sesi baru',
-                'body'              => "{$memberName} memesan sesi pada {$date} pukul {$booking->start_time}–{$booking->end_time}. Tinjau di Jadwal Melatih.",
-                'notification_type' => 'booking_request',
-                'is_read'           => false,
-            ]);
-
-            try {
-                broadcast(new NewNotification($notif));
-            } catch (\Throwable $e) {
-                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
-            }
-
-            try {
-                \App\Support\PushNotifier::send($notif->user_id, $notif->title, $notif->body);
-            } catch (\Throwable $e) {
-                logger()->warning('Push notification send failed: ' . $e->getMessage());
-            }
-
             return $booking;
         });
 
-        return ApiResponse::success('Booking created.', $booking, 201);
+        return ApiResponse::success('Booking created. Please upload payment proof to proceed.', $booking, 201);
     }
 
-    /**
-     * Update the status of a booking (trainer confirms/rejects, etc.).
-     */
+    public function uploadPaymentProof(Request $request, TrainerBooking $booking)
+    {
+        $userId = $request->user()->id;
+        if ($booking->member_id !== $userId) {
+            return ApiResponse::error('Not authorized.', [], 403);
+        }
+
+        if ($booking->status !== TrainerBooking::STATUS_PENDING) {
+            return ApiResponse::error(
+                "Cannot upload proof for booking with status '{$booking->status}'.",
+                [],
+                422
+            );
+        }
+
+        $data = $request->validate([
+            'payment_proof' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ]);
+
+        $path = $request->file('payment_proof')->store('payment-proofs', 'public');
+
+        $booking->update([
+            'payment_proof_path' => $path,
+            'status'             => TrainerBooking::STATUS_PENDING_PAYMENT,
+        ]);
+
+        $booking->load(['trainer:id,full_name']);
+
+        Notification::create([
+            'user_id'           => $booking->member_id,
+            'title'             => 'Bukti Pembayaran Terkirim',
+            'body'              => "Bukti pembayaran untuk booking dengan {$booking->trainer->full_name} telah dikirim. Admin akan memverifikasi dalam 2x24 jam.",
+            'notification_type' => 'payment_reminder',
+            'is_read'           => false,
+        ]);
+
+        return ApiResponse::success('Payment proof uploaded. Awaiting admin confirmation.', $booking->fresh());
+    }
+
     public function updateStatus(Request $request, int $id)
     {
         $data = $request->validate([
-            'status' => 'required|in:confirmed,completed,cancelled,rejected',
+            'status' => 'required|in:completed,cancelled',
         ]);
 
-        $booking = TrainerBooking::with(['member:id,full_name', 'trainer:id,full_name'])->find($id);
-
-        if (! $booking) {
-            return ApiResponse::error('Booking not found.', [], 404);
-        }
-
-        // Only the trainer or the member involved can update status
+        $booking = TrainerBooking::with(['member:id,full_name', 'trainer:id,full_name'])->findOrFail($id);
         $userId = $request->user()->id;
-        if ($booking->trainer_id !== $userId && $booking->member_id !== $userId) {
-            return ApiResponse::error('Not authorized to update this booking.', [], 403);
+        $isAdmin = $request->user()->roleName() === 'admin';
+
+        if ($booking->member_id !== $userId && $booking->trainer_id !== $userId && !$isAdmin) {
+            return ApiResponse::error('Not authorized.', [], 403);
         }
 
-        $previousStatus = $booking->status;
-
-        // Enforce state machine: only allow valid transitions
         if (!$booking->canTransitionTo($data['status'])) {
             return ApiResponse::error(
-                "Tidak dapat mengubah status dari '{$previousStatus}' ke '{$data['status']}'.",
+                "Cannot change from '{$booking->status}' to '{$data['status']}'.",
                 [],
                 422
             );
@@ -149,107 +156,134 @@ class BookingController extends Controller
 
         $booking->update(['status' => $data['status']]);
 
-        $memberName = $booking->member?->full_name ?? 'Member';
-        $trainerName = $booking->trainer?->full_name ?? 'Trainer';
-        $date = $booking->booking_date?->format('d M Y') ?? '';
-
-        // Notify trainer when booking is confirmed (payment)
-        if (
-            $data['status'] === TrainerBooking::STATUS_CONFIRMED
-            && $previousStatus !== TrainerBooking::STATUS_CONFIRMED
-        ) {
-            $price = number_format((int) $booking->total_price, 0, ',', '.');
-
-            $notifConfirm = Notification::create([
-                'user_id'           => $booking->trainer_id,
-                'title'             => 'Sesi dikonfirmasi & pembayaran',
-                'body'              => "Sesi dengan {$memberName} pada {$date} telah dikonfirmasi. Total pembayaran Rp {$price}.",
-                'notification_type' => 'payment_in',
-                'is_read'           => false,
-            ]);
-
-            try {
-                broadcast(new NewNotification($notifConfirm));
-            } catch (\Throwable $e) {
-                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
-            }
-
-            try {
-                \App\Support\PushNotifier::send($notifConfirm->user_id, $notifConfirm->title, $notifConfirm->body);
-            } catch (\Throwable $e) {
-                logger()->warning('Push notification send failed: ' . $e->getMessage());
-            }
-
-            // Notify member that their booking was confirmed
-            $notifMember = Notification::create([
-                'user_id'           => $booking->member_id,
-                'title'             => 'Booking Dikonfirmasi',
-                'body'              => "Sesi Anda dengan {$trainerName} pada {$date} telah dikonfirmasi oleh trainer.",
-                'notification_type' => 'booking_confirmed',
-                'is_read'           => false,
-            ]);
-
-            try {
-                broadcast(new NewNotification($notifMember));
-            } catch (\Throwable $e) {
-                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
-            }
-        }
-
-        // Notify member when booking is rejected
-        if ($data['status'] === TrainerBooking::STATUS_REJECTED && $previousStatus !== TrainerBooking::STATUS_REJECTED) {
-            $notifReject = Notification::create([
-                'user_id'           => $booking->member_id,
-                'title'             => 'Booking Ditolak',
-                'body'              => "Maaf, sesi Anda dengan {$trainerName} pada {$date} telah ditolak oleh trainer.",
-                'notification_type' => 'booking_rejected',
-                'is_read'           => false,
-            ]);
-
-            try {
-                broadcast(new NewNotification($notifReject));
-            } catch (\Throwable $e) {
-                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
-            }
-        }
-
-        // Notify other party when booking is cancelled
-        if ($data['status'] === TrainerBooking::STATUS_CANCELLED && $previousStatus !== TrainerBooking::STATUS_CANCELLED) {
-            $otherUserId = $userId === $booking->member_id ? $booking->trainer_id : $booking->member_id;
-            $actorName = $userId === $booking->member_id ? $memberName : $trainerName;
-
-            $notifCancel = Notification::create([
-                'user_id'           => $otherUserId,
-                'title'             => 'Booking Dibatalkan',
-                'body'              => "Sesi pada {$date} telah dibatalkan oleh {$actorName}.",
-                'notification_type' => 'booking_cancelled',
-                'is_read'           => false,
-            ]);
-
-            try {
-                broadcast(new NewNotification($notifCancel));
-            } catch (\Throwable $e) {
-                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
-            }
-        }
-
-        // Notify member when session is completed
-        if ($data['status'] === TrainerBooking::STATUS_COMPLETED && $previousStatus !== TrainerBooking::STATUS_COMPLETED) {
-            $notifComplete = Notification::create([
+        if ($data['status'] === TrainerBooking::STATUS_COMPLETED) {
+            Notification::create([
                 'user_id'           => $booking->member_id,
                 'title'             => 'Sesi Selesai',
-                'body'              => "Sesi Anda dengan {$trainerName} pada {$date} telah selesai. Terima kasih!",
+                'body'              => "Booking dengan {$booking->trainer->full_name} telah selesai. Terima kasih!",
                 'notification_type' => 'booking_completed',
                 'is_read'           => false,
             ]);
+        }
 
-            try {
-                broadcast(new NewNotification($notifComplete));
-            } catch (\Throwable $e) {
-                logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
-            }
+        if ($data['status'] === TrainerBooking::STATUS_CANCELLED) {
+            $otherUserId = $userId === $booking->member_id ? $booking->trainer_id : $booking->member_id;
+            $actorName = $userId === $booking->member_id
+                ? ($booking->member->full_name ?? 'Member')
+                : ($booking->trainer->full_name ?? 'Trainer');
+
+            Notification::create([
+                'user_id'           => $otherUserId,
+                'title'             => 'Booking Dibatalkan',
+                'body'              => "Booking periode {$booking->start_date} – {$booking->end_date} telah dibatalkan oleh {$actorName}.",
+                'notification_type' => 'booking_cancelled',
+                'is_read'           => false,
+            ]);
         }
 
         return ApiResponse::success('Booking status updated.', $booking->fresh());
+    }
+
+    public function confirmPayment(Request $request, TrainerBooking $booking)
+    {
+        if (!$booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED)) {
+            return ApiResponse::error(
+                "Cannot confirm payment for booking with status '{$booking->status}'.",
+                [],
+                422
+            );
+        }
+
+        $booking->load(['member:id,full_name', 'trainer:id,full_name']);
+        $booking->update([
+            'status'  => TrainerBooking::STATUS_CONFIRMED,
+            'paid_at' => now(),
+        ]);
+
+        TrainerEarning::create([
+            'trainer_id'     => $booking->trainer_id,
+            'booking_id'     => $booking->id,
+            'trainer_amount' => $booking->total_trainer_price,
+            'status'         => 'pending',
+        ]);
+
+        Notification::create([
+            'user_id'           => $booking->member_id,
+            'title'             => 'Pembayaran Dikonfirmasi',
+            'body'              => "Pembayaran Anda telah dikonfirmasi. Chat dengan {$booking->trainer->full_name} sekarang sudah terbuka!",
+            'notification_type' => 'booking_confirmed',
+            'is_read'           => false,
+        ]);
+
+        Notification::create([
+            'user_id'           => $booking->trainer_id,
+            'title'             => 'Sesi Baru Aktif',
+            'body'              => "{$booking->member->full_name} telah aktif. Anda menerima Rp " . number_format($booking->total_trainer_price, 0, ',', '.') . " untuk bulan ini.",
+            'notification_type' => 'payment_in',
+            'is_read'           => false,
+        ]);
+
+        try {
+            broadcast(new NewNotification(
+                Notification::where('user_id', $booking->member_id)
+                    ->where('notification_type', 'booking_confirmed')
+                    ->latest()
+                    ->first()
+            ));
+        } catch (\Throwable $e) {
+            logger()->warning('Broadcast NewNotification failed: ' . $e->getMessage());
+        }
+
+        return ApiResponse::success('Payment confirmed. Chat is now open.', $booking->fresh());
+    }
+
+    public function pendingPayments(Request $request)
+    {
+        $bookings = TrainerBooking::query()
+            ->with(['trainer:id,full_name', 'member:id,full_name'])
+            ->pendingPayment()
+            ->orderByDesc('created_at')
+            ->paginate($request->integer('per_page', 20));
+
+        return ApiResponse::success('Pending payments loaded.', $bookings);
+    }
+
+    public function rejectPayment(Request $request, TrainerBooking $booking)
+    {
+        if ($booking->status !== TrainerBooking::STATUS_PENDING_PAYMENT) {
+            return ApiResponse::error(
+                "Cannot reject booking with status '{$booking->status}'.",
+                [],
+                422
+            );
+        }
+
+        $data = $request->validate(['reason' => 'nullable|string|max:500']);
+        $booking->load(['member:id,full_name', 'trainer:id,full_name']);
+
+        $booking->update(['status' => TrainerBooking::STATUS_CANCELLED]);
+
+        Notification::create([
+            'user_id'           => $booking->member_id,
+            'title'             => 'Pembayaran Ditolak',
+            'body'              => "Pembayaran untuk booking dengan {$booking->trainer->full_name} ditolak. Alasan: " . ($data['reason'] ?? 'Bukti transfer tidak valid. Silakan upload ulang.'),
+            'notification_type' => 'payment_rejected',
+            'is_read'           => false,
+        ]);
+
+        return ApiResponse::success('Booking payment rejected.', $booking->fresh());
+    }
+
+    public function sessionDates(TrainerBooking $booking)
+    {
+        $userId = request()->user()->id;
+        if ($booking->member_id !== $userId && $booking->trainer_id !== $userId) {
+            return ApiResponse::error('Not authorized.', [], 403);
+        }
+
+        return ApiResponse::success('Session dates generated.', [
+            'dates' => $booking->generateSessionDates(),
+            'session_time' => $booking->session_time,
+        ]);
     }
 }

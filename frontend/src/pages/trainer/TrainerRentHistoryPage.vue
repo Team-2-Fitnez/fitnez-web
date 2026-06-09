@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
@@ -8,6 +8,7 @@ import { useTrainerRentHistoryStore } from '../../stores/trainerRentHistoryStore
 import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useTrainerRentHistoryStore()
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
 
 function currency(value?: string | number | null) {
   const numberValue = Number(value || 0)
@@ -55,14 +56,26 @@ const endBound = computed(() => {
 
 const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
 
-async function refreshData() {
-  await Promise.all([store.loadSummary(), store.load()])
+function onSearchInput(value: string) {
+  store.search = value
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => store.refreshTable(), 300)
+}
+
+async function refreshSummaryOnly() {
+  await Promise.all([store.loadSummary(), store.loadBreakdown()])
 }
 
 onMounted(() => {
-  run(refreshData)
+  run(async () => {
+    await Promise.all([store.loadSummary(), store.loadBreakdown(), store.load()])
+  })
 })
-useAutoRefresh(refreshData, 8000)
+useAutoRefresh(refreshSummaryOnly, 8000)
+
+onUnmounted(() => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+})
 </script>
 
 <template>
@@ -130,6 +143,29 @@ useAutoRefresh(refreshData, 8000)
         </div>
       </section>
 
+      <!-- MENTORING INCOME BREAKDOWN -->
+      <div v-if="store.breakdown" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-6">
+        <h3 class="table-title mb-4">Income Breakdown</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="mentoring-stat">
+            <span class="mentoring-stat-label">Mentoring Income</span>
+            <span class="mentoring-stat-value accent-purple">{{ currency(store.breakdown.mentoring_income) }}</span>
+          </div>
+          <div class="mentoring-stat">
+            <span class="mentoring-stat-label">Session Income</span>
+            <span class="mentoring-stat-value accent-blue">{{ currency(store.breakdown.session_income) }}</span>
+          </div>
+          <div class="mentoring-stat">
+            <span class="mentoring-stat-label">This Month</span>
+            <span class="mentoring-stat-value accent-green">{{ currency(store.breakdown.this_month_income) }}</span>
+          </div>
+          <div class="mentoring-stat">
+            <span class="mentoring-stat-label">Total Income</span>
+            <span class="mentoring-stat-value accent-dark">{{ currency(store.breakdown.total_income) }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- TABLE & FILTER CARD -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col mt-6 p-6">
         
@@ -146,7 +182,7 @@ useAutoRefresh(refreshData, 8000)
                 class="form-input search-box"
                 style="padding-left: 2.75rem !important;"
                 placeholder="Search transactions..."
-                @input="store.refresh"
+                @input="onSearchInput(($event.target as HTMLInputElement).value)"
               />
             </div>
             
@@ -649,4 +685,28 @@ useAutoRefresh(refreshData, 8000)
 }
 
 .text-center { text-align: center; }
+
+.mentoring-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mentoring-stat-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mentoring-stat-value {
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.accent-purple { color: #9333ea; }
+.accent-blue { color: #0284c7; }
+.accent-green { color: #16a34a; }
+.accent-dark { color: #111827; }
 </style>
