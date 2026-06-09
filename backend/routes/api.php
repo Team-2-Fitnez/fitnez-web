@@ -42,10 +42,7 @@ Route::get('/faqs', [FaqController::class, 'index']);
 Route::get('/faqs/categories', [FaqController::class, 'categories']);
 Route::get('/membership-packages',[MembershipPackageController::class,'index']);
 Route::get('/manual-payment-methods',[ManualPaymentMethodController::class,'index']);
-Route::prefix('analytics')->group(function(){
-    Route::post('/landing-visit',[LandingVisitController::class,'store']);
-    Route::post('/landing-visit/heartbeat',[LandingVisitController::class,'heartbeat']);
-});
+Route::prefix('analytics')->group(function(){ Route::post('/landing-visit',[LandingVisitController::class,'store']); });
 Route::prefix('auth')->group(function(){
     Route::post('/prospective-registration/start',[ManualProspectiveRegistrationController::class,'start']);
     Route::post('/prospective-registration/upload-proof',[ManualProspectiveRegistrationController::class,'uploadProof']);

@@ -23,34 +23,12 @@ const props = withDefaults(defineProps<{
   mobileEmptyLabel: 'No records found.',
 })
 
-const emit = defineEmits<{
+defineEmits<{
   search: [value: string]
   next: []
   previous: []
   create: []
-  goto: [page: number]
 }>()
-
-const visiblePages = computed(() => {
-  const last = Number(props.lastPage)
-  const current = Number(props.page)
-  if (last <= 5) {
-    return Array.from({ length: last }, (_, i) => i + 1)
-  }
-  if (current <= 2) {
-    return [1, 2, 3, '...', last]
-  }
-  if (current >= last - 1) {
-    return [1, '...', last - 2, last - 1, last]
-  }
-  if (current === 3) {
-    return [1, 2, 3, 4, '...', last]
-  }
-  if (current === last - 2) {
-    return [1, '...', last - 3, last - 2, last - 1, last]
-  }
-  return [1, '...', current - 1, current, current + 1, '...', last]
-})
 
 function valueFor(row: Record<string, any>, key?: string) {
   if (!key) return ''
@@ -182,30 +160,20 @@ const mobileDetailColumns = computed(() =>
 
     <div class="flex flex-col gap-3 border-t border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
       <p class="text-sm text-slate-500">Page {{ page }} of {{ lastPage }}</p>
-      <div class="flex gap-1 items-center">
+      <div class="flex gap-2">
         <button
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
           :disabled="page <= 1"
-          @click="emit('previous')"
+          @click="$emit('previous')"
         >
-          ‹
-        </button>
-        <button
-          v-for="p in visiblePages"
-          :key="p"
-          class="rounded-lg border px-3 py-2 text-sm disabled:opacity-50 min-w-[32px] h-[32px] flex items-center justify-center"
-          :class="Number(p) === Number(page) ? 'bg-slate-900 border-slate-900 text-white font-semibold' : 'border-slate-300 bg-white text-slate-700'"
-          :disabled="p === '...'"
-          @click="p !== '...' && emit('goto', p as number)"
-        >
-          {{ p }}
+          Previous
         </button>
         <button
           class="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
           :disabled="page >= lastPage"
-          @click="emit('next')"
+          @click="$emit('next')"
         >
-          ›
+          Next
         </button>
       </div>
     </div>

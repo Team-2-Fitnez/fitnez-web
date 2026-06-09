@@ -27,44 +27,6 @@ const classes = ref<ClassItem[]>([])
 const { loading, run, shimmerStyle } = useDeferredLoading()
 const error = ref('')
 
-const currentPage = ref(1)
-const perPage = 15
-
-const paginatedClasses = computed(() => {
-  const start = (currentPage.value - 1) * perPage
-  const end = start + perPage
-  return classes.value.slice(start, end)
-})
-
-const lastPage = computed(() => Math.ceil(classes.value.length / perPage) || 1)
-
-const visiblePages = computed(() => {
-  const last = Number(lastPage.value)
-  const current = Number(currentPage.value)
-  if (last <= 5) {
-    return Array.from({ length: last }, (_, i) => i + 1)
-  }
-  if (current <= 2) {
-    return [1, 2, 3, '...', last]
-  }
-  if (current >= last - 1) {
-    return [1, '...', last - 2, last - 1, last]
-  }
-  if (current === 3) {
-    return [1, 2, 3, 4, '...', last]
-  }
-  if (current === last - 2) {
-    return [1, '...', last - 3, last - 2, last - 1, last]
-  }
-  return [1, '...', current - 1, current, current + 1, '...', last]
-})
-
-function goToPage(p: number | string) {
-  if (typeof p === 'string') return
-  if (p < 1 || p > lastPage.value || p === currentPage.value) return
-  currentPage.value = p
-}
-
 const activeClasses = computed(() => classes.value.filter(item => item.status === 'active').length)
 const totalCapacity = computed(() => classes.value.reduce((sum, item) => sum + Number(item.max_participants || 0), 0))
 const totalParticipants = computed(() => classes.value.reduce((sum, item) => sum + Number(item.current_participants || 0), 0))
@@ -124,7 +86,7 @@ useAutoRefresh(loadClasses, 10000)
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in paginatedClasses" :key="item.id" class="border-t border-black/5">
+              <tr v-for="item in classes" :key="item.id" class="border-t border-black/5">
                 <td class="px-4 py-4">
                   <p class="font-black text-black">{{ item.name }}</p>
                   <p class="mt-1 max-w-md text-xs font-semibold text-black/45">{{ item.description || 'No class description.' }}</p>
@@ -142,7 +104,7 @@ useAutoRefresh(loadClasses, 10000)
         </div>
 
         <div v-if="classes.length" class="mobile-record-list mt-4">
-          <article v-for="item in paginatedClasses" :key="`class-card-${item.id}`" class="mobile-record-card">
+          <article v-for="item in classes" :key="`class-card-${item.id}`" class="mobile-record-card">
             <div class="mobile-record-head">
               <div>
                 <strong>{{ item.name }}</strong>
@@ -170,84 +132,8 @@ useAutoRefresh(loadClasses, 10000)
             </dl>
           </article>
         </div>
-        <div class="pager-bar">
-          <p>Page {{ currentPage }} of {{ lastPage }}</p>
-          <div class="pagination">
-            <button type="button" class="pagination-arrow" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">‹</button>
-            <button
-              v-for="p in visiblePages"
-              :key="p"
-              :class="{ active: Number(p) === Number(currentPage), disabled: p === '...' }"
-              :disabled="p === '...'"
-              type="button"
-              @click="goToPage(p)"
-            >
-              {{ p }}
-            </button>
-            <button type="button" class="pagination-arrow" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">›</button>
-          </div>
-        </div>
       </FitnezCard>
       </template>
     </template>
   </WorkspaceLayout>
 </template>
-
-<style scoped>
-.pager-bar {
-  align-items: center;
-  border-top: 1px solid rgba(0, 0, 0, 0.10);
-  display: flex;
-  justify-content: space-between;
-  padding: 0.9rem 1.25rem;
-  margin-top: 1rem;
-}
-
-.pager-bar p {
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 700;
-  margin: 0;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pagination button {
-  background: white;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  min-width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  padding: 0;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.pagination button.active {
-  background: #0058be;
-  color: white;
-  border-color: #0058be;
-}
-
-.pagination button:disabled {
-  color: #cbd5e1;
-  cursor: not-allowed;
-  background: #f8fafc;
-}
-</style>

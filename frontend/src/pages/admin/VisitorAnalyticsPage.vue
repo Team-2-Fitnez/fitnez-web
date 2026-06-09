@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import { useLandingVisitStore } from '../../stores/landingVisitStore'
@@ -9,8 +9,6 @@ import SkeletonChartBlock from '../../components/ui/skeleton/SkeletonChartBlock.
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import type { LandingVisit } from '../../types/landingVisit'
 import { Chart, registerables } from 'chart.js'
-import StatCard from '../../components/ui/StatCard.vue'
-import FitnezCard from '../../components/ui/FitnezCard.vue'
 
 Chart.register(...registerables)
 
@@ -26,72 +24,19 @@ let countryChartInstance: Chart | null = null
 let cityChartInstance: Chart | null = null
 
 const visitsData = ref<LandingVisit[]>([])
-const ipCache = ref<Record<string, { country: string; city: string }>>({})
 
-onMounted(async () => {
-  await run(async () => {
+onMounted(() => {
+  run(async () => {
     await store.loadSummary()
     // Fetch a large list of visits for robust charting statistics
     const res = await landingVisitApi.list({ per_page: 250 })
     visitsData.value = res.data.data || []
     
-    // Resolve unique IPs geolocation asynchronously
-    const uniqueIps = Array.from(new Set(visitsData.value.map(v => v.ip_address).filter(Boolean))) as string[]
-    
-    await Promise.all(
-      uniqueIps.map(async (ip) => {
-        let cleanIp = ip.trim()
-        if (cleanIp.startsWith('::ffff:')) {
-          cleanIp = cleanIp.substring(7)
-        }
-        
-        // Skip API request for local/private IPs and static map IPs
-        const isLocal = cleanIp === '127.0.0.1' || 
-                        cleanIp === '::1' || 
-                        cleanIp === 'localhost' || 
-                        cleanIp.startsWith('172.') || 
-                        cleanIp.startsWith('192.168.') || 
-                        cleanIp.startsWith('10.')
-                        
-        const staticIpMap: Record<string, { country: string; city: string }> = {
-          '182.253.0.1': { country: 'Indonesia', city: 'Jakarta' },
-          '202.130.96.1': { country: 'Indonesia', city: 'Jakarta' },
-          '111.95.0.1': { country: 'Indonesia', city: 'Jakarta' },
-          '8.8.8.8': { country: 'United States', city: 'Mountain View' },
-          '45.32.0.1': { country: 'Singapore', city: 'Singapore City' },
-          '118.189.0.1': { country: 'Singapore', city: 'Singapore City' },
-          '210.140.0.1': { country: 'Japan', city: 'Tokyo' },
-          '195.154.0.1': { country: 'France', city: 'Paris' },
-          '82.165.0.1': { country: 'Germany', city: 'Berlin' },
-          '1.1.1.1': { country: 'Australia', city: 'Sydney' }
-        }
-        
-        if (isLocal || staticIpMap[cleanIp]) {
-          return // will fall back to static logic synchronously
-        }
-        
-        // Try live api lookup for other public IPs
-        try {
-          const apiRes = await fetch(`https://ipapi.co/${cleanIp}/json/`)
-          if (apiRes.ok) {
-            const geo = await apiRes.json()
-            if (geo.country_name && geo.city) {
-              ipCache.value[cleanIp] = {
-                country: geo.country_name,
-                city: geo.city
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`Failed to resolve geo for ${cleanIp}`, err)
-        }
-      })
-    )
+    // Render charts next tick after canvas DOM updates
+    setTimeout(() => {
+      renderCharts(visitsData.value)
+    }, 50)
   })
-  
-  // Render charts after loading is finished and canvas elements are in the DOM
-  await nextTick()
-  renderCharts(visitsData.value)
 })
 
 onBeforeUnmount(() => {
@@ -102,71 +47,41 @@ onBeforeUnmount(() => {
 
 // Deterministic IP to Location mapping function
 function getIPLocation(ip?: string | null): { country: string; city: string } {
-  if (!ip) {
-    return { country: 'Unknown', city: 'Unknown' }
-  }
-  
-  // Clean IP
-  let cleanIp = ip.trim()
-  if (cleanIp.startsWith('::ffff:')) {
-    cleanIp = cleanIp.substring(7)
-  }
-
-  // 1. Check reactive cache first
-  if (ipCache.value[cleanIp]) {
-    return ipCache.value[cleanIp]
-  }
-
-  // 2. Check local/private subnets
-  if (
-    cleanIp === '127.0.0.1' || 
-    cleanIp === '::1' || 
-    cleanIp === 'localhost' || 
-    cleanIp.startsWith('172.') || 
-    cleanIp.startsWith('192.168.') || 
-    cleanIp.startsWith('10.')
-  ) {
-    return { country: 'Indonesia', city: 'Jakarta' }
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('172.')) {
+    // Generate static but distributed coordinates for local testing IPs
+    const seed = ip ? ip.length : 5
+    const localCountries = ['Indonesia', 'Singapore', 'Japan', 'United States']
+    const localCitiesMap: Record<string, string[]> = {
+      'Indonesia': ['Jakarta', 'Surabaya', 'Bandung'],
+      'Singapore': ['Singapore City', 'Changi'],
+      'Japan': ['Tokyo', 'Osaka'],
+      'United States': ['New York', 'Los Angeles']
+    }
+    const country = localCountries[seed % localCountries.length]
+    const cities = localCitiesMap[country]
+    const city = cities[seed % cities.length]
+    return { country, city }
   }
 
-  // 3. Check hardcoded dictionary for seed/public IPs
-  const staticIpMap: Record<string, { country: string; city: string }> = {
-    '182.253.0.1': { country: 'Indonesia', city: 'Jakarta' },
-    '202.130.96.1': { country: 'Indonesia', city: 'Jakarta' },
-    '111.95.0.1': { country: 'Indonesia', city: 'Jakarta' },
-    '8.8.8.8': { country: 'United States', city: 'Mountain View' },
-    '45.32.0.1': { country: 'Singapore', city: 'Singapore City' },
-    '118.189.0.1': { country: 'Singapore', city: 'Singapore City' },
-    '210.140.0.1': { country: 'Japan', city: 'Tokyo' },
-    '195.154.0.1': { country: 'France', city: 'Paris' },
-    '82.165.0.1': { country: 'Germany', city: 'Berlin' },
-    '1.1.1.1': { country: 'Australia', city: 'Sydney' }
-  }
-
-  if (staticIpMap[cleanIp]) {
-    return staticIpMap[cleanIp]
-  }
-
-  // 4. Deterministic hash fallback
   let hash = 0
-  for (let i = 0; i < cleanIp.length; i++) {
-    hash = cleanIp.charCodeAt(i) + ((hash << 5) - hash)
+  for (let i = 0; i < ip.length; i++) {
+    hash = ip.charCodeAt(i) + ((hash << 5) - hash)
   }
   hash = Math.abs(hash)
 
-  const countries = ['Indonesia', 'United States', 'Singapore', 'Japan', 'France', 'Germany', 'Australia']
+  const countries = ['Indonesia', 'United States', 'Singapore', 'Japan', 'United Kingdom', 'Germany', 'Australia']
   const citiesMap: Record<string, string[]> = {
     'Indonesia': ['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Bali'],
     'United States': ['New York', 'Los Angeles', 'San Francisco', 'Chicago', 'Miami'],
     'Singapore': ['Singapore City', 'Changi', 'Jurong', 'Bedok'],
     'Japan': ['Tokyo', 'Osaka', 'Kyoto', 'Yokohama', 'Nagoya'],
-    'France': ['Paris', 'Marseille', 'Lyon', 'Toulouse'],
+    'United Kingdom': ['London', 'Manchester', 'Birmingham', 'Edinburgh'],
     'Germany': ['Berlin', 'Munich', 'Frankfurt', 'Hamburg'],
     'Australia': ['Sydney', 'Melbourne', 'Brisbane', 'Perth']
   }
 
   const country = countries[hash % countries.length]
-  const cities = citiesMap[country] || ['Unknown']
+  const cities = citiesMap[country]
   const city = cities[hash % cities.length]
 
   return { country, city }
@@ -237,7 +152,7 @@ function renderCharts(visits: LandingVisit[]) {
   const countriesCount: Record<string, number> = {}
   visits.forEach(v => {
     const loc = getIPLocation(v.ip_address)
-    countriesCount[loc.country] = (countriesCount[loc.country] || 0) + (v.page_view_count || 1)
+    countriesCount[loc.country] = (countriesCount[loc.country] || 0) + 1
   })
 
   const countryLabels = Object.keys(countriesCount)
@@ -251,7 +166,7 @@ function renderCharts(visits: LandingVisit[]) {
         labels: countryLabels.length ? countryLabels : ['No Data'],
         datasets: [{
           data: countryCounts.length ? countryCounts : [0],
-          backgroundColor: countryLabels.map((_, index) => palette[index % palette.length]),
+          backgroundColor: palette.slice(0, Math.max(1, countryLabels.length)),
         }]
       },
       options: {
@@ -260,7 +175,6 @@ function renderCharts(visits: LandingVisit[]) {
         plugins: {
           legend: {
             position: 'right',
-            onClick: () => {}, // Disable legend click filtering
             labels: {
               boxWidth: 12,
               font: { weight: 'bold' }
@@ -275,7 +189,7 @@ function renderCharts(visits: LandingVisit[]) {
   const citiesCount: Record<string, number> = {}
   visits.forEach(v => {
     const loc = getIPLocation(v.ip_address)
-    citiesCount[loc.city] = (citiesCount[loc.city] || 0) + (v.page_view_count || 1)
+    citiesCount[loc.city] = (citiesCount[loc.city] || 0) + 1
   })
 
   const sortedCities = Object.entries(citiesCount)
@@ -336,37 +250,53 @@ function renderCharts(visits: LandingVisit[]) {
       <template v-else>
         <!-- Stats Row -->
         <div class="analytics-grid">
-          <StatCard label="Total Page Views" :value="store.summary?.total_page_views || 0" hint="Aggregated views" />
-          <StatCard label="Unique Today" :value="store.summary?.unique_visitors_today || 0" hint="Daily unique visitors" />
-          <StatCard label="Active Now" :value="store.summary?.active_visitors_now || 0" hint="Within last 60 seconds" />
-          <StatCard label="Top Location" :value="topCountry" hint="By visitor IP mapping" />
+          <div class="analytics-card">
+            <span class="card-eyebrow">Total Page Views</span>
+            <strong class="card-value">{{ store.summary?.total_page_views || 0 }}</strong>
+            <span class="card-desc">Aggregated views</span>
+          </div>
+          <div class="analytics-card">
+            <span class="card-eyebrow">Unique Today</span>
+            <strong class="card-value">{{ store.summary?.unique_visitors_today || 0 }}</strong>
+            <span class="card-desc">Daily unique visitors</span>
+          </div>
+          <div class="analytics-card">
+            <span class="card-eyebrow">Active Now</span>
+            <strong class="card-value highlight-green">{{ store.summary?.active_visitors_now || 0 }}</strong>
+            <span class="card-desc">Within last 60 seconds</span>
+          </div>
+          <div class="analytics-card">
+            <span class="card-eyebrow">Top Location</span>
+            <strong class="card-value truncate">{{ topCountry }}</strong>
+            <span class="card-desc">By visitor IP mapping</span>
+          </div>
         </div>
 
         <!-- Charts Layout Grid -->
         <div class="charts-layout">
           <!-- Trend Graph (Span 8) -->
-          <FitnezCard class="span-8">
-            <h3 class="chart-title" style="margin-top: 0; margin-bottom: 1.25rem;">Visitor Trends Over Time</h3>
+          <div class="chart-card span-8">
+            <h3 class="chart-title">Visitor Trends Over Time</h3>
             <div class="chart-container">
               <canvas ref="trendCanvas"></canvas>
             </div>
-          </FitnezCard>
+          </div>
 
           <!-- Countries Doughnut (Span 4) -->
-          <FitnezCard class="span-4">
-            <h3 class="chart-title" style="margin-top: 0; margin-bottom: 1.25rem;">Visits by Country</h3>
+          <div class="chart-card span-4">
+            <h3 class="chart-title">Visits by Country</h3>
             <div class="chart-container">
               <canvas ref="countryCanvas"></canvas>
             </div>
-          </FitnezCard>
+          </div>
 
           <!-- Cities Bar Chart (Span 12) -->
-          <FitnezCard class="span-12">
-            <h3 class="chart-title" style="margin-top: 0; margin-bottom: 1.25rem;">Top 7 Cities of Origin</h3>
+          <div class="chart-card span-12">
+            <h3 class="chart-title">Top 7 Cities of Origin</h3>
             <div class="chart-container">
               <canvas ref="cityCanvas"></canvas>
             </div>
-          </FitnezCard>
+          </div>
         </div>
       </template>
     </div>
@@ -384,8 +314,53 @@ function renderCharts(visits: LandingVisit[]) {
 .analytics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: 1.5rem;
   width: 100%;
+}
+
+.analytics-card {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 8.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analytics-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+.card-eyebrow {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-value {
+  color: #0f172a;
+  font-size: 1.875rem;
+  font-weight: 900;
+  margin-top: 0.5rem;
+  line-height: 1.2;
+}
+
+.highlight-green {
+  color: #10b981;
+}
+
+.card-desc {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
 }
 
 .charts-layout {
@@ -395,10 +370,28 @@ function renderCharts(visits: LandingVisit[]) {
   width: 100%;
 }
 
+.chart-card {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+}
+
 .chart-title {
-  color: var(--color-black);
+  color: #0f172a;
   font-size: 1.125rem;
-  font-weight: 900;
+  font-weight: 850;
+  margin-top: 0;
+  margin-bottom: 1.25rem;
 }
 
 .chart-container {

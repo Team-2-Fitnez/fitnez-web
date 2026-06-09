@@ -22,8 +22,8 @@ export const useTrainerMemberMonitoringStore = defineStore('trainerMemberMonitor
   }),
 
   actions: {
-    async loadSummary(silent = false) {
-      if (!silent) this.loadingSummary = true
+    async loadSummary() {
+      this.loadingSummary = true
 
       try {
         const response = await trainerMonitoringApi.summary()
@@ -33,8 +33,8 @@ export const useTrainerMemberMonitoringStore = defineStore('trainerMemberMonitor
       }
     },
 
-    async loadMembers(silent = false) {
-      if (!silent) this.loadingMembers = true
+    async loadMembers() {
+      this.loadingMembers = true
 
       try {
         const response = await trainerMonitoringApi.members({
@@ -57,8 +57,8 @@ export const useTrainerMemberMonitoringStore = defineStore('trainerMemberMonitor
       }
     },
 
-    async loadDetail(memberId: number, silent = false) {
-      if (!silent) this.loadingDetail = true
+    async loadDetail(memberId: number) {
+      this.loadingDetail = true
 
       try {
         const response = await trainerMonitoringApi.detail(memberId)

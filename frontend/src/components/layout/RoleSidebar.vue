@@ -55,8 +55,6 @@ function getAdminIcon(label: string, fallback = '.') {
     case 'visitor analytics':
     case 'visitor trends':
       return `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>`
-    case 'visitor insights':
-      return `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 11a4 4 0 10-8 0 4 4 0 008 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><path d="M4 21a8 8 0 0116 0" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><path d="M18 5v4m3-2h-6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>`
     case 'landing visitors':
     case 'pengunjung':
       return `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`
