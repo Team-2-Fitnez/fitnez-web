@@ -61,9 +61,10 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         TrainerBooking::factory()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id,
-            'booking_date' => $now->toDateString(),
-            'start_time' => $now->copy()->subMinutes(10)->format('H:i'),
-            'end_time' => $now->copy()->addMinutes(30)->format('H:i'),
+            'start_date' => $now->toDateString(),
+            'end_date' => $now->copy()->addDays(7)->toDateString(),
+            'session_days' => ['Monday', 'Wednesday', 'Friday'],
+            'session_time' => '10:00',
             'status' => TrainerBooking::STATUS_CONFIRMED,
         ]);
 
@@ -90,9 +91,10 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         TrainerBooking::factory()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id,
-            'booking_date' => $now->toDateString(),
-            'start_time' => $now->copy()->subMinutes(60)->format('H:i'),
-            'end_time' => $now->copy()->subMinutes(10)->format('H:i'),
+            'start_date' => $now->toDateString(),
+            'end_date' => $now->copy()->addDays(7)->toDateString(),
+            'session_days' => ['Monday', 'Wednesday', 'Friday'],
+            'session_time' => '10:00',
             'status' => TrainerBooking::STATUS_COMPLETED,
         ]);
 
@@ -116,13 +118,14 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         $this->authenticateAs($this->trainer);
         $now = $this->getLocalNow();
 
-        // A booking that ended 65 minutes ago (more than 1 hour ago)
+        // A booking that ended 1 day ago
         TrainerBooking::factory()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id,
-            'booking_date' => $now->toDateString(),
-            'start_time' => $now->copy()->subMinutes(120)->format('H:i'),
-            'end_time' => $now->copy()->subMinutes(65)->format('H:i'),
+            'start_date' => $now->copy()->subDays(10)->toDateString(),
+            'end_date' => $now->copy()->subDay()->toDateString(),
+            'session_days' => ['Monday', 'Wednesday', 'Friday'],
+            'session_time' => '10:00',
             'status' => TrainerBooking::STATUS_CONFIRMED,
         ]);
 
@@ -157,9 +160,10 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         TrainerBooking::factory()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id, // booked with the first trainer
-            'booking_date' => $now->toDateString(),
-            'start_time' => $now->copy()->subMinutes(10)->format('H:i'),
-            'end_time' => $now->copy()->addMinutes(30)->format('H:i'),
+            'start_date' => $now->toDateString(),
+            'end_date' => $now->copy()->addDays(7)->toDateString(),
+            'session_days' => ['Monday', 'Wednesday', 'Friday'],
+            'session_time' => '10:00',
             'status' => TrainerBooking::STATUS_CONFIRMED,
         ]);
 
@@ -190,9 +194,10 @@ class MemberFitnessMonitoringFeatureTest extends TestCase
         TrainerBooking::factory()->create([
             'member_id' => $trainerAsMember->id,
             'trainer_id' => $this->trainer->id,
-            'booking_date' => $now->toDateString(),
-            'start_time' => $now->copy()->subMinutes(10)->format('H:i'),
-            'end_time' => $now->copy()->addMinutes(30)->format('H:i'),
+            'start_date' => $now->toDateString(),
+            'end_date' => $now->copy()->addDays(7)->toDateString(),
+            'session_days' => ['Monday', 'Wednesday', 'Friday'],
+            'session_time' => '10:00',
             'status' => TrainerBooking::STATUS_CONFIRMED,
         ]);
 

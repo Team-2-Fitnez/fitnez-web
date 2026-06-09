@@ -70,9 +70,10 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
 
     Route::get('/trainer/application',[TrainerApplicationController::class,'status']); Route::post('/trainer/application',[TrainerApplicationController::class,'store']); Route::post('/trainer/workspace/enter',[TrainerApplicationController::class,'enterWorkspace']); Route::post('/trainer/workspace/leave',[TrainerApplicationController::class,'leaveWorkspace']);
 
-    Route::get('/member/membership/status', [MemberMembershipController::class, 'status']);
-    Route::post('/member/membership/renew', [MemberMembershipController::class, 'renew']);
-    Route::delete('/member/account', [MemberMembershipController::class, 'destroyAccount']);
+        Route::get('/member/membership/status', [MemberMembershipController::class, 'status']);
+        Route::post('/member/membership/renew', [MemberMembershipController::class, 'renew']);
+        Route::post('/member/membership/renew/{payment}/upload-proof', [MemberMembershipController::class, 'uploadProof']);
+        Route::delete('/member/account', [MemberMembershipController::class, 'destroyAccount']);
 
     Route::middleware(EnsureActiveMembership::class)->group(function(){
         // Bookings
@@ -119,12 +120,18 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::get('/prospective-members',[ProspectiveMemberReviewController::class,'index']); Route::post('/prospective-members/{registration}/approve',[ProspectiveMemberReviewController::class,'approve']); Route::post('/prospective-members/{registration}/reject',[ProspectiveMemberReviewController::class,'reject']);
         Route::get('/trainer-applications',[TrainerApplicationReviewController::class,'index']); Route::post('/trainer-applications/{application}/approve',[TrainerApplicationReviewController::class,'approve']); Route::post('/trainer-applications/{application}/reject',[TrainerApplicationReviewController::class,'reject']); Route::get('/trainer-applications/{application}/documents/{type}',[TrainerApplicationReviewController::class,'download'])->whereIn('type',['cv','certificate']); Route::get('/trainer-applications/{application}/documents/{type}/stream',[TrainerApplicationReviewController::class,'stream'])->whereIn('type',['cv','certificate']);
         Route::get('/users/summary', [UserManagementController::class, 'summary']);
+        Route::get('/nutrition-monitoring', [MemberPaymentAttendanceReportController::class, 'nutrition']);
         Route::apiResource('users',UserManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('trainers',TrainerManagementController::class)->only(['index','store','update','destroy']); Route::apiResource('schedules',ScheduleManagementController::class)->parameters(['schedules'=>'schedule'])->only(['index','store','update','destroy']);
         
         // Booking Payment Management
         Route::get('/bookings/pending-payments', [BookingController::class, 'pendingPayments']);
         Route::post('/bookings/{booking}/confirm-payment', [BookingController::class, 'confirmPayment']);
         Route::post('/bookings/{booking}/reject-payment', [BookingController::class, 'rejectPayment']);
+        
+        // Membership Renewal Review
+        Route::get('/payments/pending-renewals', [MemberMembershipController::class, 'pendingRenewals']);
+        Route::post('/payments/renewals/{payment}/confirm', [MemberMembershipController::class, 'confirmRenewal']);
+        Route::post('/payments/renewals/{payment}/reject', [MemberMembershipController::class, 'rejectRenewal']);
         
         Route::get('/notifications', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'index']);
         Route::post('/approve/{id}', [\App\Http\Controllers\Admin\AdminNotificationController::class, 'approve']);
@@ -140,6 +147,7 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
             Route::get('/payments', [ExcelExportController::class, 'payments']);
             Route::get('/attendance', [ExcelExportController::class, 'attendance']);
             Route::get('/users', [ExcelExportController::class, 'users']);
+            Route::get('/nutrition-monitoring', [ExcelExportController::class, 'nutritionMonitoring']);
         });
     });
 

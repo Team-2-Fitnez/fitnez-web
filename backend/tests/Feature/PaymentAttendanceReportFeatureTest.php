@@ -129,12 +129,16 @@ class PaymentAttendanceReportFeatureTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => [
-                'total_members',
-                'total_trainers',
                 'total_payments',
-                'total_revenue',
+                'total_payments_trend',
+                'total_payment_amount',
+                'total_payment_amount_trend',
+                'paid_payments',
+                'pending_payments',
                 'total_attendance',
-                'active_memberships',
+                'attendance_today',
+                'attendance_today_trend',
+                'attendance_this_month',
             ]]);
     }
 
@@ -184,7 +188,7 @@ class PaymentAttendanceReportFeatureTest extends TestCase
             'trainer_amount' => 50000,
         ]);
 
-        $response = $this->getJson('/api/trainer/income');
+        $response = $this->getJson('/api/trainer/incoming-rent-history/summary');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data']);
@@ -198,7 +202,7 @@ class PaymentAttendanceReportFeatureTest extends TestCase
             'trainer_id' => $this->trainer->id,
         ]);
 
-        $response = $this->getJson('/api/trainer/income/history');
+        $response = $this->getJson('/api/trainer/incoming-rent-history');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data']);

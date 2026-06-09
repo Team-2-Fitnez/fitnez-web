@@ -27,7 +27,7 @@ class PaymentFactory extends Factory
 
     public function confirmed(): static
     {
-        return $this->state(fn () => ['payment_status' => 'confirmed']);
+        return $this->state(fn () => ['payment_status' => 'paid']);
     }
 
     public function pending(): static

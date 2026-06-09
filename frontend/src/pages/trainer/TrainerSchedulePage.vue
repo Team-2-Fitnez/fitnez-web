@@ -40,6 +40,16 @@ const dayLabels: Record<string, string> = {
   friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
 }
 
+const selectedDateStr = ref<string | null>(null)
+
+function selectDate(dateStr: string) {
+  if (selectedDateStr.value === dateStr) {
+    selectedDateStr.value = null
+  } else {
+    selectedDateStr.value = dateStr
+  }
+}
+
 // Tab Filters
 const upcomingBookings = computed(() => {
   return store.bookings.filter((b) => b.status === 'confirmed')
@@ -50,8 +60,24 @@ const pastBookings = computed(() => {
 })
 
 const currentList = computed(() => {
-  if (activeTab.value === 'Upcoming') return upcomingBookings.value
-  return pastBookings.value
+  let list = activeTab.value === 'Upcoming' ? upcomingBookings.value : pastBookings.value
+  
+  if (selectedDateStr.value) {
+    const targetDate = selectedDateStr.value
+    const dateObj = new Date(targetDate)
+    const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+    
+    list = list.filter(b => {
+      if (!b.start_date || !b.end_date) return false
+      // Check range
+      if (targetDate < b.start_date || targetDate > b.end_date) return false
+      // Check if day of week matches session_days
+      const days = b.session_days?.map((d: string) => d.toLowerCase()) || []
+      return days.includes(weekday)
+    })
+  }
+  
+  return list
 })
 
 // Session dates expand
@@ -98,6 +124,7 @@ const currentMonthYear = computed(() => {
 })
 
 function prevMonth() {
+  selectedDateStr.value = null
   if (currentMonth.value === 0) {
     currentMonth.value = 11
     currentYear.value--
@@ -107,6 +134,7 @@ function prevMonth() {
 }
 
 function nextMonth() {
+  selectedDateStr.value = null
   if (currentMonth.value === 11) {
     currentMonth.value = 0
     currentYear.value++
@@ -142,7 +170,17 @@ const calendarDays = computed(() => {
 
 function hasSessionOnDate(dateStr: string): boolean {
   if (!dateStr) return false
-  return store.bookings.some(b => b.status === 'confirmed' || b.status === 'completed')
+  const dateObj = new Date(dateStr)
+  const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
+  
+  return store.bookings.some(b => {
+    if (b.status !== 'confirmed' && b.status !== 'completed') return false
+    if (!b.start_date || !b.end_date) return false
+    if (dateStr < b.start_date || dateStr > b.end_date) return false
+    
+    const days = b.session_days?.map((d: string) => d.toLowerCase()) || []
+    return days.includes(weekday)
+  })
 }
 
 onMounted(() => {
@@ -198,7 +236,15 @@ useAutoRefresh(() => store.loadBookings(), 8000)
               <div
                 v-for="(d, idx) in calendarDays"
                 :key="idx"
-                :class="['day-number-cell', { 'today-cell': d.isToday }]"
+                :class="[
+                  'day-number-cell', 
+                  { 
+                    'today-cell': d.isToday, 
+                    'selected-cell': selectedDateStr === d.dateStr,
+                    'empty-cell-placeholder': !d.day 
+                  }
+                ]"
+                @click="d.day && selectDate(d.dateStr)"
               >
                 <span v-if="d.day">{{ d.day }}</span>
                 
@@ -228,7 +274,21 @@ useAutoRefresh(() => store.loadBookings(), 8000)
             >
               Session History
             </button>
+          </div>
 
+          <!-- Active Date Filter Indicator -->
+          <div v-if="selectedDateStr" class="bg-blue-50 border-b border-blue-100 px-6 py-3 flex justify-between items-center">
+            <span class="text-xs text-blue-800 font-bold flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-sm">filter_alt</span>
+              Showing sessions for <strong>{{ formatDate(selectedDateStr) }}</strong>
+            </span>
+            <button 
+              type="button" 
+              class="text-xs text-blue-600 hover:text-blue-800 font-extrabold underline cursor-pointer"
+              @click="selectedDateStr = null"
+            >
+              Clear Filter
+            </button>
           </div>
 
           <!-- SESSION LISTING SCROLLER -->
@@ -291,7 +351,7 @@ useAutoRefresh(() => store.loadBookings(), 8000)
                 </div>
 
                 <div class="session-card-footer mt-auto">
-                  <div class="flex items-center justify-between">
+                  <div class="flex items-center justify-between w-full">
                     <p class="session-price">{{ formatPrice(b.total_trainer_price) }} earnings</p>
                     <button
                       v-if="b.status === 'confirmed'"
@@ -446,6 +506,30 @@ useAutoRefresh(() => store.loadBookings(), 8000)
   color: #ffffff !important;
   font-weight: 800;
   box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25);
+}
+
+.selected-cell {
+  background-color: #eff6ff !important;
+  border: 1px solid #3b82f6 !important;
+  color: #1e3a8a !important;
+  font-weight: 800;
+}
+
+.empty-cell-placeholder {
+  cursor: default;
+  pointer-events: none;
+}
+
+.dot-active {
+  background-color: #f59e0b;
+}
+
+.today-cell .dot-active {
+  background-color: #ffffff !important;
+}
+
+.selected-cell .dot-active {
+  background-color: #3b82f6 !important;
 }
 
 .dots-wrapper {
@@ -725,7 +809,13 @@ useAutoRefresh(() => store.loadBookings(), 8000)
 .mb-4 { margin-bottom: 1rem; }
 .mt-1 { margin-top: 0.25rem; }
 .flex { display: flex; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
 .gap-2 { gap: 0.5rem; }
+.gap-1 { gap: 0.25rem; }
+.flex-1 { flex: 1 1 0%; }
+.w-full { width: 100%; }
 
 @media (max-width: 760px) {
   .trainer-schedule-layout,

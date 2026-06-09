@@ -19,11 +19,11 @@ class TrainerBookingStateMachineTest extends TestCase
     //  STATE MACHINE PATTERN — Valid transitions from PENDING
     // ========================================================================
 
-    public function test_pending_can_transition_to_confirmed(): void
+    public function test_pending_can_transition_to_pending_payment(): void
     {
         $this->booking->status = TrainerBooking::STATUS_PENDING;
 
-        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
+        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_PENDING_PAYMENT));
     }
 
     public function test_pending_can_transition_to_cancelled(): void
@@ -33,11 +33,11 @@ class TrainerBookingStateMachineTest extends TestCase
         $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
     }
 
-    public function test_pending_can_transition_to_rejected(): void
+    public function test_pending_cannot_transition_to_confirmed(): void
     {
         $this->booking->status = TrainerBooking::STATUS_PENDING;
 
-        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
+        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
     }
 
     public function test_pending_cannot_transition_to_completed(): void
@@ -45,6 +45,24 @@ class TrainerBookingStateMachineTest extends TestCase
         $this->booking->status = TrainerBooking::STATUS_PENDING;
 
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_COMPLETED));
+    }
+
+    // ========================================================================
+    //  STATE MACHINE PATTERN — Valid transitions from PENDING_PAYMENT
+    // ========================================================================
+
+    public function test_pending_payment_can_transition_to_confirmed(): void
+    {
+        $this->booking->status = TrainerBooking::STATUS_PENDING_PAYMENT;
+
+        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
+    }
+
+    public function test_pending_payment_can_transition_to_cancelled(): void
+    {
+        $this->booking->status = TrainerBooking::STATUS_PENDING_PAYMENT;
+
+        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
     }
 
     // ========================================================================
@@ -72,15 +90,8 @@ class TrainerBookingStateMachineTest extends TestCase
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_PENDING));
     }
 
-    public function test_confirmed_cannot_transition_to_rejected(): void
-    {
-        $this->booking->status = TrainerBooking::STATUS_CONFIRMED;
-
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
-    }
-
     // ========================================================================
-    //  STATE MACHINE PATTERN — Terminal states (completed, cancelled, rejected)
+    //  STATE MACHINE PATTERN — Terminal states (completed, cancelled)
     // ========================================================================
 
     public function test_completed_cannot_transition_to_anything(): void
@@ -90,7 +101,6 @@ class TrainerBookingStateMachineTest extends TestCase
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_PENDING));
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
     }
 
     public function test_cancelled_cannot_transition_to_anything(): void
@@ -100,17 +110,6 @@ class TrainerBookingStateMachineTest extends TestCase
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_PENDING));
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_COMPLETED));
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
-    }
-
-    public function test_rejected_cannot_transition_to_anything(): void
-    {
-        $this->booking->status = TrainerBooking::STATUS_REJECTED;
-
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_PENDING));
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_COMPLETED));
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
     }
 
     // ========================================================================
@@ -146,6 +145,10 @@ class TrainerBookingStateMachineTest extends TestCase
     {
         // Fresh booking starts as pending
         $this->booking->status = TrainerBooking::STATUS_PENDING;
+        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_PENDING_PAYMENT));
+
+        // Goes to pending payment
+        $this->booking->status = TrainerBooking::STATUS_PENDING_PAYMENT;
         $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
 
         // Trainer confirms
@@ -165,15 +168,6 @@ class TrainerBookingStateMachineTest extends TestCase
         $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
 
         $this->booking->status = TrainerBooking::STATUS_CANCELLED;
-        $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
-    }
-
-    public function test_rejected_booking_lifecycle(): void
-    {
-        $this->booking->status = TrainerBooking::STATUS_PENDING;
-        $this->assertTrue($this->booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
-
-        $this->booking->status = TrainerBooking::STATUS_REJECTED;
         $this->assertFalse($this->booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
     }
 }

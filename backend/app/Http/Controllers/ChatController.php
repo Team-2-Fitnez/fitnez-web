@@ -30,8 +30,10 @@ class ChatController extends Controller
         // Users from active bookings (confirmed only)
         $bookingPartnerIds = TrainerBooking::query()
             ->where('status', TrainerBooking::STATUS_CONFIRMED)
+            ->where('end_date', '>', now()) // only active bookings
             ->where(function ($q) use ($uid) {
-                $q->where('member_id', $uid)->orWhere('trainer_id', $uid);
+                $q->where('member_id', $uid)
+                  ->orWhere('trainer_id', $uid);
             })
             ->get()
             ->map(fn(TrainerBooking $b) => $b->member_id === $uid ? $b->trainer_id : $b->member_id)

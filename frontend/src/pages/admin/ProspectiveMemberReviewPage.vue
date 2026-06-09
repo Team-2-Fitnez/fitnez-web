@@ -3,6 +3,8 @@ import { onMounted, ref, computed } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import { useProspectiveMemberStore } from '../../stores/prospectiveMemberStore'
+import { useBookingStore } from '../../stores/bookingStore'
+import { memberMembershipApi } from '../../api/memberMembershipApi'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import FitnezButton from '../../components/ui/FitnezButton.vue'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -11,10 +13,19 @@ import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useProspectiveMemberStore()
+const bookingStore = useBookingStore()
 const { loading, run, shimmerStyle } = useDeferredLoading()
+
+const activeTab = ref<'registrations' | 'bookings' | 'renewals'>('registrations')
+
+const pendingRenewalsList = ref<any[]>([])
+const renewalsLoading = ref(false)
+const renewalsPage = ref(1)
+const renewalsLastPage = ref(1)
 
 const showRejectModal = ref(false)
 const selectedRegistrationId = ref<number | null>(null)
+const selectedType = ref<'registration' | 'booking' | 'renewal'>('registration')
 const rejectionReasonOption = ref('The transfer proof is invalid or unreadable (blurry)')
 const customRejectionReason = ref('')
 const rejectionReasonOptions = [
@@ -25,12 +36,54 @@ const rejectionReasonOptions = [
   'Other'
 ]
 
-onMounted(() => run(() => store.load()))
-useAutoRefresh(() => store.load(), 8000)
+async function loadPendingRenewals() {
+  renewalsLoading.value = true
+  try {
+    const res = await memberMembershipApi.pendingRenewals(renewalsPage.value)
+    pendingRenewalsList.value = res.data.data
+    renewalsPage.value = res.data.current_page
+    renewalsLastPage.value = res.data.last_page
+  } catch (e) {
+    console.error(e)
+  } finally {
+    renewalsLoading.value = false
+  }
+}
+
+async function loadData() {
+  if (activeTab.value === 'registrations') {
+    await store.load()
+  } else if (activeTab.value === 'bookings') {
+    await bookingStore.loadPendingPayments()
+  } else if (activeTab.value === 'renewals') {
+    await loadPendingRenewals()
+  }
+}
+
+onMounted(() => run(() => loadData()))
+useAutoRefresh(() => loadData(), 8000)
+
+async function switchTab(tab: 'registrations' | 'bookings' | 'renewals') {
+  activeTab.value = tab
+  store.page = 1
+  bookingStore.page = 1
+  renewalsPage.value = 1
+  await run(() => loadData())
+}
 
 const visiblePages = computed(() => {
-  const last = Number(store.lastPage)
-  const current = Number(store.page)
+  let last = 1
+  let current = 1
+  if (activeTab.value === 'registrations') {
+    last = Number(store.lastPage)
+    current = Number(store.page)
+  } else if (activeTab.value === 'bookings') {
+    last = Number(bookingStore.lastPage)
+    current = Number(bookingStore.page)
+  } else if (activeTab.value === 'renewals') {
+    last = Number(renewalsLastPage.value)
+    current = Number(renewalsPage.value)
+  }
   if (last <= 5) {
     return Array.from({ length: last }, (_, i) => i + 1)
   }
@@ -51,13 +104,24 @@ const visiblePages = computed(() => {
 
 function goToPage(p: number | string) {
   if (typeof p === 'string') return
-  if (p < 1 || p > store.lastPage || p === store.page) return
-  store.page = p
-  store.load()
+  if (activeTab.value === 'registrations') {
+    if (p < 1 || p > store.lastPage || p === store.page) return
+    store.page = p
+    store.load()
+  } else if (activeTab.value === 'bookings') {
+    if (p < 1 || p > bookingStore.lastPage || p === bookingStore.page) return
+    bookingStore.page = p
+    bookingStore.loadPendingPayments()
+  } else if (activeTab.value === 'renewals') {
+    if (p < 1 || p > renewalsLastPage.value || p === renewalsPage.value) return
+    renewalsPage.value = p
+    loadPendingRenewals()
+  }
 }
 
-function openRejectModal(id: number) {
+function openRejectModal(id: number, type: 'registration' | 'booking' | 'renewal') {
   selectedRegistrationId.value = id
+  selectedType.value = type
   rejectionReasonOption.value = rejectionReasonOptions[0]
   customRejectionReason.value = ''
   showRejectModal.value = true
@@ -68,7 +132,7 @@ function closeRejectModal() {
   selectedRegistrationId.value = null
 }
 
-function submitRejection() {
+async function submitRejection() {
   if (!selectedRegistrationId.value) return
   const finalReason = rejectionReasonOption.value === 'Other'
     ? customRejectionReason.value.trim()
@@ -79,24 +143,80 @@ function submitRejection() {
     return
   }
 
-  store.reject(selectedRegistrationId.value, finalReason)
+  try {
+    if (selectedType.value === 'registration') {
+      await store.reject(selectedRegistrationId.value, finalReason)
+    } else if (selectedType.value === 'booking') {
+      await bookingStore.rejectPayment(selectedRegistrationId.value, finalReason)
+    } else if (selectedType.value === 'renewal') {
+      await memberMembershipApi.rejectRenewal(selectedRegistrationId.value, finalReason)
+      await loadPendingRenewals()
+    }
+  } catch (e: any) {
+    alert(e.response?.data?.message || e.message || 'Failed to reject')
+  }
   closeRejectModal()
+}
+
+async function approveRenewal(id: number) {
+  try {
+    await memberMembershipApi.confirmRenewal(id)
+    await loadPendingRenewals()
+  } catch (e: any) {
+    alert(e.response?.data?.message || e.message || 'Failed to approve renewal')
+  }
 }
 </script>
 
 <template>
-  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Payment Review" subtitle="Approve or reject prospective member manual payment proofs." :sidebar-items="adminSidebarItems">
-    <div v-if="loading && !store.items.length" :style="shimmerStyle">
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Payment Review" subtitle="Approve or reject payments." :sidebar-items="adminSidebarItems">
+    <div v-if="loading && activeTab === 'registrations' && !store.items.length" :style="shimmerStyle">
       <SkeletonTable :columns="6" :rows="8" />
     </div>
+    <div v-else-if="loading && activeTab === 'bookings' && !bookingStore.pendingBookings.length" :style="shimmerStyle">
+      <SkeletonTable :columns="8" :rows="8" />
+    </div>
+    <div v-else-if="loading && activeTab === 'renewals' && !pendingRenewalsList.length" :style="shimmerStyle">
+      <SkeletonTable :columns="7" :rows="8" />
+    </div>
     <FitnezCard v-else>
+      <!-- Tab Toggles -->
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 0.75rem;">
+        <button
+          type="button"
+          :class="['button', activeTab === 'registrations' ? 'button-primary' : 'button-ghost']"
+          style="min-height: 2.25rem; padding: 0.4rem 1rem;"
+          @click="switchTab('registrations')"
+        >
+          New Registrations
+        </button>
+        <button
+          type="button"
+          :class="['button', activeTab === 'bookings' ? 'button-primary' : 'button-ghost']"
+          style="min-height: 2.25rem; padding: 0.4rem 1rem;"
+          @click="switchTab('bookings')"
+        >
+          Trainer Bookings
+        </button>
+        <button
+          type="button"
+          :class="['button', activeTab === 'renewals' ? 'button-primary' : 'button-ghost']"
+          style="min-height: 2.25rem; padding: 0.4rem 1rem;"
+          @click="switchTab('renewals')"
+        >
+          Membership Renewals
+        </button>
+      </div>
+
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.25rem;">
         <div>
-          <h2 class="title-md">Review queue</h2>
+          <h2 class="title-md">
+            {{ activeTab === 'registrations' ? 'Registration queue' : activeTab === 'bookings' ? 'Trainer Booking queue' : 'Membership Renewal queue' }}
+          </h2>
           <p class="text-muted">Verify amount, payment method, and proof screenshot before approval.</p>
         </div>
 
-        <select v-model="store.status" class="form-input" style="width: auto; min-width: 220px;" @change="store.load()">
+        <select v-if="activeTab === 'registrations'" v-model="store.status" class="form-input" style="width: auto; min-width: 220px;" @change="store.load()">
           <option value="awaiting_admin_review">Awaiting Review</option>
           <option value="awaiting_payment">Awaiting Payment</option>
           <option value="approved">Approved</option>
@@ -105,12 +225,8 @@ function submitRejection() {
         </select>
       </div>
 
-      <div v-if="!store.items.length && store.status === 'awaiting_admin_review'" class="p-8 text-center bg-blue-50 rounded-xl mb-6">
-        <p class="text-blue-600 font-medium">No new payments awaiting review.</p>
-        <p class="text-xs text-blue-400 mt-1">Use the filters above to see registrations that are approved or awaiting payment.</p>
-      </div>
-
-      <div class="data-table-wrapper">
+      <!-- Table for Registrations -->
+      <div v-if="activeTab === 'registrations'" class="data-table-wrapper">
         <table class="data-table">
           <thead>
             <tr>
@@ -139,7 +255,7 @@ function submitRejection() {
               <td>
                 <div style="display: flex; justify-content: end; gap: 0.5rem;">
                   <FitnezButton size="sm" variant="secondary" @click="store.approve(row.id)">Approve</FitnezButton>
-                  <FitnezButton size="sm" variant="danger" @click="openRejectModal(row.id)">Reject</FitnezButton>
+                  <FitnezButton size="sm" variant="danger" @click="openRejectModal(row.id, 'registration')">Reject</FitnezButton>
                 </div>
               </td>
             </tr>
@@ -147,27 +263,124 @@ function submitRejection() {
             <tr v-if="!store.items.length">
               <td colspan="6" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
                 <div class="text-4xl mb-4">📂</div>
-                No registration data found for this filter.
+                No registration data found.
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <!-- Table for Trainer Bookings -->
+      <div v-else-if="activeTab === 'bookings'" class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Member</th>
+              <th>Trainer</th>
+              <th>Amount</th>
+              <th>Sessions</th>
+              <th>Status</th>
+              <th>Proof</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="row in bookingStore.pendingBookings" :key="row.id">
+              <td style="font-weight: 950;">#{{ row.id }}</td>
+              <td>
+                <p style="font-weight: 900;">{{ row.member?.full_name || 'Unknown' }}</p>
+                <p class="text-muted" style="font-size: 0.75rem;">{{ row.member?.email }}</p>
+              </td>
+              <td style="font-weight: 800;">{{ row.trainer?.full_name || 'Unknown' }}</td>
+              <td style="font-weight: 800;">Rp {{ Number(row.total_member_price).toLocaleString('en-US') }}</td>
+              <td>{{ row.sessions_per_week }}x/wk ({{ row.total_sessions }} total)</td>
+              <td><StatusBadge :status="row.status || 'pending'" /></td>
+              <td>
+                <a v-if="row.payment_proof_url" :href="row.payment_proof_url" target="_blank" style="color: var(--color-blue-dark); font-weight: 900; text-decoration: underline;">Open Proof</a>
+                <span v-else class="text-muted">No proof</span>
+              </td>
+              <td>
+                <div style="display: flex; justify-content: end; gap: 0.5rem;">
+                  <FitnezButton size="sm" variant="secondary" @click="bookingStore.confirmPayment(row.id)">Approve</FitnezButton>
+                  <FitnezButton size="sm" variant="danger" @click="openRejectModal(row.id, 'booking')">Reject</FitnezButton>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-if="!bookingStore.pendingBookings.length">
+              <td colspan="8" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
+                <div class="text-4xl mb-4">📂</div>
+                No trainer bookings waiting review.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table for Membership Renewals -->
+      <div v-else-if="activeTab === 'renewals'" class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Invoice</th>
+              <th>Member</th>
+              <th>Package</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Proof</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="row in pendingRenewalsList" :key="row.id">
+              <td style="font-weight: 900;">{{ row.invoice_number }}</td>
+              <td>
+                <p style="font-weight: 900;">{{ row.user?.full_name || 'Unknown' }}</p>
+                <p class="text-muted" style="font-size: 0.75rem;">{{ row.user?.email }}</p>
+              </td>
+              <td style="font-weight: 800;">{{ row.membership_package?.name || 'Unknown' }}</td>
+              <td style="font-weight: 800;">Rp {{ Number(row.amount).toLocaleString('en-US') }}</td>
+              <td><StatusBadge :status="row.payment_status" /></td>
+              <td>
+                <a v-if="row.payment_proof_url" :href="row.payment_proof_url" target="_blank" style="color: var(--color-blue-dark); font-weight: 900; text-decoration: underline;">Open Proof</a>
+                <span v-else class="text-muted">No proof</span>
+              </td>
+              <td>
+                <div style="display: flex; justify-content: end; gap: 0.5rem;">
+                  <FitnezButton size="sm" variant="secondary" @click="approveRenewal(row.id)">Approve</FitnezButton>
+                  <FitnezButton size="sm" variant="danger" @click="openRejectModal(row.id, 'renewal')">Reject</FitnezButton>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-if="!pendingRenewalsList.length">
+              <td colspan="7" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
+                <div class="text-4xl mb-4">📂</div>
+                No membership renewals waiting review.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="pager-bar">
-        <p>Page {{ store.page }} of {{ store.lastPage }}</p>
+        <p>Page {{ activeTab === 'registrations' ? store.page : activeTab === 'bookings' ? bookingStore.page : renewalsPage }} of {{ activeTab === 'registrations' ? store.lastPage : activeTab === 'bookings' ? bookingStore.lastPage : renewalsLastPage }}</p>
         <div class="pagination">
-          <button type="button" class="pagination-arrow" :disabled="store.page <= 1" @click="goToPage(store.page - 1)">‹</button>
+          <button type="button" class="pagination-arrow" :disabled="activeTab === 'registrations' ? store.page <= 1 : activeTab === 'bookings' ? bookingStore.page <= 1 : renewalsPage <= 1" @click="goToPage((activeTab === 'registrations' ? store.page : activeTab === 'bookings' ? bookingStore.page : renewalsPage) - 1)">‹</button>
           <button
             v-for="p in visiblePages"
             :key="p"
-            :class="{ active: Number(p) === Number(store.page), disabled: p === '...' }"
+            :class="{ active: Number(p) === Number(activeTab === 'registrations' ? store.page : activeTab === 'bookings' ? bookingStore.page : renewalsPage), disabled: p === '...' }"
             :disabled="p === '...'"
             type="button"
             @click="goToPage(p)"
           >
             {{ p }}
           </button>
-          <button type="button" class="pagination-arrow" :disabled="store.page >= store.lastPage" @click="goToPage(store.page + 1)">›</button>
+          <button type="button" class="pagination-arrow" :disabled="activeTab === 'registrations' ? store.page >= store.lastPage : activeTab === 'bookings' ? bookingStore.page >= bookingStore.lastPage : renewalsPage >= renewalsLastPage" @click="goToPage((activeTab === 'registrations' ? store.page : activeTab === 'bookings' ? bookingStore.page : renewalsPage) + 1)">›</button>
         </div>
       </div>
     </FitnezCard>
@@ -180,7 +393,7 @@ function submitRejection() {
             <span class="material-symbols-outlined">gavel</span>
           </div>
           <div>
-            <h3 class="title-md" style="margin: 0; font-size: 1.25rem;">Reject Registrasi</h3>
+            <h3 class="title-md" style="margin: 0; font-size: 1.25rem;">Reject Payment</h3>
             <p class="text-muted text-xs" style="margin-top: 0.25rem; font-size: 0.75rem;">Choose the rejection reason for the manual payment.</p>
           </div>
         </div>
@@ -202,7 +415,7 @@ function submitRejection() {
         <div class="form-actions">
           <button class="button button-ghost" type="button" @click="closeRejectModal">Cancel</button>
           <button class="button button-danger" type="button" @click="submitRejection" :disabled="rejectionReasonOption === 'Other' && !customRejectionReason.trim()">
-            Reject Registrasi
+            Reject Payment
           </button>
         </div>
       </div>

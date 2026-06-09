@@ -208,7 +208,7 @@ onMounted(() => {
     window.showFitnezToast('Booking created! Please make payment to activate.', 'success')
   }
 })
-useAutoRefresh(() => store.loadBookings(true), 8000)
+useAutoRefresh(() => store.loadBookings(), 8000)
 </script>
 
 <template>

@@ -23,6 +23,11 @@ export type MembershipStatusPayload = {
   queued_membership_package?: MembershipPackage | null
   queued_membership_starts_at?: string | null
   queued_membership_expires_at?: string | null
+  pending_renewal_payment?: {
+    id: number
+    amount: number
+    package_name: string
+  } | null
 }
 
 export type RenewalResult = {
@@ -40,7 +45,25 @@ export const memberMembershipApi = {
   },
 
   renew(membership_package_id: number) {
-    return http.post<RenewalResult>('/member/membership/renew', { membership_package_id })
+    return http.post<any>('/member/membership/renew', { membership_package_id })
+  },
+
+  uploadProof(paymentId: number, file: File) {
+    const form = new FormData()
+    form.append('payment_proof', file)
+    return http.post<any>(`/member/membership/renew/${paymentId}/upload-proof`, form)
+  },
+
+  pendingRenewals(page = 1) {
+    return http.get<any>(`/admin/payments/pending-renewals?page=${page}`)
+  },
+
+  confirmRenewal(paymentId: number) {
+    return http.post<any>(`/admin/payments/renewals/${paymentId}/confirm`)
+  },
+
+  rejectRenewal(paymentId: number, reason: string) {
+    return http.post<any>(`/admin/payments/renewals/${paymentId}/reject`, { reason })
   },
 
   deleteAccount() {

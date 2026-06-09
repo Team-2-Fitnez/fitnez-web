@@ -129,9 +129,9 @@ class DesignPatternComparisonTest extends TestCase
         $booking = new TrainerBooking();
         $booking->status = TrainerBooking::STATUS_PENDING;
 
-        $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
+        $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_PENDING_PAYMENT));
         $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
-        $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
+        $this->assertFalse($booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
         $this->assertFalse($booking->canTransitionTo(TrainerBooking::STATUS_COMPLETED));
     }
 

@@ -127,6 +127,15 @@
           <li><strong>QRIS</strong> — Scan the QR code below</li>
           <li><strong>Bank Transfer</strong> — BCA 1234567890 a.n. PT Fitnez Sehat Indonesia</li>
         </ol>
+        <div v-if="qrisImageUrl" class="qris-box" style="margin-top: 1rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(0,0,0,0.06);">
+          <img
+            :src="qrisImageUrl"
+            alt="QRIS Code"
+            class="qris-img"
+            style="width: 200px; height: 200px; object-fit: contain; margin-bottom: 0.5rem;"
+          />
+          <span class="qris-caption" style="font-size: 0.75rem; color: #64748b; font-weight: 700;">Scan QRIS Code to Pay</span>
+        </div>
       </div>
 
       <div class="upload-section">
@@ -193,18 +202,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { useBookingStore } from '../../stores/bookingStore'
 import type { PublicTrainer, MonthlyBookingPayload } from '../../api/bookingsApi'
 import type { TrainerBooking } from '../../types/masterData'
+import { manualRegistrationApi } from '../../api/manualRegistrationApi'
 
 const props = defineProps<{ trainer: PublicTrainer }>()
 const emit = defineEmits<{ close: []; booked: [] }>()
 
 const store = useBookingStore()
+
+const qrisImageUrl = ref('')
+
+async function loadPaymentMethods() {
+  try {
+    const res = await manualRegistrationApi.paymentMethods()
+    const qris = res.data.find((m: any) => m.type === 'qris')
+    if (qris) {
+      qrisImageUrl.value = qris.qris_image_url || '/images/payment/qris-fitnez-placeholder.svg'
+    }
+  } catch (e) {
+    console.error(e)
+    qrisImageUrl.value = '/images/payment/qris-fitnez-placeholder.svg'
+  }
+}
+
+onMounted(() => {
+  loadPaymentMethods()
+})
 const today = new Date().toISOString().split('T')[0]
 
 const allDays = [
@@ -232,10 +261,15 @@ const schema = toTypedSchema(z.object({
   session_days: z.array(z.string()).min(1, 'Select at least one day.'),
   session_time: z.string().min(1, 'Please select a session time.'),
   member_notes: z.string().optional().default(''),
-}).refine(
-  (data) => data.session_days.length === data.sessions_per_week,
-  { message: 'Select exactly {{sessions_per_week}} days.', path: ['session_days'] },
-))
+}).superRefine((data, ctx) => {
+  if (data.session_days.length !== data.sessions_per_week) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Select exactly ${data.sessions_per_week} days.`,
+      path: ['session_days'],
+    });
+  }
+}))
 
 const { handleSubmit, errors, setFieldError, defineField, setFieldValue } = useForm({
   validationSchema: schema,

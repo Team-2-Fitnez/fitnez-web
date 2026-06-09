@@ -6,6 +6,7 @@ import FitnezCard from '../../components/ui/FitnezCard.vue'
 import StatCard from '../../components/ui/StatCard.vue'
 import { memberMembershipApi, type MembershipPackage, type MembershipStatusPayload } from '../../api/memberMembershipApi'
 import { useAuthStore } from '../../stores/authStore'
+import { manualRegistrationApi } from '../../api/manualRegistrationApi'
 
 const auth = useAuthStore()
 const packages = ref<MembershipPackage[]>([])
@@ -16,11 +17,25 @@ const paying = ref(false)
 const message = ref('')
 const error = ref('')
 
+// Payment proof modal refs
+const showPaymentModal = ref(false)
+const activePayment = ref<any>(null)
+const paymentFile = ref<File | null>(null)
+const uploading = ref(false)
+const uploadError = ref('')
+const dragging = ref(false)
+const fileInput = ref<HTMLInputElement>()
+const qrisImageUrl = ref('')
+
 const currentPackage = computed(() => status.value?.membership_package || auth.user?.membership_package || null)
 const queuedPackage = computed(() => status.value?.queued_membership_package || auth.user?.renewal_package || null)
 const daysLeft = computed(() => status.value?.days_left ?? auth.user?.membership_days_left ?? null)
 const membershipStatus = computed(() => status.value?.status || auth.user?.membership_status || 'active')
 const needsRenewal = computed(() => ['expired', 'expiring_soon', 'no_package'].includes(membershipStatus.value))
+
+const selectedPackage = computed(() => {
+  return packages.value.find(p => p.id === selectedPackageId.value) || null
+})
 
 function formatDate(value?: string | null) {
   if (!value) return '-'
@@ -37,6 +52,19 @@ function statusLabel(value: string) {
   if (value === 'no_package') return 'No Package'
   if (value === 'grace_expired') return 'Renewal Deadline Passed'
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+async function loadPaymentMethods() {
+  try {
+    const res = await manualRegistrationApi.paymentMethods()
+    const qris = res.data.find((m: any) => m.type === 'qris')
+    if (qris) {
+      qrisImageUrl.value = qris.qris_image_url || '/images/payment/qris-fitnez-placeholder.svg'
+    }
+  } catch (e) {
+    console.error(e)
+    qrisImageUrl.value = '/images/payment/qris-fitnez-placeholder.svg'
+  }
 }
 
 async function loadData() {
@@ -67,19 +95,62 @@ async function renewMembership() {
 
   try {
     const response = await memberMembershipApi.renew(selectedPackageId.value)
-    status.value = response.data.membership
-    await auth.loadMe()
-    message.value = status.value.queued_membership_package
-      ? 'Payment completed. Your selected package has been queued and will start after your current package ends.'
-      : 'Payment completed. Your membership package is now active.'
+    activePayment.value = response.data.payment
+    showPaymentModal.value = true
   } catch (e: any) {
-    error.value = e?.message || 'Failed to renew membership.'
+    error.value = e?.message || 'Failed to initiate renewal.'
   } finally {
     paying.value = false
   }
 }
 
-onMounted(loadData)
+function closePaymentModal() {
+  showPaymentModal.value = false
+  activePayment.value = null
+  paymentFile.value = null
+  uploadError.value = ''
+}
+
+function browseFiles() {
+  fileInput.value?.click()
+}
+
+function onFileChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  if (target.files?.length) {
+    paymentFile.value = target.files[0]
+    uploadError.value = ''
+  }
+}
+
+function onDrop(e: DragEvent) {
+  dragging.value = false
+  if (e.dataTransfer?.files.length) {
+    paymentFile.value = e.dataTransfer.files[0]
+    uploadError.value = ''
+  }
+}
+
+async function uploadPayment() {
+  if (!paymentFile.value || !activePayment.value) return
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    await memberMembershipApi.uploadProof(activePayment.value.id, paymentFile.value)
+    closePaymentModal()
+    message.value = 'Payment proof submitted. Awaiting admin confirmation.'
+    await loadData()
+  } catch (e: any) {
+    uploadError.value = e?.message || 'Upload failed. Please try again.'
+  } finally {
+    uploading.value = false
+  }
+}
+
+onMounted(() => {
+  loadData()
+  loadPaymentMethods()
+})
 </script>
 
 <template>
@@ -98,6 +169,13 @@ onMounted(loadData)
 
     <p v-if="error" class="membership-alert error">{{ error }}</p>
     <p v-if="message" class="membership-alert success">{{ message }}</p>
+
+    <div v-if="status?.pending_renewal_payment" class="membership-alert warning" style="background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; display: flex; flex-direction: column; gap: 0.25rem;">
+      <p style="margin: 0; font-weight: 800;">Awaiting Payment Confirmation</p>
+      <p style="margin: 0; font-size: 0.8rem; font-weight: 600;">
+        Your payment for renewal to package <strong>{{ status.pending_renewal_payment.package_name }}</strong> is awaiting admin review.
+      </p>
+    </div>
 
     <section class="membership-grid">
       <FitnezCard>
@@ -179,10 +257,101 @@ onMounted(loadData)
         </label>
       </div>
 
-      <button class="renew-button" type="button" :disabled="paying || !selectedPackageId || Boolean(queuedPackage)" @click="renewMembership">
-        {{ paying ? 'Processing Payment...' : queuedPackage ? 'Renewal Already Queued' : needsRenewal ? 'Pay and Renew Membership' : 'Pay and Queue Renewal' }}
+      <button class="renew-button" type="button" :disabled="paying || !selectedPackageId || Boolean(queuedPackage) || Boolean(status?.pending_renewal_payment)" @click="renewMembership">
+        {{ paying ? 'Processing Payment...' : queuedPackage ? 'Renewal Already Queued' : status?.pending_renewal_payment ? 'Awaiting Confirmation' : needsRenewal ? 'Pay and Renew Membership' : 'Pay and Queue Renewal' }}
       </button>
     </FitnezCard>
+
+    <!-- Payment Proof Modal -->
+    <div v-if="showPaymentModal && activePayment" class="modal-overlay" @click.self="closePaymentModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="booking-icon-wrapper" style="background: rgba(251, 191, 36, 0.12); color: #d97706;">
+            <span class="material-symbols-outlined">payments</span>
+          </div>
+          <div>
+            <p class="eyebrow" style="margin: 0; font-size: 0.7rem;">Payment Required</p>
+            <h2 class="title-md" style="margin: 0; font-size: 1.25rem;">Complete Payment</h2>
+          </div>
+        </div>
+
+        <div class="payment-info">
+          <div class="payment-detail">
+            <span>Package</span>
+            <strong>{{ selectedPackage?.name }}</strong>
+          </div>
+          <div class="payment-detail">
+            <span>Total to Pay</span>
+            <strong class="text-orange" style="font-size: 1.25rem;">{{ formatCurrency(activePayment.amount) }}</strong>
+          </div>
+          <div class="payment-detail">
+            <span>Duration</span>
+            <strong>{{ selectedPackage?.duration_months }} month(s)</strong>
+          </div>
+        </div>
+
+        <div class="payment-instructions">
+          <p class="instructions-title">How to Pay</p>
+          <ol class="instructions-list">
+            <li>Transfer <strong>{{ formatCurrency(activePayment.amount) }}</strong> to one of the following methods:</li>
+            <li><strong>QRIS</strong> — Scan the QR code below</li>
+            <li><strong>Bank Transfer</strong> — BCA 1234567890 a.n. PT Fitnez Sehat Indonesia</li>
+          </ol>
+          <div v-if="qrisImageUrl" class="qris-box" style="margin-top: 1rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(0,0,0,0.06);">
+            <img
+              :src="qrisImageUrl"
+              alt="QRIS Code"
+              class="qris-img"
+              style="width: 200px; height: 200px; object-fit: contain; margin-bottom: 0.5rem;"
+            />
+            <span class="qris-caption" style="font-size: 0.75rem; color: #64748b; font-weight: 700;">Scan QRIS Code to Pay</span>
+          </div>
+        </div>
+
+        <div class="upload-section">
+          <label class="form-label">Upload Payment Proof</label>
+          <div
+            class="upload-zone"
+            :class="{ 'has-file': paymentFile, dragging }"
+            @dragover.prevent="dragging = true"
+            @dragleave="dragging = false"
+            @drop.prevent="onDrop"
+            @click="browseFiles"
+          >
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              @change="onFileChange"
+            />
+            <template v-if="!paymentFile">
+              <span class="material-symbols-outlined upload-icon">cloud_upload</span>
+              <p>Drag & drop screenshot here, or <span class="link-btn" style="cursor: pointer;">browse</span></p>
+              <small>JPG, PNG, or WebP. Max 4MB.</small>
+            </template>
+            <template v-else>
+              <span class="material-symbols-outlined upload-icon success">check_circle</span>
+              <p>{{ paymentFile.name }}</p>
+              <small>{{ (paymentFile.size / 1024).toFixed(0) }} KB</small>
+            </template>
+          </div>
+          <p v-if="uploadError" class="field-error">{{ uploadError }}</p>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="button button-ghost" @click="closePaymentModal">Close</button>
+          <button
+            type="button"
+            class="button button-primary"
+            :disabled="!paymentFile || uploading"
+            @click="uploadPayment"
+          >
+            {{ uploading ? 'Uploading...' : 'Submit Payment Proof' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </WorkspaceLayout>
 </template>
 
@@ -371,5 +540,193 @@ onMounted(loadData)
   .status-list.compact {
     grid-template-columns: 1fr;
   }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 28, 48, 0.45);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.modal-card {
+  width: min(100%, 480px);
+  display: grid;
+  gap: 1.5rem;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 2rem;
+  box-shadow: 0 24px 60px rgba(11, 28, 48, 0.18);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: var(--color-black);
+}
+
+.modal-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding-bottom: 1rem;
+}
+
+.booking-icon-wrapper {
+  background: rgba(54, 90, 130, 0.1);
+  color: var(--color-blue);
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.75rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.payment-info {
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.payment-detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  align-items: center;
+}
+
+.payment-instructions {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.instructions-title {
+  font-weight: 800;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.instructions-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8rem;
+  display: grid;
+  gap: 0.35rem;
+  color: #475569;
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+  display: grid;
+  gap: 0.35rem;
+  place-items: center;
+}
+
+.upload-zone:hover,
+.upload-zone.dragging {
+  border-color: var(--color-blue);
+  background: #f0f4ff;
+}
+
+.upload-zone.has-file {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.upload-icon {
+  font-size: 2rem !important;
+  color: #94a3b8;
+}
+
+.upload-icon.success {
+  color: #22c55e;
+}
+
+.upload-zone p {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.upload-zone small {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.link-btn {
+  color: var(--color-blue);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.button {
+  align-items: center;
+  border-radius: 0.75rem;
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.6rem 1.25rem;
+  transition: 160ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.button-ghost {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: var(--color-muted);
+}
+
+.button-ghost:hover {
+  background: #f1f5f9;
+}
+
+.button-primary {
+  background: var(--color-blue);
+  color: white;
+}
+
+.button-primary:hover {
+  background: var(--color-blue-dark);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 </style>
