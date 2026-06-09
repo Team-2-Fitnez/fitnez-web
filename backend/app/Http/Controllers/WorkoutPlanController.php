@@ -41,8 +41,8 @@ class WorkoutPlanController extends Controller
 
         Notification::create([
             'user_id' => $request->user()->id,
-            'title'   => 'Jadwal Baru Ditambahkan',
-            'body'    => "Latihan \"{$workout->name}\" telah ditambahkan untuk tanggal " . \Carbon\Carbon::parse($workout->date)->format('d-m-Y') . ".",
+            'title'   => 'New Workout Added',
+            'body'    => "Workout \"{$workout->name}\" has been added for " . \Carbon\Carbon::parse($workout->date)->format('d-m-Y') . ".",
             'notification_type' => 'workout_plan',
             'is_read' => false,
         ]);

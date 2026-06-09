@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WorkoutPlan;
 use App\Models\TrainerBooking;
 use App\Support\SseProgress;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -105,17 +106,32 @@ class ExcelImportController extends Controller
                                 $errors[] = "Row $rowNum: trainer $trainerEmail not found";
                                 break;
                             }
+                            $startDate = Carbon::parse($data['start_date'] ?? $data['booking_date'] ?? $data['date'] ?? now()->toDateString());
+                            $endDate = isset($data['end_date']) ? Carbon::parse($data['end_date']) : $startDate->copy()->addWeeks(4)->subDay();
+                            $sessionsPerWeek = (int) ($data['sessions_per_week'] ?? 3);
+                            $sessionDays = $data['session_days'] ?? 'monday,wednesday,friday';
+                            $sessionDays = is_array($sessionDays)
+                                ? $sessionDays
+                                : array_values(array_filter(array_map(fn ($day) => strtolower(trim($day)), explode(',', $sessionDays))));
+                            $totalSessions = (int) ($data['total_sessions'] ?? ($sessionsPerWeek * 4));
+                            $basePrice = (float) ($data['base_price_per_session'] ?? 0);
+                            $memberPrice = (float) ($data['member_price_per_session'] ?? ($basePrice > 0 ? $basePrice * 1.5 : 0));
+
                             TrainerBooking::create([
                                 'member_id' => $member->id,
                                 'trainer_id' => $trainer->id,
-                                'booking_date' => $data['booking_date'] ?? $data['date'] ?? now()->toDateString(),
-                                'start_time' => $data['start_time'] ?? '09:00',
-                                'end_time' => $data['end_time'] ?? '10:00',
-                                'session_type' => ($data['session_type'] ?? 'online') === 'offline' ? 'offline' : 'online',
-                                'location' => $data['location'] ?? 'Gym Utama',
-                                'member_notes' => $data['notes'] ?? '',
-                                'status' => TrainerBooking::STATUS_PENDING,
-                                'total_price' => (float) ($data['total_price'] ?? 0),
+                                'start_date' => $startDate->toDateString(),
+                                'end_date' => $endDate->toDateString(),
+                                'sessions_per_week' => $sessionsPerWeek,
+                                'session_days' => $sessionDays,
+                                'session_time' => $data['session_time'] ?? $data['start_time'] ?? '09:00',
+                                'member_notes' => $data['notes'] ?? $data['member_notes'] ?? '',
+                                'status' => $data['status'] ?? TrainerBooking::STATUS_PENDING,
+                                'base_price_per_session' => $basePrice,
+                                'member_price_per_session' => $memberPrice,
+                                'total_member_price' => (float) ($data['total_member_price'] ?? ($memberPrice * $totalSessions)),
+                                'total_trainer_price' => (float) ($data['total_trainer_price'] ?? ($basePrice * $totalSessions)),
+                                'total_sessions' => $totalSessions,
                             ]);
                             $imported++;
                             break;

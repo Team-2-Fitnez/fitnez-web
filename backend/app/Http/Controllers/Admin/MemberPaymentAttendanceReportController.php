@@ -97,8 +97,8 @@ class MemberPaymentAttendanceReportController extends Controller
                                 ->orWhere('phone', 'ilike', $search);
                         })
                         ->orWhereHas('booking', function ($bookingQuery) use ($search) {
-                            $bookingQuery->where('session_type', 'ilike', $search)
-                                ->orWhere('location', 'ilike', $search);
+                            $bookingQuery->where('member_notes', 'ilike', $search)
+                                ->orWhere('session_time', 'ilike', $search);
                         });
                 });
             })

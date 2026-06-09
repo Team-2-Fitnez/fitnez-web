@@ -459,7 +459,7 @@ onBeforeUnmount(() => {
                   <td>{{ formatDateTime(row.check_out_time) }}</td>
                   <td><span class="duration-pill">{{ durationLabel(row.check_in_time, row.check_out_time) }}</span></td>
                   <td>
-                    <p class="booking-main">{{ row.booking?.session_type || '-' }}</p>
+                    <p class="booking-main">{{ row.booking ? `${row.booking.start_date || '-'} · ${row.booking.session_time || '-'}` : '-' }}</p>
                     <p v-if="row.booking?.trainer?.full_name" class="booking-sub">{{ row.booking.trainer.full_name }}</p>
                   </td>
                 </tr>

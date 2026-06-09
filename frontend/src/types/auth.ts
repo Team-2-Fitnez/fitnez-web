@@ -23,6 +23,24 @@ export type FitnezUser = {
     benefits?: string[] | null
     is_active?: boolean
   } | null
+  membership_status?: 'active' | 'expiring_soon' | 'expired' | 'grace_expired' | 'no_package' | 'not_applicable' | string
+  membership_days_left?: number | null
+  membership_is_expired?: boolean
+  membership_expires_within_3_days?: boolean
+  membership_renewal_deadline_at?: string | null
+  renewal_package_id?: number | null
+  membership_renewal_starts_at?: string | null
+  membership_renewal_expires_at?: string | null
+  renewal_package?: {
+    id: number
+    code: string
+    name: string
+    duration_months: number
+    price: number
+    free_class_access: boolean
+    benefits?: string[] | null
+    is_active?: boolean
+  } | null
   trainer_status?: 'not_submitted' | 'pending' | 'approved' | 'rejected' | string
   can_access_trainer_workspace?: boolean
   trainer_application_id?: number | null

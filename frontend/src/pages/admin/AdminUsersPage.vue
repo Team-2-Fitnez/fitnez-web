@@ -72,26 +72,6 @@ async function confirmRemove(user: FitnezUser) {
   }
 }
 
-function packageBadgeClass(user: FitnezUser) {
-  const pkgName = displayPackage(user).toLowerCase()
-  if (pkgName.includes('enterprise') || user.role === 'admin') return 'package-enterprise'
-  if (pkgName.includes('premium') || pkgName.includes('12 month') || pkgName.includes('6 month')) return 'package-premium'
-  return 'package-basic'
-}
-
-function displayPackage(user: FitnezUser) {
-  const source = user as FitnezUser & {
-    membership_package?: { name?: string | null } | null
-    package?: { name?: string | null } | null
-    membership_type?: string | null
-  }
-
-  const name = source.membership_package?.name || source.package?.name || source.membership_type
-  if (name) return name
-  if (user.role === 'admin') return 'Enterprise'
-  if (user.role === 'trainer') return 'Basic'
-  return 'Premium'
-}
 
 function getUserAvatar(name: string): string | null {
   const clean = name.trim().toLowerCase()
@@ -130,11 +110,6 @@ function setStatusFilter(value: string) {
   store.load()
 }
 
-function setPackageFilter(value: string) {
-  store.role = value
-  store.page = 1
-  store.load()
-}
 
 function goToPage(page: number | string) {
   if (typeof page === 'string') return
@@ -260,12 +235,10 @@ useAutoRefresh(refreshData, 10000)
             <button :class="{ active: store.status === '' }" type="button" @click="setStatusFilter('')">All</button>
             <button :class="{ active: store.status === 'active' }" type="button" @click="setStatusFilter('active')">Active</button>
             <button :class="{ active: store.status === 'inactive' }" type="button" @click="setStatusFilter('inactive')">Inactive</button>
-            <i aria-hidden="true" class="divider-line"></i>
-            <button :class="{ active: store.role === 'member' }" type="button" @click="setPackageFilter(store.role === 'member' ? '' : 'member')">Premium</button>
           </div>
         </div>
 
-        <SkeletonTable v-if="initialLoading && !store.items.length" :columns="5" :rows="8" :style="shimmerStyle" />
+        <SkeletonTable v-if="initialLoading && !store.items.length" :columns="4" :rows="8" :style="shimmerStyle" />
 
         <div v-else class="responsive-table">
           <table>
@@ -273,7 +246,6 @@ useAutoRefresh(refreshData, 10000)
               <tr>
                 <th>USER</th>
                 <th>EMAIL</th>
-                <th>PACKAGE TYPE</th>
                 <th>STATUS</th>
                 <th>ACTION</th>
               </tr>
@@ -288,7 +260,6 @@ useAutoRefresh(refreshData, 10000)
                   </div>
                 </td>
                 <td>{{ user.email }}</td>
-                <td><span :class="['package-badge', packageBadgeClass(user)]">{{ displayPackage(user) }}</span></td>
                 <td><span :class="['status-badge', user.is_active ? 'status-active' : 'status-inactive']">{{ user.is_active ? 'Active' : 'Inactive' }}</span></td>
                 <td>
                   <div class="action-buttons">
@@ -302,7 +273,7 @@ useAutoRefresh(refreshData, 10000)
                 </td>
               </tr>
               <tr v-if="!store.items.length && !store.loading">
-                <td colspan="5" class="empty-cell">No users found.</td>
+                <td colspan="4" class="empty-cell">No users found.</td>
               </tr>
             </tbody>
           </table>

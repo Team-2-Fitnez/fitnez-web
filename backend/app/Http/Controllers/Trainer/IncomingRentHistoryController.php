@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Trainer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Trainer\IncomingRentHistoryRequest;
+use App\Models\TrainerBooking;
 use App\Models\TrainerEarning;
 use App\Support\ApiResponse;
 use App\Support\SearchTerm;
@@ -14,6 +15,8 @@ class IncomingRentHistoryController extends Controller
     public function summary(Request $request)
     {
         $trainerId = $request->user()->id;
+
+        // Stats dari TrainerEarning (history payout)
         $base = TrainerEarning::query()->where('trainer_id', $trainerId);
 
         $amountNow = (float) TrainerEarning::query()
@@ -26,13 +29,23 @@ class IncomingRentHistoryController extends Controller
             ->sum('trainer_amount');
         $amountTrend = $this->calculateTrend($amountNow, $amountPrev);
 
+        // Stats dari TrainerBooking confirmed (kontrak aktif)
+        $bookingStats = TrainerBooking::query()
+            ->where('trainer_id', $trainerId)
+            ->where('status', TrainerBooking::STATUS_CONFIRMED)
+            ->selectRaw('COUNT(*) as total_bookings')
+            ->selectRaw('COALESCE(SUM(total_trainer_price), 0) as total_earnings')
+            ->first();
+
         return ApiResponse::success('Incoming rent summary loaded.', [
-            'total_records' => (clone $base)->count(),
+            'total_bookings'      => (int) ($bookingStats->total_bookings ?? 0),
+            'total_earnings'      => (float) ($bookingStats->total_earnings ?? 0),
+            'total_records'       => (clone $base)->count(),
             'total_trainer_amount' => (float) (clone $base)->sum('trainer_amount'),
             'total_trainer_amount_trend' => $amountTrend,
-            'pending_amount' => (float) (clone $base)->where('status', 'pending')->sum('trainer_amount'),
-            'disbursed_amount' => (float) (clone $base)->where('status', 'disbursed')->sum('trainer_amount'),
-            'this_month_amount' => (float) (clone $base)
+            'pending_amount'      => (float) (clone $base)->where('status', 'pending')->sum('trainer_amount'),
+            'disbursed_amount'    => (float) (clone $base)->where('status', 'disbursed')->sum('trainer_amount'),
+            'this_month_amount'   => (float) (clone $base)
                 ->whereMonth('disbursed_at', now()->month)
                 ->whereYear('disbursed_at', now()->year)
                 ->sum('trainer_amount'),
@@ -78,4 +91,35 @@ class IncomingRentHistoryController extends Controller
 
         return ApiResponse::success('Incoming rent history loaded.', $earnings);
     }
+
+    public function breakdown(Request $request)
+    {
+        $trainerId = $request->user()->id;
+
+        $rows = TrainerEarning::query()
+            ->where('trainer_id', $trainerId)
+            ->join('trainer_bookings', 'trainer_bookings.id', '=', 'trainer_earnings.booking_id')
+            ->selectRaw("
+                0 as mentoring_income,
+                SUM(trainer_earnings.trainer_amount) as session_income,
+                SUM(trainer_earnings.trainer_amount) as total_income,
+                COUNT(*) as total_entries
+            ")
+            ->first();
+
+        $thisMonth = TrainerEarning::query()
+            ->where('trainer_id', $trainerId)
+            ->whereMonth('disbursed_at', now()->month)
+            ->whereYear('disbursed_at', now()->year)
+            ->sum('trainer_amount');
+
+        return ApiResponse::success('Income breakdown loaded.', [
+            'mentoring_income'   => (float) ($rows->mentoring_income ?? 0),
+            'session_income'     => (float) ($rows->session_income ?? 0),
+            'total_income'       => (float) ($rows->total_income ?? 0),
+            'total_entries'      => (int) ($rows->total_entries ?? 0),
+            'this_month_income'  => (float) $thisMonth,
+        ]);
+    }
+
 }

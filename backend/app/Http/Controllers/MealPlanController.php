@@ -88,26 +88,4 @@ class MealPlanController extends Controller
 
         return response()->json(['message' => 'Deleted']);
     }
-
-    // GET /api/admin/nutrition-monitoring
-    public function adminMonitoring()
-    {
-        $members = MealPlan::with('user')
-            ->get()
-            ->map(function ($plan) {
-                $totalCalories = FoodLog::where('user_id', $plan->user_id)
-                    ->whereDate('logged_date', today())
-                    ->sum('calories');
-
-                return [
-                    'id'             => $plan->user_id,
-                    'name'           => $plan->user->full_name,
-                    'email'          => $plan->user->email,
-                    'daily_limit'    => $plan->daily_limit,
-                    'total_calories' => $totalCalories,
-                ];
-            });
-
-        return response()->json(['members' => $members]);
-    }
 }

@@ -28,7 +28,7 @@ function cacheUser(user: FitnezUser | null) {
 
 function isAuthError(error: unknown): boolean {
   const status = (error as { status?: number })?.status
-  return status === 401 || status === 403
+  return status === 401 || status === 403 || status === 410
 }
 
 export const useAuthStore = defineStore('auth', {

@@ -44,7 +44,7 @@ const router = createRouter({
     { path: '/member/hire-trainer', name: 'member-hire-trainer', component: () => import('../pages/member/MemberHireTrainerPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/schedule', name: 'member-schedule', component: () => import('../pages/member/MemberSchedulePage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/chat', name: 'member-chat', component: () => import('../pages/member/MemberChatPage.vue'), meta: { requiresAuth: true, role: 'member' } },
-    { path: '/member/memberships', redirect: '/member/profile' },
+    { path: '/member/memberships', name: 'member-memberships', component: () => import('../pages/member/MemberMembershipPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/profile', name: 'member-profile', component: () => import('../pages/member/MemberProfilePage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/notifications', name: 'member-notifications', component: () => import('../pages/member/MemberNotificationsPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/attendance', name: 'member-attendance', component: () => import('../pages/member/MemberAttendancePage.vue'), meta: { requiresAuth: true, role: 'member' } },

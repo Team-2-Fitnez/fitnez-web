@@ -12,7 +12,7 @@ export const adminSidebarItems = [
       { label: 'Visitor Analytics', to: '/admin/visitor-analytics', icon: 'Analytics' },
       { label: 'Landing Visitors', to: '/admin/landing-visits', icon: 'Reports' },
     ],
-  },
+  },  
   { label: 'Notifications', to: '/admin/notifications', icon: 'Notifications' },
 ]
 

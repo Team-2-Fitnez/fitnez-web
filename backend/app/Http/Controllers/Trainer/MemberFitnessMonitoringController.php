@@ -7,41 +7,23 @@ use App\Http\Requests\Trainer\TrainerMonitoringRequest;
 use App\Models\FoodLog;
 use App\Models\MealPlan;
 use App\Models\NutritionCalculator;
-use App\Models\Role;
 use App\Models\TrainerBooking;
 use App\Models\User;
 use App\Models\WorkoutPlan;
 use App\Models\WorkoutTracking;
 use App\Support\ApiResponse;
 use App\Support\SearchTerm;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class MemberFitnessMonitoringController extends Controller
 {
     public function summary(Request $request)
     {
         $trainerId = $request->user()->id;
-        $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
-        $now = now($tz);
-        $driver = DB::getDriverName();
+        $today = now()->toDateString();
 
-        $memberQuery = User::query()
-            ->whereHas('role', fn ($q) => $q->whereIn('name', ['member', 'trainer']))
-            ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $now, $driver) {
-                $query->where('trainer_id', $trainerId)
-                    ->where('status', TrainerBooking::STATUS_CONFIRMED)
-                    ->where(function ($q) use ($now, $driver) {
-                        if ($driver === 'sqlite') {
-                            $q->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
-                        } elseif ($driver === 'pgsql') {
-                            $q->whereRaw("(booking_date::text || ' ' || end_time || ':00')::timestamp + interval '1 hour' >= ?", [$now->toDateTimeString()]);
-                        } else {
-                            $q->whereRaw("DATE_ADD(CONCAT(booking_date, ' ', end_time, ':00'), INTERVAL 1 HOUR) >= ?", [$now->toDateTimeString()]);
-                        }
-                    });
-            });
-
+        $memberQuery = $this->bookedMembersQuery($trainerId, $today);
         $membersPluckQuery = (clone $memberQuery)->pluck('id');
 
         $membersNow = (clone $memberQuery)->count();
@@ -86,6 +68,7 @@ class MemberFitnessMonitoringController extends Controller
         if ($previous == 0) {
             return $current > 0 ? 100.0 : 0.0;
         }
+
         return round((($current - $previous) / $previous) * 100, 1);
     }
 
@@ -94,26 +77,10 @@ class MemberFitnessMonitoringController extends Controller
         $data = $request->validated();
         $search = SearchTerm::contains($data['search'] ?? null);
         $trainerId = $request->user()->id;
-        $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
-        $now = now($tz);
-        $driver = DB::getDriverName();
+        $today = now()->toDateString();
 
-        $members = User::query()
+        $members = $this->bookedMembersQuery($trainerId, $today)
             ->with('role')
-            ->whereHas('role', fn ($q) => $q->whereIn('name', ['member', 'trainer']))
-            ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $now, $driver) {
-                $query->where('trainer_id', $trainerId)
-                    ->where('status', TrainerBooking::STATUS_CONFIRMED)
-                    ->where(function ($q) use ($now, $driver) {
-                        if ($driver === 'sqlite') {
-                            $q->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
-                        } elseif ($driver === 'pgsql') {
-                            $q->whereRaw("(booking_date::text || ' ' || end_time || ':00')::timestamp + interval '1 hour' >= ?", [$now->toDateTimeString()]);
-                        } else {
-                            $q->whereRaw("DATE_ADD(CONCAT(booking_date, ' ', end_time, ':00'), INTERVAL 1 HOUR) >= ?", [$now->toDateTimeString()]);
-                        }
-                    });
-            })
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('full_name', 'ilike', $search)
@@ -155,27 +122,18 @@ class MemberFitnessMonitoringController extends Controller
         }
 
         $trainerId = $request->user()->id;
-        $tz = config('app.timezone') === 'UTC' ? 'Asia/Jakarta' : config('app.timezone');
-        $now = now($tz);
-        $driver = DB::getDriverName();
+        $today = now()->toDateString();
 
         $hasActiveBooking = TrainerBooking::query()
             ->where('member_id', $member->id)
             ->where('trainer_id', $trainerId)
             ->where('status', TrainerBooking::STATUS_CONFIRMED)
-            ->where(function ($query) use ($now, $driver) {
-                if ($driver === 'sqlite') {
-                    $query->whereRaw("datetime(booking_date || ' ' || end_time || ':00', '+1 hour') >= ?", [$now->toDateTimeString()]);
-                } elseif ($driver === 'pgsql') {
-                    $query->whereRaw("(booking_date::text || ' ' || end_time || ':00')::timestamp + interval '1 hour' >= ?", [$now->toDateTimeString()]);
-                } else {
-                    $query->whereRaw("DATE_ADD(CONCAT(booking_date, ' ', end_time, ':00'), INTERVAL 1 HOUR) >= ?", [$now->toDateTimeString()]);
-                }
-            })
+            ->whereDate('start_date', '<=', $today)
+            ->whereDate('end_date', '>=', $today)
             ->exists();
 
-        if (!$hasActiveBooking) {
-            return ApiResponse::error('Anda tidak memiliki akses booking aktif untuk memantau member ini.', [], 403);
+        if (! $hasActiveBooking) {
+            return ApiResponse::error('You do not have an active booking for this member.', [], 403);
         }
 
         $workoutPlans = WorkoutPlan::query()
@@ -233,5 +191,17 @@ class MemberFitnessMonitoringController extends Controller
             'meal_plan' => $mealPlan,
             'food_logs' => $foodLogs,
         ]);
+    }
+
+    private function bookedMembersQuery(int $trainerId, string $today): Builder
+    {
+        return User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'member'))
+            ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $today) {
+                $query->where('trainer_id', $trainerId)
+                    ->where('status', TrainerBooking::STATUS_CONFIRMED)
+                    ->whereDate('start_date', '<=', $today)
+                    ->whereDate('end_date', '>=', $today);
+            });
     }
 }

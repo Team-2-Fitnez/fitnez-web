@@ -37,17 +37,4 @@ export const mealPlanApi = {
     deleteFood(id: number) {
         return http.delete(`/user/food_log/${id}`)
     },
-
-    // Untuk admin monitoring
-    getAllMemberNutrition() {
-        return http.get<{
-            members: {
-                id: number
-                name: string
-                email: string
-                daily_limit: number
-                total_calories: number
-            }[]
-        }>('/admin/nutrition-monitoring')
-    },
 }

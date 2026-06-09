@@ -20,26 +20,40 @@ class TrainerBookingController extends Controller
     {
         $validated = $request->validate([
             'trainer_id' => 'required|exists:users,id',
-            'session_type' => 'required|string',
+            'start_date' => 'nullable|date|after_or_equal:today',
+            'sessions_per_week' => 'nullable|integer|in:3,5,7',
+            'session_days' => 'nullable|array|min:1|max:7',
+            'session_days.*' => 'string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
+            'session_time' => 'nullable|date_format:H:i',
             'member_notes' => 'nullable|string',
         ]);
+
+        $start = \Carbon\Carbon::parse($validated['start_date'] ?? now()->toDateString());
+        $sessionsPerWeek = (int) ($validated['sessions_per_week'] ?? 3);
+        $totalSessions = $sessionsPerWeek * 4;
 
         $booking = TrainerBooking::create([
             'member_id' => $request->user()->id,
             'trainer_id' => $validated['trainer_id'],
-            'booking_date' => now()->toDateString(),
-            'start_time' => now()->toTimeString(),
-            'end_time' => now()->addHour()->toTimeString(),
-            'session_type' => $validated['session_type'],
-            'status' => 'pending',
-            'total_price' => 0, // Simplified for now
+            'start_date' => $start->toDateString(),
+            'end_date' => $start->copy()->addWeeks(4)->subDay()->toDateString(),
+            'sessions_per_week' => $sessionsPerWeek,
+            'session_days' => $validated['session_days'] ?? ['monday', 'wednesday', 'friday'],
+            'session_time' => $validated['session_time'] ?? now()->format('H:i'),
+            'member_notes' => $validated['member_notes'] ?? null,
+            'status' => TrainerBooking::STATUS_PENDING,
+            'base_price_per_session' => 0,
+            'member_price_per_session' => 0,
+            'total_member_price' => 0,
+            'total_trainer_price' => 0,
+            'total_sessions' => $totalSessions,
         ]);
 
 
         $notif = Notification::create([
             'user_id' => $validated['trainer_id'],
-            'title' => 'Anda Disewa Member!',
-            'body' => "Member \"{$request->user()->full_name}\" telah menyewa Anda untuk sesi {$validated['session_type']}.",
+            'title' => 'A Member Hired You!',
+            'body' => "Member \"{$request->user()->full_name}\" requested a trainer booking.",
             'notification_type' => 'hire',
             'is_read' => false,
         ]);

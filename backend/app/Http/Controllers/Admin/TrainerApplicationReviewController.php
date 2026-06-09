@@ -59,6 +59,7 @@ class TrainerApplicationReviewController extends Controller
                 'biography' => $data['biography'] ?? 'Approved Fitnez trainer.',
                 'experience_years' => $data['experience_years'] ?? 0,
                 'hourly_rate' => $data['hourly_rate'] ?? 0,
+                'base_price' => $data['hourly_rate'] ?? 0,
                 'avg_rating' => 0,
             ]
         );
@@ -70,8 +71,8 @@ class TrainerApplicationReviewController extends Controller
 
         $notif = Notification::create([
             'user_id' => $application->user_id,
-            'title' => 'Pendaftaran Trainer Disetujui',
-            'body' => 'Selamat! Pendaftaran Anda sebagai trainer telah disetujui. Anda sekarang dapat mengakses Trainer Workspace.',
+            'title' => 'Trainer Application Approved',
+            'body' => 'Congratulations! Your trainer application has been approved. You can now access the Trainer Workspace.',
             'notification_type' => 'trainer_application',
             'is_read' => false,
         ]);
@@ -102,8 +103,8 @@ class TrainerApplicationReviewController extends Controller
 
         $notif = Notification::create([
             'user_id' => $application->user_id,
-            'title' => 'Pendaftaran Trainer Ditinjau Ulang',
-            'body' => 'Pendaftaran Trainer Anda belum dapat disetujui. Silahkan cek catatan admin dan coba lagi.',
+            'title' => 'Trainer Application Needs Review',
+            'body' => 'Your trainer application could not be approved yet. Please review the admin notes and try again.',
             'notification_type' => 'trainer_application',
             'is_read' => false,
         ]);

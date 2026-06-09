@@ -51,9 +51,9 @@ class AdminNotificationController extends Controller
             'id' => 'system_active_users',
             'real_id' => 0,
             'type' => 'system',
-            'name' => 'Status Sistem',
-            'email' => 'Total Akun Aktif Saat Ini',
-            'plan' => $activeUsersCount . ' Akun Aktif',
+            'name' => 'System Status',
+            'email' => 'Total Active Accounts',
+            'plan' => $activeUsersCount . ' Active Accounts',
             'status' => 'info',
             'created_at' => now()->toDateTimeString(),
         ]]);
