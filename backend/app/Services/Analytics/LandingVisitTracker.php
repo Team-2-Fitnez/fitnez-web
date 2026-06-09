@@ -13,6 +13,16 @@ class LandingVisitTracker
 
     public function record(array $data, Request $request, ?User $user = null): LandingPageVisit
     {
+        return $this->persist($data, $request, $user, true);
+    }
+
+    public function heartbeat(array $data, Request $request, ?User $user = null): LandingPageVisit
+    {
+        return $this->persist($data, $request, $user, false);
+    }
+
+    private function persist(array $data, Request $request, ?User $user, bool $incrementPageView): LandingPageVisit
+    {
         $userAgent = $request->userAgent();
         $parsed = $this->userAgentParser->parse($userAgent);
 
@@ -73,9 +83,10 @@ class LandingVisitTracker
             'last_seen_at' => now(),
         ];
 
-        return DB::transaction(function () use ($keys, $payload) {
+        return DB::transaction(function () use ($keys, $payload, $incrementPageView) {
             $visit = LandingPageVisit::query()
-                ->where($keys)
+                ->where('visitor_uuid', $keys['visitor_uuid'])
+                ->whereDate('visit_date', $keys['visit_date'])
                 ->lockForUpdate()
                 ->first();
 
@@ -89,15 +100,12 @@ class LandingVisitTracker
             }
 
             $visit->fill($payload);
-            $visit->page_view_count = $visit->page_view_count + 1;
+            if ($incrementPageView) {
+                $visit->page_view_count = $visit->page_view_count + 1;
+            }
             $visit->save();
 
             return $visit;
         });
-    }
-
-    public function heartbeat(array $data, Request $request, ?User $user = null): LandingPageVisit
-    {
-        return $this->record($data, $request, $user);
     }
 }

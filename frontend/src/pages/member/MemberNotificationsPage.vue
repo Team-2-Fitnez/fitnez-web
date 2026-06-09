@@ -156,6 +156,24 @@
                 </div>
               </article>
             </div>
+
+            <div v-if="notificationLastPage > 1" class="pager-bar">
+              <p>Page {{ notificationPage }} of {{ notificationLastPage }}</p>
+              <div class="pagination">
+                <button type="button" :disabled="notificationPage <= 1" @click="goNotificationPage(notificationPage - 1)">‹</button>
+                <button
+                  v-for="page in visibleNotificationPages"
+                  :key="page"
+                  type="button"
+                  :class="{ active: Number(page) === Number(notificationPage), disabled: page === '...' }"
+                  :disabled="page === '...'"
+                  @click="goNotificationPage(page)"
+                >
+                  {{ page }}
+                </button>
+                <button type="button" :disabled="notificationPage >= notificationLastPage" @click="goNotificationPage(notificationPage + 1)">›</button>
+              </div>
+            </div>
           </section>
 
         </div>
@@ -174,48 +192,65 @@ import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import { http } from '../../api/http'
 import type { NotificationItem } from '../../types/dashboard'
 
-const store = useNotificationStore()
-const { loading: initialLoading, run } = useDeferredLoading()
-
-const loading = ref(true)
-const realNotifications = ref<NotificationItem[]>([])
-const kemarin = ref<any[]>([])
-const hariIni = ref<any[]>([])
-const besok = ref<any[]>([])
-const readDummyIds = ref<number[]>(JSON.parse(localStorage.getItem('fitnez_read_notifs') || '[]'))
-let refreshInterval: ReturnType<typeof setInterval> | null = null
-
-const hasUnreadNotifications = computed(() =>
-  realNotifications.value.some(n => !n.is_read)
-)
-
-function groupWorkoutReminders(reminders: any[]) {
-  kemarin.value = []
-  hariIni.value = []
-  besok.value = []
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  reminders.forEach(n => {
-    const d = new Date(n.group_date)
-    d.setHours(0, 0, 0, 0)
-
-    if (d.getTime() === today.getTime()) {
-      hariIni.value.push(n)
-    } else if (d.getTime() <= yesterday.getTime()) {
-      kemarin.value.push(n)
-    } else if (d.getTime() >= tomorrow.getTime()) {
-      besok.value.push(n)
+export default {
+  name: 'MemberNotificationsPage',
+  components: { WorkspaceLayout, SkeletonList },
+  data() {
+    return {
+      loading: true,
+      memberSidebarItems,
+      realNotifications: [],
+      kemarin: [],
+      hariIni: [],
+      besok: [],
+      notificationPage: 1,
+      notificationLastPage: 1,
+      notificationPerPage: 10,
+      notificationTotal: 0,
+      readDummyIds: JSON.parse(localStorage.getItem('fitnez_read_notifs') || '[]'),
+      refreshInterval: null,
     }
-  })
-}
+  },
+  computed: {
+    hasUnreadNotifications() {
+      return this.realNotifications.some(n => !n.is_read)
+    },
+    visibleNotificationPages() {
+      const last = Number(this.notificationLastPage)
+      const current = Number(this.notificationPage)
+      if (last <= 5) return Array.from({ length: last }, (_, i) => i + 1)
+      if (current <= 2) return [1, 2, 3, '...', last]
+      if (current >= last - 1) return [1, '...', last - 2, last - 1, last]
+      return [1, '...', current - 1, current, current + 1, '...', last]
+    }
+  },
+  async mounted() {
+    await this.fetchNotifications()
+    this.refreshInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        // Do a silent refresh in background without setting full screen loading overlay
+        this.fetchNotificationsSilent()
+      }
+    }, 8000)
+  },
+  beforeUnmount() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval)
+    }
+  },
+  methods: {
+    async fetchNotificationsSilent() {
+      try {
+        // 1. Fetch general notifications
+        const respNotif = await api.get(`/notifications?page=${this.notificationPage}&per_page=${this.notificationPerPage}`)
+        const notificationPayload = respNotif.data || {}
+        const rawRealNotifs = Array.isArray(notificationPayload) ? notificationPayload : (notificationPayload.data || [])
+        this.syncNotificationPagination(notificationPayload)
+        
+        this.realNotifications = rawRealNotifs.map(n => ({
+          ...n,
+          is_read: n.is_read || this.readDummyIds.includes(n.id)
+        }))
 
 function getLogIconName(type: string) {
   if (type === 'payment' || type === 'invoice') return 'payments'
@@ -223,11 +258,154 @@ function getLogIconName(type: string) {
   return 'info'
 }
 
-function getLogIconClass(type: string) {
-  return {
-    'notification-icon-trainer': type === 'payment' || type === 'invoice',
-    'notification-icon-member': type === 'class' || type === 'booking',
-    'notification-icon-system': !type || (type !== 'payment' && type !== 'invoice' && type !== 'class' && type !== 'booking')
+        this.groupWorkoutReminders(reminders)
+      } catch (error) {
+        // ignore background error
+      }
+    },
+    async fetchNotifications() {
+      try {
+        this.loading = true
+        // 1. Fetch general notifications
+        const respNotif = await api.get(`/notifications?page=${this.notificationPage}&per_page=${this.notificationPerPage}`)
+        const notificationPayload = respNotif.data || {}
+        const rawRealNotifs = Array.isArray(notificationPayload) ? notificationPayload : (notificationPayload.data || [])
+        this.syncNotificationPagination(notificationPayload)
+        
+        this.realNotifications = rawRealNotifs.map(n => ({
+          ...n,
+          is_read: n.is_read || this.readDummyIds.includes(n.id)
+        }))
+
+        // 2. Fetch workout plans
+        const respWorkout = await api.get('/workout-plans')
+        const workoutPlans = Array.isArray(respWorkout.data) ? respWorkout.data : (respWorkout.data?.data || [])
+        
+        const reminders = workoutPlans.map(w => ({
+          id: 'workout-' + w.id,
+          title: w.name,
+          body: `${w.category} - ${w.reps} reps x ${w.set} set - ${w.weight}kg`,
+          created_at: w.created_at,
+          group_date: w.date,
+          is_read: !!w.completed,
+          type: 'workout'
+        }))
+
+        this.groupWorkoutReminders(reminders)
+      } catch (error) {
+        window.showFitnezToast('Failed to load notifications.', 'error')
+      } finally {
+        this.loading = false
+      }
+    },
+
+    syncNotificationPagination(payload) {
+      if (Array.isArray(payload)) {
+        this.notificationPage = 1
+        this.notificationLastPage = 1
+        this.notificationTotal = payload.length
+        return
+      }
+
+      this.notificationPage = payload.current_page || this.notificationPage
+      this.notificationLastPage = payload.last_page || 1
+      this.notificationTotal = payload.total || 0
+    },
+
+    async goNotificationPage(page) {
+      if (typeof page === 'string') return
+      if (page < 1 || page > this.notificationLastPage || page === this.notificationPage) return
+
+      this.notificationPage = page
+      await this.fetchNotifications()
+    },
+
+    groupWorkoutReminders(reminders) {
+      this.kemarin = []
+      this.hariIni = []
+      this.besok = []
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      reminders.forEach(n => {
+        const d = new Date(n.group_date)
+        d.setHours(0, 0, 0, 0)
+
+        if (d.getTime() === today.getTime()) {
+          this.hariIni.push(n)
+        } else if (d.getTime() <= yesterday.getTime()) {
+          this.kemarin.push(n)
+        } else if (d.getTime() >= tomorrow.getTime()) {
+          this.besok.push(n)
+        }
+      })
+    },
+
+    getLogIconName(type) {
+      if (type === 'payment' || type === 'invoice') return 'payments'
+      if (type === 'class' || type === 'booking') return 'event_available'
+      return 'info'
+    },
+
+    getLogIconClass(type) {
+      return {
+        'notification-icon-trainer': type === 'payment' || type === 'invoice',
+        'notification-icon-member': type === 'class' || type === 'booking',
+        'notification-icon-system': !type || (type !== 'payment' && type !== 'invoice' && type !== 'class' && type !== 'booking')
+      }
+    },
+
+    getLogPrefix(type) {
+      if (type === 'payment' || type === 'invoice') return 'Payment'
+      if (type === 'class' || type === 'booking') return 'Class Session'
+      return 'Information'
+    },
+
+    formatTime(dateStr) {
+      if (!dateStr) return '--:--'
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return '--:--'
+      
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+    },
+
+    async markAsRead(id) {
+      if (typeof id === 'string' && id.startsWith('workout-')) {
+        if (!this.readDummyIds.includes(id)) {
+          this.readDummyIds.push(id)
+          localStorage.setItem('fitnez_read_notifs', JSON.stringify(this.readDummyIds))
+        }
+        return
+      }
+
+      try {
+        await api.patch(`/notifications/${id}/read`)
+        await this.fetchNotifications()
+      } catch (error) {
+        window.showFitnezToast('Failed to update read status.', 'error')
+      }
+    },
+
+    async markAllReadMember() {
+      try {
+        await api.patch('/notifications/read-all')
+        await this.fetchNotifications()
+        window.showFitnezToast('All notifications marked as read.', 'success')
+      } catch (e) {
+        window.showFitnezToast('Failed to update read status.', 'error')
+      }
+    }
   }
 }
 
@@ -492,6 +670,56 @@ onUnmounted(() => {
   gap: 0.75rem;
 }
 
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  padding-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pagination button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0 0.55rem;
+}
+
+.pagination button.active {
+  background: #0058be;
+  border-color: #0058be;
+  color: #ffffff;
+}
+
+.pagination button:disabled {
+  background: #f8fafc;
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
 .notification-item {
   align-items: flex-start;
   background: #ffffff;
@@ -657,5 +885,17 @@ onUnmounted(() => {
 
 .opacity-75 {
   opacity: 0.75;
+}
+
+@media (max-width: 760px) {
+  .pager-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+  }
 }
 </style>

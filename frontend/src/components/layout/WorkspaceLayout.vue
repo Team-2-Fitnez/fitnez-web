@@ -252,28 +252,36 @@ onUnmounted(() => {
       </transition>
 
       <div class="workspace-content w-full max-w-[1280px] mx-auto flex-1 flex flex-col">
-        <!-- Header Section -->
-        <header v-if="!hideHeader" class="workspace-header bg-white rounded-3xl p-6 md:px-8 md:py-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 border border-gray-100 flex-shrink-0">
-          <div class="flex min-w-0 items-center gap-4">
-            <!-- Hamburger Menu for Mobile -->
-            <button class="bg-[#111827] text-white p-2.5 rounded-full flex-shrink-0 md:hidden" type="button" aria-label="Open menu" @click="mobileOpen = true">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-            </button>
-            <div class="min-w-0">
-              <div class="text-xs font-bold tracking-[0.15em] text-blue-600/70 uppercase mb-1">{{ roleLabel }}</div>
-              <h1 class="text-3xl md:text-4xl font-black text-[#111827] tracking-tight mb-1.5">{{ title }}</h1>
-              <p v-if="subtitle" class="text-sm font-medium text-gray-500">{{ subtitle }}</p>
+        <slot
+          name="header"
+          :mobile-open="mobileOpen"
+          :has-unread="hasUnread"
+          :notification-link="notificationLink"
+          :role-label="roleLabel"
+          :open-mobile-menu="() => mobileOpen = true"
+        >
+          <header v-if="!hideHeader" class="workspace-header bg-white rounded-3xl p-6 md:px-8 md:py-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 border border-gray-100 flex-shrink-0">
+            <div class="flex min-w-0 items-center gap-4">
+              <!-- Hamburger Menu for Mobile -->
+              <button class="bg-[#111827] text-white p-2.5 rounded-full flex-shrink-0 md:hidden" type="button" aria-label="Open menu" @click="mobileOpen = true">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+              </button>
+              <div class="min-w-0">
+                <div class="text-xs font-bold tracking-[0.15em] text-blue-600/70 uppercase mb-1">{{ roleLabel }}</div>
+                <h1 class="text-3xl md:text-4xl font-black text-[#111827] tracking-tight mb-1.5">{{ title }}</h1>
+                <p v-if="subtitle" class="text-sm font-medium text-gray-500">{{ subtitle }}</p>
+              </div>
             </div>
-          </div>
-          <div class="flex items-center gap-5 w-full md:w-auto justify-end">
-            <!-- Notification Bell -->
-            <RouterLink :to="notificationLink" class="relative grid min-h-11 min-w-11 place-items-center rounded-full border border-gray-200 bg-white p-3 shadow-sm transition-colors hover:bg-gray-50" aria-label="Open notifications">
-              <span v-if="hasUnread" class="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-ping"></span>
-              <span v-if="hasUnread" class="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-              <svg class="w-5 h-5" :class="hasUnread ? 'text-red-500 animate-pulse' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
-            </RouterLink>
-          </div>
-        </header>
+            <div class="flex items-center gap-5 w-full md:w-auto justify-end">
+              <!-- Notification Bell -->
+              <RouterLink :to="notificationLink" class="relative grid min-h-11 min-w-11 place-items-center rounded-full border border-gray-200 bg-white p-3 shadow-sm transition-colors hover:bg-gray-50" aria-label="Open notifications">
+                <span v-if="hasUnread" class="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-ping"></span>
+                <span v-if="hasUnread" class="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                <svg class="w-5 h-5" :class="hasUnread ? 'text-red-500 animate-pulse' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+              </RouterLink>
+            </div>
+          </header>
+        </slot>
 
         <!-- Slot Content -->
         <slot />
