@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { http as api } from '../../api/http'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { connectSocket, getSocket } from '../../services/socket'
 import { useAuthStore } from '../../stores/authStore'
 import { usePushNotifications } from '../../composables/usePushNotifications'
 import WorkspaceSidebar from './WorkspaceSidebar.vue'
+import { memberMembershipApi } from '../../api/memberMembershipApi'
 
 type MenuItem = {
   label: string
@@ -38,6 +39,33 @@ const props = defineProps<{
   sidebarItems: MenuItem[]
   hideHeader?: boolean
 }>()
+
+const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+const showExpiredMembershipConfirm = ref(false)
+const deletingAccount = ref(false)
+const expiredMembershipVisible = computed(() => props.role === 'member' && route.path !== '/member/memberships' && Boolean(authStore.user?.membership_is_expired))
+const expiringSoonVisible = computed(() => props.role === 'member' && Boolean(authStore.user?.membership_expires_within_3_days) && !authStore.user?.membership_is_expired)
+const membershipExpiryDate = computed(() => authStore.user?.membership_expires_at ? new Date(authStore.user.membership_expires_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : '-')
+const membershipRenewalDeadline = computed(() => authStore.user?.membership_renewal_deadline_at ? new Date(authStore.user.membership_renewal_deadline_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : '-')
+
+function goToMembershipRenewal() {
+  router.push('/member/memberships')
+}
+
+async function deleteCurrentAccount() {
+  deletingAccount.value = true
+
+  try {
+    await memberMembershipApi.deleteAccount()
+  } catch {
+    // The account may already be deleted by the backend grace-period rule.
+  } finally {
+    authStore.clearSession()
+    window.location.href = '/'
+  }
+}
 
 const notificationLink = computed(() => {
   switch (props.role) {
@@ -184,7 +212,12 @@ onMounted(() => {
 
   push.init()
 
-  const authStore = useAuthStore()
+  authStore.loadMe().then(() => {
+    if (expiringSoonVisible.value) {
+      window.showFitnezToast('Your membership will expire within three days. Please renew soon.', 'info')
+    }
+  }).catch(() => null)
+
   const userId = authStore.user?.id
   const token = localStorage.getItem('fitnez_access_token')
 
@@ -279,6 +312,36 @@ onUnmounted(() => {
         <slot />
       </div>
     </main>
+
+    <!-- Expired Membership Renewal Prompt -->
+    <transition name="fade">
+      <div v-if="expiredMembershipVisible" class="membership-lock-overlay" role="dialog" aria-modal="true" aria-label="Membership renewal required">
+        <div class="membership-lock-card">
+          <div v-if="!showExpiredMembershipConfirm">
+            <span class="membership-lock-icon material-symbols-outlined">lock_clock</span>
+            <h3>Membership Renewal Required</h3>
+            <p>
+              Your membership expired on {{ membershipExpiryDate }}. You can still log in during the one-month grace period, but member features stay locked until you renew your package.
+            </p>
+            <p class="membership-lock-note">Renewal deadline: {{ membershipRenewalDeadline }}</p>
+            <div class="membership-lock-actions">
+              <button class="membership-primary" type="button" @click="goToMembershipRenewal">Renew Membership</button>
+              <button class="membership-danger" type="button" @click="showExpiredMembershipConfirm = true">Delete Account</button>
+            </div>
+          </div>
+
+          <div v-else>
+            <span class="membership-lock-icon danger material-symbols-outlined">warning</span>
+            <h3>Are you sure you want to delete your account?</h3>
+            <p>This action removes your current member account from the database and returns you to the landing page.</p>
+            <div class="membership-lock-actions">
+              <button class="membership-secondary" type="button" :disabled="deletingAccount" @click="showExpiredMembershipConfirm = false">Back</button>
+              <button class="membership-danger" type="button" :disabled="deletingAccount" @click="deleteCurrentAccount">{{ deletingAccount ? 'Deleting...' : 'Yes, Delete Account' }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- Notification Permission Prompt -->
     <transition name="fade">
@@ -613,4 +676,106 @@ onUnmounted(() => {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+.membership-lock-overlay {
+  align-items: center;
+  background: rgba(3, 7, 18, 0.58);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 1.25rem;
+  position: fixed;
+  z-index: 9998;
+}
+
+.membership-lock-card {
+  background: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+  color: #07172f;
+  max-width: 460px;
+  padding: 1.75rem;
+  text-align: center;
+  width: min(100%, 460px);
+}
+
+.membership-lock-icon {
+  align-items: center;
+  background: #fff7ed;
+  border-radius: 999px;
+  color: #f97316;
+  display: inline-flex;
+  font-size: 2rem;
+  height: 4rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+  width: 4rem;
+}
+
+.membership-lock-icon.danger {
+  background: #fee2e2;
+  color: #be123c;
+}
+
+.membership-lock-card h3 {
+  font-size: 1.35rem;
+  font-weight: 950;
+  margin: 0 0 0.75rem;
+}
+
+.membership-lock-card p {
+  color: #596579;
+  font-size: 0.92rem;
+  font-weight: 750;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.membership-lock-note {
+  background: #f8fafc;
+  border: 1px solid #dfe6ef;
+  border-radius: 0.9rem;
+  margin-top: 1rem !important;
+  padding: 0.75rem;
+}
+
+.membership-lock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.membership-primary,
+.membership-secondary,
+.membership-danger {
+  border: 0;
+  border-radius: 999px;
+  font-weight: 950;
+  padding: 0.85rem 1.15rem;
+}
+
+.membership-primary {
+  background: #f97316;
+  color: #ffffff;
+}
+
+.membership-secondary {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.membership-danger {
+  background: #be123c;
+  color: #ffffff;
+}
+
+.membership-primary:disabled,
+.membership-secondary:disabled,
+.membership-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 </style>

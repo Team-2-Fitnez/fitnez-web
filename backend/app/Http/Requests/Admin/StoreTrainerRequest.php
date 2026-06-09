@@ -26,7 +26,7 @@ class StoreTrainerRequest extends FormRequest
             'password' => ['required', 'confirmed', Password::min(16)->mixedCase()->symbols()],
             'specialization' => ['nullable', 'string', 'max:100'],
             'biography' => ['nullable', 'string'],
-            'experience_years' => ['nullable', 'integer', 'min:0', 'max:80'],
+            'experience_years' => ['nullable', 'integer', 'min:0', 'max:50'],
             'hourly_rate' => ['nullable', 'numeric', 'min:0'],
         ];
     }

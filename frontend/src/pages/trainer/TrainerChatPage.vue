@@ -13,6 +13,8 @@ const route = useRoute()
 const monitoringStore = useTrainerMemberMonitoringStore()
 const newMessage = ref('')
 const messagesEnd = ref<HTMLElement | null>(null)
+const pendingFile = ref<File | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 function scrollToBottom() {
   nextTick(() => {
@@ -25,11 +27,29 @@ async function selectContact(id: number) {
   scrollToBottom()
 }
 
+function pickFile() {
+  fileInput.value?.click()
+}
+
+function onFileSelected(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    pendingFile.value = target.files[0]
+  }
+}
+
+function clearFile() {
+  pendingFile.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
 async function sendMsg() {
   const text = newMessage.value.trim()
-  if (!text) return
+  if (!text && !pendingFile.value) return
+  const file = pendingFile.value
   newMessage.value = ''
-  await chat.sendMessage(text)
+  clearFile()
+  await chat.sendMessage(text, file || undefined)
   scrollToBottom()
 }
 
@@ -160,7 +180,14 @@ onUnmounted(() => chat.resetChat())
                   lineHeight: '1.5',
                 }"
               >
-                <p>{{ msg.message }}</p>
+                <p v-if="msg.message">{{ msg.message }}</p>
+                <div v-if="msg.file_url" style="margin-top: 0.25rem;">
+                  <a :href="msg.file_url" target="_blank" rel="noopener noreferrer"
+                     :style="{ color: msg.isMe ? 'white' : 'var(--color-blue)', textDecoration: 'underline', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }">
+                    <span class="material-symbols-outlined" style="font-size: 1rem;">attach_file</span>
+                    {{ msg.file_name || 'Attachment' }}
+                  </a>
+                </div>
                 <p :style="{ fontSize: '0.65rem', opacity: 0.5, marginTop: '0.25rem', textAlign: 'right' }">
                   {{ formatTime(msg.created_at) }}
                 </p>
@@ -170,7 +197,16 @@ onUnmounted(() => chat.resetChat())
           </div>
 
           <!-- Input -->
-          <div class="chat-composer" style="padding: 0.75rem 1rem; border-top: 1px solid var(--color-border); display: flex; gap: 0.5rem;">
+          <div class="chat-composer" style="padding: 0.75rem 1rem; border-top: 1px solid var(--color-border); display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" class="button button-ghost" style="padding: 0.375rem; font-size: 1.25rem; line-height: 1;" @click="pickFile" title="Attach file">
+              <span class="material-symbols-outlined">attach_file</span>
+            </button>
+            <input ref="fileInput" type="file" style="display: none;" @change="onFileSelected" />
+            <div v-if="pendingFile" style="display: flex; align-items: center; gap: 0.25rem; background: var(--color-cream); border-radius: 0.5rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; white-space: nowrap; overflow: hidden; max-width: 8rem;">
+              <span class="material-symbols-outlined" style="font-size: 0.9rem;">attach_file</span>
+              <span style="overflow: hidden; text-overflow: ellipsis;">{{ pendingFile.name }}</span>
+              <button type="button" style="background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 0;" @click="clearFile">&times;</button>
+            </div>
             <input
               v-model="newMessage"
               class="form-input"
@@ -178,7 +214,7 @@ onUnmounted(() => chat.resetChat())
               placeholder="Type a message..."
               @keydown.enter.prevent="sendMsg"
             />
-            <button class="button button-primary" :disabled="!newMessage.trim()" @click="sendMsg">
+            <button class="button button-primary" :disabled="!newMessage.trim() && !pendingFile" @click="sendMsg">
               Send
             </button>
           </div>
@@ -189,6 +225,28 @@ onUnmounted(() => chat.resetChat())
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+.material-symbols-outlined {
+  direction: ltr;
+  display: inline-block;
+  flex: 0 0 auto;
+  font-family: 'Material Symbols Outlined';
+  font-feature-settings: 'liga';
+  font-size: 1.25rem;
+  font-style: normal;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-weight: normal;
+  letter-spacing: normal;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
+  width: 1em;
+  word-wrap: normal;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
 .chat-layout,
 .chat-panel,
 .chat-contacts {

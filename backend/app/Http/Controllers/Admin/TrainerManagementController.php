@@ -34,7 +34,9 @@ class TrainerManagementController extends Controller
                 'spec'             => $t->specialization ?? '',
                 'bio'              => $t->biography ?? '',
                 'exp'              => $t->experience_years ?? 0,
-                'price'            => (int) ($t->hourly_rate ?? 0),
+                'member_price'     => (int) $t->member_price,
+                'base_price'       => (int) ($t->base_price ?? $t->hourly_rate ?? 0),
+                'price'            => (int) ($t->member_price ?? $t->hourly_rate ?? 0),
                 'rating'           => (float) ($t->avg_rating ?? 0),
             ]);
 
@@ -69,8 +71,8 @@ class TrainerManagementController extends Controller
 
         $trainer = DB::transaction(function () use ($data) {
             $role = Role::query()->firstOrCreate(
-                ['name' => 'member'],
-                ['description' => 'Fitnez member/user']
+                ['name' => 'trainer'],
+                ['description' => 'Fitnez personal trainer']
             );
 
             $user = User::query()->create([
@@ -89,6 +91,7 @@ class TrainerManagementController extends Controller
                 'biography' => $data['biography'] ?? null,
                 'experience_years' => $data['experience_years'] ?? 0,
                 'hourly_rate' => $data['hourly_rate'] ?? 0,
+                'base_price' => $data['hourly_rate'] ?? 0,
                 'avg_rating' => 0,
             ]);
         });
@@ -119,6 +122,7 @@ class TrainerManagementController extends Controller
                 'biography' => $data['biography'] ?? null,
                 'experience_years' => $data['experience_years'] ?? 0,
                 'hourly_rate' => $data['hourly_rate'] ?? 0,
+                'base_price' => $data['hourly_rate'] ?? 0,
             ]);
         });
 

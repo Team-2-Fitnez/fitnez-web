@@ -78,7 +78,10 @@ class DashboardController extends Controller
             'trainers_total' => $trainersTotal,
             'trainers_total_trend' => $trainersTrend,
             'members_total' => User::query()->whereHas('role', fn ($q) => $q->where('name', 'member'))->count(),
-            'schedules_today' => TrainerBooking::query()->whereDate('booking_date', today())->count(),
+            'schedules_today' => TrainerBooking::query()
+                ->whereDate('start_date', '<=', today())
+                ->whereDate('end_date', '>=', today())
+                ->count(),
             'transactions_pending' => Schema::hasTable('payments')
                 ? Payment::query()->where('payment_status', 'pending')->count()
                 : 0,

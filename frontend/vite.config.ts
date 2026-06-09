@@ -20,6 +20,12 @@ export default defineConfig({
         member: resolve(__dirname, 'member.html'),
         trainer: resolve(__dirname, 'trainer.html'),
       },
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('ag-grid-community')) return 'ag-grid'
+          if (id.includes('node_modules')) return 'vendor'
+        },
+      },
     },
   },
 

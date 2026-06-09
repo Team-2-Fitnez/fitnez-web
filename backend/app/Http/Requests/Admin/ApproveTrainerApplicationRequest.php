@@ -17,7 +17,7 @@ class ApproveTrainerApplicationRequest extends FormRequest
             'admin_notes' => ['nullable', 'string', 'max:1000'],
             'specialization' => ['nullable', 'string', 'max:100'],
             'biography' => ['nullable', 'string', 'max:2000'],
-            'experience_years' => ['nullable', 'integer', 'min:0', 'max:80'],
+            'experience_years' => ['nullable', 'integer', 'min:0', 'max:50'],
             'hourly_rate' => ['nullable', 'numeric', 'min:0', 'max:10000000'],
         ];
     }

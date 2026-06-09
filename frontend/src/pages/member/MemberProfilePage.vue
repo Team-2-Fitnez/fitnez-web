@@ -5,6 +5,7 @@ import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezButton from '../../components/ui/FitnezButton.vue'
 import { trainerApplicationApi, type TrainerApplicationStatusResult } from '../../api/trainerApplicationApi'
+import { memberMembershipApi } from '../../api/memberMembershipApi'
 import { useAuthStore } from '../../stores/authStore'
 
 const router = useRouter()
@@ -13,6 +14,8 @@ const status = ref<TrainerApplicationStatusResult | null>(null)
 const loading = ref(false)
 const error = ref('')
 const message = ref('')
+const showDeleteConfirm = ref(false)
+const deletingAccount = ref(false)
 
 const user = computed(() => auth.user)
 const membership = computed(() => user.value?.membership_package)
@@ -79,6 +82,24 @@ async function enterTrainerWorkspace() {
 
 function goToTrainerRegistration() {
   router.push('/trainer/apply')
+}
+
+function goToRenewal() {
+  router.push('/member/memberships')
+}
+
+async function deleteAccount() {
+  deletingAccount.value = true
+  error.value = ''
+
+  try {
+    await memberMembershipApi.deleteAccount()
+  } catch {
+    // The account may already be deleted on the backend.
+  } finally {
+    auth.clearSession()
+    window.location.href = '/'
+  }
 }
 
 onMounted(loadTrainerStatus)
@@ -206,6 +227,9 @@ onMounted(loadTrainerStatus)
                 </div>
               </div>
             </div>
+            <div class="action-row">
+              <FitnezButton type="button" @click="goToRenewal">Renew Membership</FitnezButton>
+            </div>
           </article>
 
           <article class="surface-card trainer-card">
@@ -236,6 +260,26 @@ onMounted(loadTrainerStatus)
               <FitnezButton v-if="status?.can_access_trainer_workspace || user?.can_access_trainer_workspace" type="button" :disabled="loading" @click="enterTrainerWorkspace">
                 Enter Trainer Workspace
               </FitnezButton>
+            </div>
+          </article>
+
+          <article class="surface-card danger-card">
+            <div class="section-head">
+              <div>
+                <p>Account Control</p>
+                <h2>Delete Account</h2>
+              </div>
+            </div>
+            <p class="trainer-copy">Delete your current member account from Fitnez. This action returns you to the landing page.</p>
+            <div v-if="!showDeleteConfirm" class="action-row">
+              <button class="danger-button" type="button" @click="showDeleteConfirm = true">Delete Account</button>
+            </div>
+            <div v-else class="confirm-box">
+              <p>Are you sure you want to delete your account?</p>
+              <div class="action-row">
+                <button class="safe-button" type="button" :disabled="deletingAccount" @click="showDeleteConfirm = false">Back</button>
+                <button class="danger-button" type="button" :disabled="deletingAccount" @click="deleteAccount">{{ deletingAccount ? 'Deleting...' : 'Yes, Delete Account' }}</button>
+              </div>
             </div>
           </article>
         </main>
@@ -433,18 +477,19 @@ onMounted(loadTrainerStatus)
   overflow-wrap: anywhere;
 }
 
-.membership-status.aktif {
+.membership-status.active {
   background: #dcfce7;
   color: #047857;
 }
 
-.membership-status.kedaluwarsa,
-.membership-status.nonaktif {
+.membership-status.expired,
+.membership-status.inactive {
   background: #fee2e2;
   color: #be123c;
 }
 
-.membership-status.belum {
+.membership-status.no,
+.membership-status.no_package {
   background: #f1f5f9;
   color: #475569;
 }
@@ -514,6 +559,48 @@ onMounted(loadTrainerStatus)
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.danger-card {
+  border-color: rgba(190, 18, 60, 0.18);
+}
+
+.danger-button,
+.safe-button {
+  border: 0;
+  border-radius: 999px;
+  font-weight: 950;
+  padding: 0.8rem 1rem;
+}
+
+.danger-button {
+  background: #be123c;
+  color: #ffffff;
+}
+
+.safe-button {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.danger-button:disabled,
+.safe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.confirm-box {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.confirm-box p {
+  color: #9f1239;
+  font-weight: 900;
+  margin: 0;
 }
 
 @media (max-width: 1020px) {

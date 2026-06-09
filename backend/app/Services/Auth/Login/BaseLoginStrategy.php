@@ -10,12 +10,16 @@ abstract class BaseLoginStrategy {
         $email = strtolower(trim((string)($credentials['email'] ?? ''))); $password = (string)($credentials['password'] ?? '');
         $user = User::query()->with('role')->where('email',$email)->first();
         if(!$user || !Hash::check($password,$user->password_hash)) throw ValidationException::withMessages(['email'=>['Invalid email or password.']]);
+        if($user->isPastMembershipRenewalGracePeriod()) { $user->delete(); throw ValidationException::withMessages(['email'=>['This account has passed the renewal deadline and has been removed.']]); }
+        $user->activateDueMembershipRenewal();
+        $user->refresh()->loadMissing('role');
         if(!$user->is_active) throw ValidationException::withMessages(['email'=>['This account is not active. Please verify OTP first.']]);
         if($requiredRole && $user->roleName() !== $requiredRole) throw ValidationException::withMessages(['email'=>["This login is only for {$requiredRole} users."]]);
         return $user;
     }
     protected function userPayload(User $user): array {
-        $user->loadMissing(['role', 'membershipPackage']);
+        $user->activateDueMembershipRenewal();
+        $user->refresh()->loadMissing(['role', 'membershipPackage', 'renewalPackage']);
         $application = TrainerApplication::query()->where('user_id',$user->id)->latest('id')->first();
         $canAccessTrainerWorkspace = $application?->status === 'approved' || TrainerDetail::query()->where('user_id',$user->id)->exists();
         return [
@@ -41,6 +45,24 @@ abstract class BaseLoginStrategy {
                 'free_class_access'=>$user->membershipPackage->free_class_access,
                 'benefits'=>$user->membershipPackage->benefits,
                 'is_active'=>$user->membershipPackage->is_active,
+            ] : null,
+            'membership_status'=>$user->membershipStatus(),
+            'membership_days_left'=>$user->membershipDaysLeft(),
+            'membership_is_expired'=>$user->isMembershipExpired(),
+            'membership_expires_within_3_days'=>$user->membershipStatus() === 'expiring_soon',
+            'membership_renewal_deadline_at'=>optional($user->membershipRenewalDeadline())->toISOString(),
+            'renewal_package_id'=>$user->renewal_package_id,
+            'membership_renewal_starts_at'=>optional($user->membership_renewal_starts_at)->toISOString(),
+            'membership_renewal_expires_at'=>optional($user->membership_renewal_expires_at)->toISOString(),
+            'renewal_package'=>$user->renewalPackage ? [
+                'id'=>$user->renewalPackage->id,
+                'code'=>$user->renewalPackage->code,
+                'name'=>$user->renewalPackage->name,
+                'duration_months'=>$user->renewalPackage->duration_months,
+                'price'=>$user->renewalPackage->price,
+                'free_class_access'=>$user->renewalPackage->free_class_access,
+                'benefits'=>$user->renewalPackage->benefits,
+                'is_active'=>$user->renewalPackage->is_active,
             ] : null,
             'trainer_status'=>$application?->status ?? 'not_submitted',
             'can_access_trainer_workspace'=>$canAccessTrainerWorkspace,

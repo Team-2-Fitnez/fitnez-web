@@ -21,14 +21,14 @@ class ScheduleManagementController extends Controller
             ->with(['member.role', 'trainer.role'])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('session_type', 'ilike', $search)
-                        ->orWhere('location', 'ilike', $search)
+                    $q->where('member_notes', 'ilike', $search)
+                        ->orWhere('session_time', 'ilike', $search)
                         ->orWhereHas('member', fn ($memberQuery) => $memberQuery->where('full_name', 'ilike', $search))
                         ->orWhereHas('trainer', fn ($trainerQuery) => $trainerQuery->where('full_name', 'ilike', $search));
                 });
             })
             ->when($data['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
-            ->orderByDesc('booking_date')
+            ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->paginate($request->perPage());
 
@@ -37,10 +37,11 @@ class ScheduleManagementController extends Controller
 
     public function store(StoreScheduleRequest $request)
     {
-        $schedule = TrainerBooking::query()->create([
-            ...$request->validated(),
-            'status' => $request->validated('status') ?? 'scheduled',
-        ]);
+        $data = $request->validated();
+        $data['status'] = $data['status'] ?? TrainerBooking::STATUS_PENDING;
+        $data['total_sessions'] = $data['total_sessions'] ?? (($data['sessions_per_week'] ?? 0) * 4);
+
+        $schedule = TrainerBooking::query()->create($data);
 
         return ApiResponse::success('Schedule created.', $schedule->load(['member', 'trainer']), 201);
     }
