@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import { useProspectiveMemberStore } from '../../stores/prospectiveMemberStore'
-import { useBookingStore } from '../../stores/bookingStore'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import FitnezButton from '../../components/ui/FitnezButton.vue'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -11,13 +10,9 @@ import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
-const prospectiveStore = useProspectiveMemberStore()
-const bookingStore = useBookingStore()
+const store = useProspectiveMemberStore()
 const { loading, run, shimmerStyle } = useDeferredLoading()
 
-const activeTab = ref<'registration' | 'booking'>('registration')
-
-// Registration reject modal
 const showRejectModal = ref(false)
 const selectedRegistrationId = ref<number | null>(null)
 const rejectionReasonOption = ref('The transfer proof is invalid or unreadable (blurry)')
@@ -30,19 +25,36 @@ const rejectionReasonOptions = [
   'Other'
 ]
 
-// Booking reject modal
-const showBookingRejectModal = ref(false)
-const selectedBookingId = ref<number | null>(null)
-const bookingRejectReason = ref('')
+onMounted(() => run(() => store.load()))
+useAutoRefresh(() => store.load(), 8000)
 
-onMounted(() => run(async () => {
-  await prospectiveStore.load()
-  await bookingStore.loadPendingPayments()
-}))
-useAutoRefresh(() => {
-  if (activeTab.value === 'registration') prospectiveStore.load()
-  else bookingStore.loadPendingPayments()
-}, 8000)
+const visiblePages = computed(() => {
+  const last = Number(store.lastPage)
+  const current = Number(store.page)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPage(p: number | string) {
+  if (typeof p === 'string') return
+  if (p < 1 || p > store.lastPage || p === store.page) return
+  store.page = p
+  store.load()
+}
 
 function openRejectModal(id: number) {
   selectedRegistrationId.value = id
@@ -67,209 +79,100 @@ function submitRejection() {
     return
   }
 
-  prospectiveStore.reject(selectedRegistrationId.value, finalReason)
+  store.reject(selectedRegistrationId.value, finalReason)
   closeRejectModal()
-}
-
-function openBookingRejectModal(id: number) {
-  selectedBookingId.value = id
-  bookingRejectReason.value = 'Bukti transfer tidak valid. Silakan upload ulang.'
-  showBookingRejectModal.value = true
-}
-
-function closeBookingRejectModal() {
-  showBookingRejectModal.value = false
-  selectedBookingId.value = null
-}
-
-async function submitBookingRejection() {
-  if (!selectedBookingId.value || !bookingRejectReason.value.trim()) return
-  try {
-    await bookingStore.rejectPayment(selectedBookingId.value, bookingRejectReason.value)
-    window.showFitnezToast('Booking payment rejected.', 'success')
-  } catch (e: any) {
-    window.showFitnezToast(e?.message || 'Failed to reject.', 'error')
-  }
-  closeBookingRejectModal()
-}
-
-async function confirmBooking(id: number) {
-  try {
-    await bookingStore.confirmPayment(id)
-    window.showFitnezToast('Payment confirmed. Chat is now open.', 'success')
-  } catch (e: any) {
-    window.showFitnezToast(e?.message || 'Failed to confirm.', 'error')
-  }
-}
-
-function formatPrice(n: number | string | null | undefined) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(Number(n || 0))
 }
 </script>
 
 <template>
-  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Payment Review" subtitle="Approve or reject payment proofs from members." :sidebar-items="adminSidebarItems">
-
-    <!-- Tabs -->
-    <div style="display: flex; gap: 0.25rem; margin-bottom: 1rem; background: #f1f5f9; border-radius: 0.75rem; padding: 0.25rem; width: fit-content;">
-      <button
-        :class="['tab-btn', activeTab === 'registration' && 'tab-active']"
-        @click="activeTab = 'registration'"
-      >
-        Registration
-      </button>
-      <button
-        :class="['tab-btn', activeTab === 'booking' && 'tab-active']"
-        @click="activeTab = 'booking'; bookingStore.loadPendingPayments()"
-      >
-        Booking
-      </button>
+  <WorkspaceLayout role="admin" sidebar-title="Admin" title="Payment Review" subtitle="Approve or reject prospective member manual payment proofs." :sidebar-items="adminSidebarItems">
+    <div v-if="loading && !store.items.length" :style="shimmerStyle">
+      <SkeletonTable :columns="6" :rows="8" />
     </div>
+    <FitnezCard v-else>
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h2 class="title-md">Review queue</h2>
+          <p class="text-muted">Verify amount, payment method, and proof screenshot before approval.</p>
+        </div>
 
-    <!-- Registration Tab -->
-    <template v-if="activeTab === 'registration'">
-      <div v-if="loading && !prospectiveStore.items.length" :style="shimmerStyle">
-        <SkeletonTable :columns="6" :rows="8" />
+        <select v-model="store.status" class="form-input" style="width: auto; min-width: 220px;" @change="store.load()">
+          <option value="awaiting_admin_review">Awaiting Review</option>
+          <option value="awaiting_payment">Awaiting Payment</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="">All Statuses</option>
+        </select>
       </div>
-      <FitnezCard v-else>
-        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.25rem;">
-          <div>
-            <h2 class="title-md">Review queue</h2>
-            <p class="text-muted">Verify amount, payment method, and proof screenshot before approval.</p>
-          </div>
 
-          <select v-model="prospectiveStore.status" class="form-input" style="width: auto; min-width: 220px;" @change="prospectiveStore.load()">
-            <option value="awaiting_admin_review">Awaiting Review</option>
-            <option value="awaiting_payment">Awaiting Payment</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="">All Statuses</option>
-          </select>
-        </div>
-
-        <div v-if="!prospectiveStore.items.length && prospectiveStore.status === 'awaiting_admin_review'" class="p-8 text-center bg-blue-50 rounded-xl mb-6">
-          <p class="text-blue-600 font-medium">No new payments awaiting review.</p>
-          <p class="text-xs text-blue-400 mt-1">Use the filters above to see registrations that are approved or awaiting payment.</p>
-        </div>
-
-        <div class="data-table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Applicant</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Proof</th>
-                <th style="text-align: right;">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr v-for="row in prospectiveStore.items" :key="row.id">
-                <td style="max-width: 240px; word-break: break-word; font-weight: 900;">{{ row.registration_code }}</td>
-                <td>
-                  <p style="font-weight: 900;">{{ row.full_name }}</p>
-                  <p class="text-muted" style="font-size: 0.75rem;">{{ row.email }}</p>
-                </td>
-                <td style="font-weight: 800;">Rp {{ Number(row.amount).toLocaleString('en-US') }}</td>
-                <td><StatusBadge :status="row.status" /></td>
-                <td>
-                  <a v-if="row.payment_proof_url" :href="row.payment_proof_url" target="_blank" style="color: var(--color-blue-dark); font-weight: 900; text-decoration: underline;">Open Proof</a>
-                  <span v-else class="text-muted">No proof</span>
-                </td>
-                <td>
-                  <div style="display: flex; justify-content: end; gap: 0.5rem;">
-                    <FitnezButton size="sm" variant="secondary" @click="prospectiveStore.approve(row.id)">Approve</FitnezButton>
-                    <FitnezButton size="sm" variant="danger" @click="openRejectModal(row.id)">Reject</FitnezButton>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="!prospectiveStore.items.length">
-                <td colspan="6" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
-                  <div class="text-4xl mb-4">📂</div>
-                  No registration data found for this filter.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </FitnezCard>
-    </template>
-
-    <!-- Booking Tab -->
-    <template v-else-if="activeTab === 'booking'">
-      <div v-if="loading && !bookingStore.pendingBookings.length" :style="shimmerStyle">
-        <SkeletonTable :columns="6" :rows="8" />
+      <div v-if="!store.items.length && store.status === 'awaiting_admin_review'" class="p-8 text-center bg-blue-50 rounded-xl mb-6">
+        <p class="text-blue-600 font-medium">No new payments awaiting review.</p>
+        <p class="text-xs text-blue-400 mt-1">Use the filters above to see registrations that are approved or awaiting payment.</p>
       </div>
-      <FitnezCard v-else>
-        <div style="margin-bottom: 1.25rem;">
-          <h2 class="title-md">Booking Payments</h2>
-          <p class="text-muted">Verify transfer proof and amount before confirming the booking.</p>
+
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Applicant</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Proof</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="row in store.items" :key="row.id">
+              <td style="max-width: 240px; word-break: break-word; font-weight: 900;">{{ row.registration_code }}</td>
+              <td>
+                <p style="font-weight: 900;">{{ row.full_name }}</p>
+                <p class="text-muted" style="font-size: 0.75rem;">{{ row.email }}</p>
+              </td>
+              <td style="font-weight: 800;">Rp {{ Number(row.amount).toLocaleString('en-US') }}</td>
+              <td><StatusBadge :status="row.status" /></td>
+              <td>
+                <a v-if="row.payment_proof_url" :href="row.payment_proof_url" target="_blank" style="color: var(--color-blue-dark); font-weight: 900; text-decoration: underline;">Open Proof</a>
+                <span v-else class="text-muted">No proof</span>
+              </td>
+              <td>
+                <div style="display: flex; justify-content: end; gap: 0.5rem;">
+                  <FitnezButton size="sm" variant="secondary" @click="store.approve(row.id)">Approve</FitnezButton>
+                  <FitnezButton size="sm" variant="danger" @click="openRejectModal(row.id)">Reject</FitnezButton>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-if="!store.items.length">
+              <td colspan="6" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
+                <div class="text-4xl mb-4">📂</div>
+                No registration data found for this filter.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager-bar">
+        <p>Page {{ store.page }} of {{ store.lastPage }}</p>
+        <div class="pagination">
+          <button type="button" class="pagination-arrow" :disabled="store.page <= 1" @click="goToPage(store.page - 1)">‹</button>
+          <button
+            v-for="p in visiblePages"
+            :key="p"
+            :class="{ active: Number(p) === Number(store.page), disabled: p === '...' }"
+            :disabled="p === '...'"
+            type="button"
+            @click="goToPage(p)"
+          >
+            {{ p }}
+          </button>
+          <button type="button" class="pagination-arrow" :disabled="store.page >= store.lastPage" @click="goToPage(store.page + 1)">›</button>
         </div>
+      </div>
+    </FitnezCard>
 
-        <div v-if="!bookingStore.pendingBookings.length" class="p-8 text-center bg-blue-50 rounded-xl mb-6">
-          <p class="text-blue-600 font-medium">No pending booking payments.</p>
-          <p class="text-xs text-blue-400 mt-1">All booking payments have been reviewed.</p>
-        </div>
-
-        <div class="data-table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Member</th>
-                <th>Trainer</th>
-                <th>Amount</th>
-                <th>Period</th>
-                <th>Proof</th>
-                <th style="text-align: right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="b in bookingStore.pendingBookings" :key="b.id">
-                <td style="font-weight: 900;">#{{ b.id }}</td>
-                <td>
-                  <p style="font-weight: 900;">{{ b.member?.full_name ?? 'N/A' }}</p>
-                </td>
-                <td>
-                  <p style="font-weight: 900;">{{ b.trainer?.full_name ?? 'N/A' }}</p>
-                  <p class="text-muted" style="font-size: 0.75rem;">{{ b.sessions_per_week }}×/week</p>
-                </td>
-                <td style="font-weight: 800;">{{ formatPrice(b.total_member_price) }}</td>
-                <td style="font-size: 0.8rem;">
-                  {{ b.start_date }} – {{ b.end_date }}<br>
-                  <span class="text-muted">{{ b.total_sessions }} sessions</span>
-                </td>
-                <td>
-                  <a v-if="b.payment_proof_url" :href="b.payment_proof_url" target="_blank" style="color: var(--color-blue-dark); font-weight: 900; text-decoration: underline; font-size: 0.85rem;">Open Proof</a>
-                  <span v-else class="text-muted">No proof</span>
-                </td>
-                <td>
-                  <div style="display: flex; justify-content: end; gap: 0.5rem;">
-                    <FitnezButton size="sm" variant="secondary" @click="confirmBooking(b.id)">Confirm</FitnezButton>
-                    <FitnezButton size="sm" variant="danger" @click="openBookingRejectModal(b.id)">Reject</FitnezButton>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-if="!bookingStore.pendingBookings.length">
-                <td colspan="7" style="padding-block: 4rem; text-align: center; font-weight: 800; color: var(--color-muted);">
-                  No pending booking payments.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </FitnezCard>
-    </template>
-
-    <!-- Registration Rejection Modal -->
+    <!-- Rejection Modal -->
     <div v-if="showRejectModal && selectedRegistrationId" class="modal-overlay" @click.self="closeRejectModal">
       <div class="modal-card">
         <div class="modal-header">
@@ -304,61 +207,10 @@ function formatPrice(n: number | string | null | undefined) {
         </div>
       </div>
     </div>
-
-    <!-- Booking Rejection Modal -->
-    <div v-if="showBookingRejectModal && selectedBookingId" class="modal-overlay" @click.self="closeBookingRejectModal">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div class="warning-icon-wrapper">
-            <span class="material-symbols-outlined">gavel</span>
-          </div>
-          <div>
-            <h3 class="title-md" style="margin: 0; font-size: 1.25rem;">Reject Booking Payment</h3>
-            <p class="text-muted text-xs" style="margin-top: 0.25rem; font-size: 0.75rem;">Provide a reason for rejection. The member will be notified.</p>
-          </div>
-        </div>
-
-        <div class="modal-body">
-          <div class="form-field">
-            <label class="form-label">Rejection Reason</label>
-            <textarea v-model="bookingRejectReason" class="form-input" rows="3" placeholder="Why is this payment rejected?" />
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button class="button button-ghost" type="button" @click="closeBookingRejectModal">Cancel</button>
-          <button class="button button-danger" type="button" @click="submitBookingRejection" :disabled="!bookingRejectReason.trim()">
-            Reject Booking
-          </button>
-        </div>
-      </div>
-    </div>
   </WorkspaceLayout>
 </template>
 
 <style scoped>
-.tab-btn {
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.6rem;
-  border: none;
-  background: transparent;
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: #64748b;
-}
-
-.tab-btn:hover {
-  color: var(--color-blue-dark);
-}
-
-.tab-btn.tab-active {
-  background: white;
-  color: var(--color-blue-dark);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-}
-
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -436,7 +288,6 @@ function formatPrice(n: number | string | null | undefined) {
   background-color: #f8fafc;
   color: var(--color-black);
   transition: all 0.2s ease;
-  box-sizing: border-box;
 }
 
 .form-input:focus {
@@ -507,5 +358,62 @@ function formatPrice(n: number | string | null | undefined) {
 @keyframes slideDown {
   from { transform: translateY(-10px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.10);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination button {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pagination button.active {
+  background: #0058be;
+  color: white;
+  border-color: #0058be;
+}
+
+.pagination button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 </style>

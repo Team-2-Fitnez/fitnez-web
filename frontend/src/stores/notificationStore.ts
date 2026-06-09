@@ -1,45 +1,53 @@
-import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { notificationsApi } from '../api/notificationsApi'
 import type { NotificationItem } from '../types/dashboard'
 
-export const useNotificationStore = defineStore('notifications', () => {
-  const items = ref<NotificationItem[]>([])
-  const unreadCount = ref(0)
-  const loading = ref(false)
-  const page = ref(1)
-  const lastPage = ref(1)
-  const perPage = ref(10)
+export const useNotificationStore = defineStore('notifications', {
+  state: () => ({
+    items: [] as NotificationItem[],
+    unreadCount: 0,
+    loading: false,
+    page: 1,
+    lastPage: 1,
+    perPage: 10,
+    total: 0,
+  }),
 
-  async function load() {
-    loading.value = true
-    try {
-      const response = await notificationsApi.list(page.value, perPage.value)
-      items.value = response.data.data
-      page.value = response.data.current_page
-      lastPage.value = response.data.last_page
-    } finally {
-      loading.value = false
-    }
-  }
+  actions: {
+    async load() {
+      this.loading = true
+      try {
+        const response = await notificationsApi.list(this.page, this.perPage)
+        this.items = response.data.data
+        this.page = response.data.current_page
+        this.lastPage = response.data.last_page
+        this.total = response.data.total
+      } finally {
+        this.loading = false
+      }
+    },
 
-  async function loadUnreadCount() {
-    const response = await notificationsApi.unreadCount()
-    unreadCount.value = response.data.count
-  }
+    async loadUnreadCount() {
+      const response = await notificationsApi.unreadCount()
+      this.unreadCount = response.data.count
+    },
 
-  async function markAsRead(id: number) {
-    await notificationsApi.markAsRead(id)
-    await load()
-    await loadUnreadCount()
-  }
+    async markAsRead(id: number) {
+      await notificationsApi.markAsRead(id)
+      await this.load()
+      await this.loadUnreadCount()
+    },
 
-  async function markAllRead() {
-    await notificationsApi.markAllRead()
-    items.value = items.value.map((n) => ({ ...n, is_read: true }))
-    unreadCount.value = 0
-  }
+    async markAllRead() {
+      await notificationsApi.markAllRead()
+      this.items = this.items.map((n) => ({ ...n, is_read: true }))
+      this.unreadCount = 0
+    },
 
-  return { items, unreadCount, loading, page, lastPage, perPage, load, loadUnreadCount, markAsRead, markAllRead }
+    async goToPage(page: number) {
+      if (page < 1 || page > this.lastPage || page === this.page) return
+      this.page = page
+      await this.load()
+    },
+  },
 })
-

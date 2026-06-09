@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Events\AttendanceChecked;
 use App\Models\Attendance;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -33,8 +32,6 @@ class AttendanceController extends Controller
             'booking_id' => $data['booking_id'] ?? null,
         ]);
 
-        AttendanceChecked::dispatch($attendance, 'checkin');
-
         return ApiResponse::success('Check-in successful.', $attendance, 201);
     }
 
@@ -51,8 +48,6 @@ class AttendanceController extends Controller
         }
 
         $attendance->update(['check_out_time' => now()]);
-
-        AttendanceChecked::dispatch($attendance, 'checkout');
 
         return ApiResponse::success('Check-out successful.', $attendance);
     }

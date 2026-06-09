@@ -14,8 +14,6 @@ export type TrainerDetail = {
   experience_years?: number | null
   hourly_rate?: number | string | null
   avg_rating?: number | null
-  base_price?: number | null
-  member_price?: number | null
   user?: FitnezUser
 }
 
@@ -23,21 +21,14 @@ export type TrainerBooking = {
   id: number
   member_id: number
   trainer_id: number
-  start_date: string
-  end_date: string
-  sessions_per_week: number
-  session_days: string[]
-  session_time: string
+  booking_date: string
+  start_time: string
+  end_time: string
+  session_type: string
+  location?: string | null
   member_notes?: string | null
   status?: string | null
-  base_price_per_session: number
-  member_price_per_session: number
-  total_member_price: number
-  total_trainer_price: number
-  total_sessions: number
-  payment_proof_path?: string | null
-  payment_proof_url?: string | null
-  paid_at?: string | null
+  total_price: number | string
   member?: FitnezUser
   trainer?: FitnezUser
 }

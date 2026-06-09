@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import { http } from '../../api/http'
@@ -7,45 +7,9 @@ import { useMemberPaymentAttendanceReportStore } from '../../stores/memberPaymen
 import SkeletonStatGrid from '../../components/ui/skeleton/SkeletonStatGrid.vue'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
-import { getSocket } from '../../services/socket'
-import { useSse } from '../../composables/useSse'
 
 const store = useMemberPaymentAttendanceReportStore()
 const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
-
-// Report Export SSE
-const showExportModal = ref(false)
-const { progress, status, message, connect, disconnect } = useSse()
-
-async function startReportExport() {
-  showExportModal.value = true
-  const url = http.url('/admin/export/member-reports/sse')
-  const eventSource = new EventSource(url)
-
-  eventSource.addEventListener('progress', (e: MessageEvent) => {
-    try {
-      const data = JSON.parse(e.data)
-      progress.value = data.progress
-      status.value = data.status
-      message.value = data.message || ''
-
-      if (data.status === 'completed' && data.download_url) {
-        eventSource.close()
-        // Short delay so user sees 100% then download
-        setTimeout(() => {
-          window.location.href = data.download_url
-          showExportModal.value = false
-        }, 500)
-      }
-    } catch { /* ignore parse errors */ }
-  })
-
-  eventSource.onerror = () => {
-    status.value = 'failed'
-    message.value = 'Connection lost. Please try again.'
-    eventSource.close()
-  }
-}
 
 // Formatting helpers
 function currency(value?: string | number | null) {
@@ -163,6 +127,61 @@ const activePeriodLabel = computed(() => {
 
   return `${start} - ${end}`
 })
+const visiblePaymentsPages = computed(() => {
+  const last = Number(store.paymentsLastPage)
+  const current = Number(store.paymentsPage)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+const visibleAttendancePages = computed(() => {
+  const last = Number(store.attendanceLastPage)
+  const current = Number(store.attendancePage)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPaymentsPage(page: number | string) {
+  if (typeof page === 'string') return
+  if (page < 1 || page > store.paymentsLastPage || page === store.paymentsPage) return
+  store.paymentsPage = page
+  store.loadPayments()
+}
+
+function goToAttendancePage(page: number | string) {
+  if (typeof page === 'string') return
+  if (page < 1 || page > store.attendanceLastPage || page === store.attendancePage) return
+  store.attendancePage = page
+  store.loadAttendance()
+}
 
 // Filter Actions
 function applyFilters() {
@@ -194,31 +213,18 @@ onMounted(() => {
   // Silent polling every 10 seconds in the background
   pollInterval = window.setInterval(async () => {
     try {
-      await store.loadSummary()
-      await store.loadPayments()
-      await store.loadAttendance()
+      await store.loadSummary(true)
+      await store.loadPayments(true)
+      await store.loadAttendance(true)
     } catch (err) {
       console.error('Polling operations data failed', err)
     }
   }, 10000)
-
-  // Real-time update via Socket.io
-  const socket = getSocket()
-  if (socket) {
-    socket.on('attendance-update', () => {
-      store.loadSummary()
-      store.loadAttendance()
-    })
-  }
 })
 
 onBeforeUnmount(() => {
   if (pollInterval) {
     window.clearInterval(pollInterval)
-  }
-  const socket = getSocket()
-  if (socket) {
-    socket.off('attendance-update')
   }
 })
 </script>
@@ -245,10 +251,10 @@ onBeforeUnmount(() => {
             <span class="material-symbols-outlined font-icon">calendar_month</span>
             Period: {{ activePeriodLabel }}
           </p>
-          <button type="button" class="export-report-btn" @click="startReportExport" :disabled="status === 'processing'">
+          <a :href="http.url('/admin/export/member-reports')" class="export-report-btn">
             <span class="material-symbols-outlined font-icon">print</span>
-            {{ status === 'processing' ? 'Generating...' : 'Print Monthly Report' }}
-          </button>
+            Print Monthly Report
+          </a>
         </div>
 
         <!-- Metric Cards Grid -->
@@ -313,8 +319,8 @@ onBeforeUnmount(() => {
             <span>Classification</span>
             <select v-model="store.attendanceType" @change="applyFilters">
               <option value="">All Classifications</option>
-              <option value="member_checkin">Member Check-In</option>
-              <option value="trainer_checkin">Trainer Check-In</option>
+              <option value="member_check_in">Member Check-In</option>
+              <option value="trainer_check_in">Trainer Check-In</option>
               <option value="class_attendance">Class Attendance</option>
             </select>
           </label>
@@ -403,9 +409,19 @@ onBeforeUnmount(() => {
 
           <div class="pager-bar">
             <p>Page {{ store.paymentsPage }} of {{ store.paymentsLastPage }}</p>
-            <div>
-              <button type="button" :disabled="store.paymentsPage <= 1" @click="store.previousPaymentsPage">Previous</button>
-              <button type="button" :disabled="store.paymentsPage >= store.paymentsLastPage" @click="store.nextPaymentsPage">Next</button>
+            <div class="pagination">
+              <button type="button" class="pagination-arrow" :disabled="store.paymentsPage <= 1" @click="goToPaymentsPage(store.paymentsPage - 1)">‹</button>
+              <button
+                v-for="page in visiblePaymentsPages"
+                :key="page"
+                :class="{ active: Number(page) === Number(store.paymentsPage), disabled: page === '...' }"
+                :disabled="page === '...'"
+                type="button"
+                @click="goToPaymentsPage(page)"
+              >
+                {{ page }}
+              </button>
+              <button type="button" class="pagination-arrow" :disabled="store.paymentsPage >= store.paymentsLastPage" @click="goToPaymentsPage(store.paymentsPage + 1)">›</button>
             </div>
           </div>
         </section>
@@ -459,30 +475,24 @@ onBeforeUnmount(() => {
 
           <div class="pager-bar">
             <p>Page {{ store.attendancePage }} of {{ store.attendanceLastPage }}</p>
-            <div>
-              <button type="button" :disabled="store.attendancePage <= 1" @click="store.previousAttendancePage">Previous</button>
-              <button type="button" :disabled="store.attendancePage >= store.attendanceLastPage" @click="store.nextAttendancePage">Next</button>
+            <div class="pagination">
+              <button type="button" class="pagination-arrow" :disabled="store.attendancePage <= 1" @click="goToAttendancePage(store.attendancePage - 1)">‹</button>
+              <button
+                v-for="page in visibleAttendancePages"
+                :key="page"
+                :class="{ active: Number(page) === Number(store.attendancePage), disabled: page === '...' }"
+                :disabled="page === '...'"
+                type="button"
+                @click="goToAttendancePage(page)"
+              >
+                {{ page }}
+              </button>
+              <button type="button" class="pagination-arrow" :disabled="store.attendancePage >= store.attendanceLastPage" @click="goToAttendancePage(store.attendancePage + 1)">›</button>
             </div>
           </div>
         </section>
       </template>
     </div>
-
-    <!-- Export Progress Modal -->
-    <Teleport to="body">
-      <div v-if="showExportModal" class="modal-overlay" @click.self="showExportModal = false">
-        <div class="modal-card">
-          <h3 class="modal-title">Generating Monthly Report</h3>
-          <div class="progress-bar-track">
-            <div class="progress-bar-fill" :style="{ width: progress + '%' }"></div>
-          </div>
-          <p class="progress-text">{{ message }}</p>
-          <p class="progress-pct">{{ progress }}%</p>
-          <button v-if="status === 'failed'" type="button" class="button button-primary" @click="startReportExport">Retry</button>
-          <button v-if="status === 'completed'" type="button" class="button button-primary" @click="showExportModal = false">Close</button>
-        </div>
-      </div>
-    </Teleport>
   </WorkspaceLayout>
 </template>
 
@@ -928,6 +938,47 @@ td {
   opacity: 0.45;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination button {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pagination button.active {
+  background: #0058be;
+  color: white;
+  border-color: #0058be;
+}
+
+.pagination button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
 @media (max-width: 1280px) {
   .metric-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -977,61 +1028,5 @@ td {
   .metric-grid {
     grid-template-columns: 1fr;
   }
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.modal-card {
-  background: #fff;
-  border-radius: 1.25rem;
-  padding: 2rem;
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-}
-
-.modal-title {
-  font-size: 1.15rem;
-  font-weight: 900;
-  color: #0f172a;
-  margin: 0 0 1.25rem;
-}
-
-.progress-bar-track {
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 0.75rem;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #2563eb, #7c3aed);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.progress-text {
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 600;
-  margin: 0 0 0.25rem;
-}
-
-.progress-pct {
-  color: #0f172a;
-  font-size: 1.5rem;
-  font-weight: 950;
-  margin: 0.5rem 0 1rem;
 }
 </style>

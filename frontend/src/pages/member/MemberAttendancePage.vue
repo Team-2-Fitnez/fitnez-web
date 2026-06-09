@@ -21,7 +21,6 @@ type AttendanceItem = {
 
 const history = ref<AttendanceItem[]>([])
 const checkInStatus = ref<'none' | 'checked_in' | 'checked_out'>('none')
-const actionLoading = ref(false)
 const payments = ref({ total_payments: 0, total_amount: 0, paid_count: 0, pending_count: 0 })
 const paymentsHistory = ref<any[]>([])
 const classesTotal = ref(0)
@@ -65,37 +64,29 @@ async function loadData() {
 
 async function doCheckIn() {
   if (!isMember.value) return
-  actionLoading.value = true
+  loading.value = true
   try {
-    const res = await http.post<{ id: number; check_in_time: string }>('/attendance/check-in', {})
+    await http.post('/attendance/check-in', {})
     window.showFitnezToast('Check-in successful.', 'success')
-    history.value.unshift({
-      id: res.data.id,
-      check_in_time: res.data.check_in_time,
-      check_out_time: null,
-      attendance_type: 'member_checkin',
-    })
-    checkInStatus.value = 'checked_in'
+    await loadData()
   } catch (error: any) {
     window.showFitnezToast(error?.message || 'Failed to check in.', 'error')
   } finally {
-    actionLoading.value = false
+    loading.value = false
   }
 }
 
 async function doCheckOut() {
   if (!isMember.value) return
-  actionLoading.value = true
+  loading.value = true
   try {
     await http.post('/attendance/check-out', {})
     window.showFitnezToast('Check-out successful.', 'success')
-    const active = history.value.find((item: any) => !item.check_out_time)
-    if (active) active.check_out_time = new Date().toISOString()
-    checkInStatus.value = 'checked_out'
+    await loadData()
   } catch (error: any) {
     window.showFitnezToast(error?.message || 'Failed to check out.', 'error')
   } finally {
-    actionLoading.value = false
+    loading.value = false
   }
 }
 
@@ -158,19 +149,19 @@ useAutoRefresh(loadData, 8000)
                 v-if="checkInStatus !== 'checked_in'"
                 class="button button-primary"
                 type="button"
-                :disabled="actionLoading"
+                :disabled="loading"
                 @click="doCheckIn"
               >
-                {{ actionLoading ? 'Processing...' : 'Check In' }}
+                {{ loading ? 'Processing...' : 'Check In' }}
               </button>
               <button
                 v-if="checkInStatus === 'checked_in'"
                 class="button button-danger"
                 type="button"
-                :disabled="actionLoading"
+                :disabled="loading"
                 @click="doCheckOut"
               >
-                {{ actionLoading ? 'Processing...' : 'Check Out' }}
+                {{ loading ? 'Processing...' : 'Check Out' }}
               </button>
             </div>
             <div v-else class="p-3 bg-amber-50 text-amber-800 rounded-xl border border-amber-200 text-xs font-semibold">

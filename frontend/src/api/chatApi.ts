@@ -17,9 +17,6 @@ export type ChatMsg = {
   sender_name: string
   is_read: boolean
   isMe: boolean
-  file_url?: string | null
-  file_name?: string | null
-  file_size?: number | null
 }
 
 export type ChatMessagesResponse = {
@@ -39,14 +36,7 @@ export const chatApi = {
     return http.get<ChatMessagesResponse>(url)
   },
 
-  send(receiverId: number, message: string, file?: File) {
-    if (file) {
-      const form = new FormData()
-      form.append('receiver_id', String(receiverId))
-      form.append('message', message)
-      form.append('file', file)
-      return http.post<ChatMsg>('/chat/messages', form)
-    }
+  send(receiverId: number, message: string) {
     return http.post<ChatMsg>('/chat/messages', { receiver_id: receiverId, message })
   },
 }

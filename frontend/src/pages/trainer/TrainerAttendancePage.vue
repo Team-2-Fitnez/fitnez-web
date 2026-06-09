@@ -4,15 +4,12 @@ import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import SkeletonList from '../../components/ui/SkeletonList.vue'
-import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import { http } from '../../api/http'
 
 const loading = ref(false)
-const actionLoading = ref(false)
 const loaded = ref(false)
 const history = ref<any[]>([])
 const checkInStatus = ref<'none' | 'checked_in' | 'checked_out'>('none')
-const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
 
 async function loadHistory() {
   loading.value = true
@@ -30,36 +27,28 @@ async function loadHistory() {
 }
 
 async function doCheckIn() {
-  actionLoading.value = true
+  loading.value = true
   try {
-    const res = await http.post<{ id: number; check_in_time: string }>('/attendance/check-in', { attendance_type: 'trainer_checkin' })
+    await http.post('/attendance/check-in', { attendance_type: 'trainer_checkin' })
     window.showFitnezToast('Check-in successful!', 'success')
-    history.value.unshift({
-      id: res.data.id,
-      check_in_time: res.data.check_in_time,
-      check_out_time: null,
-      attendance_type: 'trainer_checkin',
-    })
-    checkInStatus.value = 'checked_in'
+    await loadHistory()
   } catch (e: any) {
     window.showFitnezToast(e?.message || 'Failed to check in.', 'error')
   } finally {
-    actionLoading.value = false
+    loading.value = false
   }
 }
 
 async function doCheckOut() {
-  actionLoading.value = true
+  loading.value = true
   try {
     await http.post('/attendance/check-out', {})
     window.showFitnezToast('Check-out successful!', 'success')
-    const active = history.value.find((a: any) => !a.check_out_time)
-    if (active) active.check_out_time = new Date().toISOString()
-    checkInStatus.value = 'checked_out'
+    await loadHistory()
   } catch (e: any) {
     window.showFitnezToast(e?.message || 'Failed to check out.', 'error')
   } finally {
-    actionLoading.value = false
+    loading.value = false
   }
 }
 
@@ -68,7 +57,7 @@ function formatDateTime(val?: string) {
   return new Date(val).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-onMounted(() => run(loadHistory))
+onMounted(loadHistory)
 </script>
 
 <template>
@@ -92,21 +81,20 @@ onMounted(() => run(loadHistory))
             <button
               v-if="checkInStatus !== 'checked_in'"
               class="button button-primary"
-              :disabled="actionLoading"
+              :disabled="loading"
               @click="doCheckIn"
-            >{{ actionLoading ? 'Processing...' : 'Check-In' }}</button>
+            >{{ loading ? 'Processing...' : 'Check-In' }}</button>
             <button
               v-if="checkInStatus === 'checked_in'"
               class="button button-danger"
-              :disabled="actionLoading"
+              :disabled="loading"
               @click="doCheckOut"
-            >{{ actionLoading ? 'Processing...' : 'Check-Out' }}</button>
+            >{{ loading ? 'Processing...' : 'Check-Out' }}</button>
           </div>
         </div>
       </FitnezCard>
 
-      <SkeletonList v-if="initialLoading" :rows="5" :style="shimmerStyle" />
-      <SkeletonList v-else-if="!loaded && loading" :rows="5" />
+      <SkeletonList v-if="!loaded && loading" :rows="5" />
 
       <FitnezCard v-else>
         <p class="eyebrow">Attendance History</p>

@@ -162,11 +162,11 @@ export const useChatStore = defineStore('chat', {
       this.contactsRefreshInterval = null
     },
 
-    async sendMessage(message: string, file?: File) {
+    async sendMessage(message: string) {
       if (!this.activeContactId) return
 
       try {
-        const response = await chatApi.send(this.activeContactId, message, file)
+        const response = await chatApi.send(this.activeContactId, message)
         this.messages.push(response.data)
       } catch {
         window.showFitnezToast('Failed to send message. Please try again.', 'error')

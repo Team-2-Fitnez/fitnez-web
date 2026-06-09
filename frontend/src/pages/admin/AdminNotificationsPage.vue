@@ -44,6 +44,24 @@
               </div>
             </article>
           </div>
+
+          <div v-if="lastPage > 1" class="pager-bar">
+            <p>Page {{ page }} of {{ lastPage }}</p>
+            <div class="pagination">
+              <button type="button" :disabled="page <= 1" @click="goToPage(page - 1)">‹</button>
+              <button
+                v-for="itemPage in visiblePages"
+                :key="itemPage"
+                type="button"
+                :class="{ active: Number(itemPage) === Number(page), disabled: itemPage === '...' }"
+                :disabled="itemPage === '...'"
+                @click="goToPage(itemPage)"
+              >
+                {{ itemPage }}
+              </button>
+              <button type="button" :disabled="page >= lastPage" @click="goToPage(page + 1)">›</button>
+            </div>
+          </div>
         </section>
 
         <section v-else class="empty-notifications">
@@ -65,7 +83,6 @@
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import api from '@/api/axios'
-import { http } from '../../api/http';
 
 export default {
   name: 'AdminNotificationView',
@@ -77,9 +94,23 @@ export default {
       pendingMemberCount: 0,
       pendingTrainerCount: 0,
       notifications: [],
+      page: 1,
+      lastPage: 1,
+      perPage: 10,
+      total: 0,
       readAdminNotifIds: JSON.parse(localStorage.getItem('fitnez_admin_read_notifs') || '[]'),
       refreshInterval: null,
     }
+  },
+  computed: {
+    visiblePages() {
+      const last = Number(this.lastPage)
+      const current = Number(this.page)
+      if (last <= 5) return Array.from({ length: last }, (_, i) => i + 1)
+      if (current <= 2) return [1, 2, 3, '...', last]
+      if (current >= last - 1) return [1, '...', last - 2, last - 1, last]
+      return [1, '...', current - 1, current, current + 1, '...', last]
+    },
   },
   async mounted() {
     await this.fetchAdminData()
@@ -147,10 +178,20 @@ export default {
       })
       localStorage.setItem('fitnez_admin_read_notifs', JSON.stringify(this.readAdminNotifIds))
     },
+    async goToPage(page) {
+      if (typeof page === 'string') return
+      if (page < 1 || page > this.lastPage || page === this.page) return
+
+      this.page = page
+      await this.fetchAdminData()
+    },
     async fetchAdminData() {
       try {
-        const { data } = await api.get('/admin/notifications')
+        const { data } = await api.get(`/admin/notifications?page=${this.page}&per_page=${this.perPage}`)
         this.notifications = data.notifications || []
+        this.page = data.current_page || this.page
+        this.lastPage = data.last_page || 1
+        this.total = data.total || this.notifications.length
         this.activeUsers = data.activeUsers || 0
         this.pendingMemberCount = data.pendingMemberCount || 0
         this.pendingTrainerCount = data.pendingTrainerCount || 0
@@ -279,6 +320,57 @@ export default {
 .notification-list {
   display: grid;
   gap: 0.85rem;
+}
+
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pagination button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0 0.55rem;
+}
+
+.pagination button.active {
+  background: #0058be;
+  border-color: #0058be;
+  color: #ffffff;
+}
+
+.pagination button:disabled {
+  background: #f8fafc;
+  color: #cbd5e1;
+  cursor: not-allowed;
 }
 
 .notification-item {
@@ -483,6 +575,16 @@ export default {
   .notification-mainline {
     flex-direction: column;
     gap: 0.25rem;
+  }
+
+  .pager-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
   }
 }
 </style>

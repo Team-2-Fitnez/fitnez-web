@@ -19,16 +19,14 @@ export type TrainerRentBooking = {
   id: number
   member_id: number
   trainer_id: number
-  start_date: string
-  end_date: string
-  sessions_per_week: number
-  session_days: string[]
-  session_time: string
+  booking_date: string
+  start_time: string
+  end_time: string
+  session_type: string
+  location?: string | null
   member_notes?: string | null
   status?: string | null
-  total_member_price: string | number
-  total_trainer_price: string | number
-  total_sessions: number
+  total_price: string | number
   member?: FitnezUser | null
   trainer?: FitnezUser | null
 }
@@ -47,22 +45,12 @@ export type TrainerRentHistory = {
 }
 
 export type TrainerRentSummary = {
-  total_bookings: number
-  total_earnings: number
   total_records: number
   total_trainer_amount: number
   total_trainer_amount_trend?: number
   pending_amount: number
   disbursed_amount: number
   this_month_amount: number
-}
-
-export type TrainerIncomeBreakdown = {
-  mentoring_income: number
-  session_income: number
-  total_income: number
-  total_entries: number
-  this_month_income: number
 }
 
 export type TrainerRentHistoryPage = Paginated<TrainerRentHistory>

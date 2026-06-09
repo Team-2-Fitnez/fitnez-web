@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class TrainerBooking extends Model
 {
@@ -16,17 +15,17 @@ class TrainerBooking extends Model
     const UPDATED_AT = null;
 
     const STATUS_PENDING = 'pending';
-    const STATUS_PENDING_PAYMENT = 'pending_payment';
     const STATUS_CONFIRMED = 'confirmed';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
+    const STATUS_REJECTED = 'rejected';
 
     const STATUS_TRANSITIONS = [
-        self::STATUS_PENDING          => [self::STATUS_PENDING_PAYMENT, self::STATUS_CANCELLED],
-        self::STATUS_PENDING_PAYMENT  => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED],
-        self::STATUS_CONFIRMED        => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
-        self::STATUS_COMPLETED        => [],
-        self::STATUS_CANCELLED        => [],
+        self::STATUS_PENDING   => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED, self::STATUS_REJECTED],
+        self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
+        self::STATUS_COMPLETED => [],
+        self::STATUS_CANCELLED => [],
+        self::STATUS_REJECTED  => [],
     ];
 
     public function canTransitionTo(string $newStatus): bool
@@ -37,43 +36,21 @@ class TrainerBooking extends Model
     protected $fillable = [
         'member_id',
         'trainer_id',
-        'start_date',
-        'end_date',
-        'sessions_per_week',
-        'session_days',
-        'session_time',
+        'booking_date',
+        'start_time',
+        'end_time',
+        'session_type',
+        'location',
         'member_notes',
-        'base_price_per_session',
-        'member_price_per_session',
-        'total_member_price',
-        'total_trainer_price',
-        'total_sessions',
-        'payment_proof_path',
-        'paid_at',
         'status',
+        'total_price',
     ];
 
     protected $casts = [
-        'start_date' => 'date:Y-m-d',
-        'end_date' => 'date:Y-m-d',
-        'session_days' => 'array',
-        'base_price_per_session' => 'decimal:2',
-        'member_price_per_session' => 'decimal:2',
-        'total_member_price' => 'decimal:2',
-        'total_trainer_price' => 'decimal:2',
-        'paid_at' => 'datetime',
+        'booking_date' => 'date:Y-m-d',
+        'total_price' => 'decimal:2',
         'created_at' => 'datetime',
     ];
-
-    protected $appends = ['payment_proof_url'];
-
-    public function getPaymentProofUrlAttribute(): ?string
-    {
-        if (!$this->payment_proof_path) {
-            return null;
-        }
-        return Storage::disk('public')->url($this->payment_proof_path);
-    }
 
     public function member()
     {
@@ -85,6 +62,9 @@ class TrainerBooking extends Model
         return $this->belongsTo(User::class, 'trainer_id');
     }
 
+    /**
+     * Bookings visible to a given user (as member or trainer).
+     */
     public function scopeForUser(Builder $query, int $userId): Builder
     {
         return $query->where(function ($q) use ($userId) {
@@ -93,31 +73,11 @@ class TrainerBooking extends Model
         });
     }
 
-    public function scopePendingPayment(Builder $query): Builder
-    {
-        return $query->where('status', self::STATUS_PENDING_PAYMENT);
-    }
-
+    /**
+     * Active bookings (pending or confirmed — not cancelled/rejected/completed).
+     */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', self::STATUS_CONFIRMED);
-    }
-
-    public function generateSessionDates(): array
-    {
-        $dates = [];
-        $days = $this->session_days ?? [];
-        $current = $this->start_date->copy();
-        $end = $this->end_date->copy();
-        $dayMap = ['sunday' => 0, 'monday' => 1, 'tuesday' => 2, 'wednesday' => 3, 'thursday' => 4, 'friday' => 5, 'saturday' => 6];
-        $targetNumbers = array_map(fn($d) => $dayMap[strtolower($d)] ?? -1, $days);
-
-        while ($current->lte($end)) {
-            if (in_array($current->dayOfWeek, $targetNumbers)) {
-                $dates[] = $current->format('Y-m-d');
-            }
-            $current->addDay();
-        }
-        return $dates;
+        return $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED]);
     }
 }

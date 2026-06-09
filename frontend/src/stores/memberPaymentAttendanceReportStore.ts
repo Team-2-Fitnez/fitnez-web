@@ -30,19 +30,19 @@ export const useMemberPaymentAttendanceReportStore = defineStore('memberPaymentA
   }),
 
   actions: {
-    async loadSummary() {
-      this.loadingSummary = true
+    async loadSummary(silent = false) {
+      if (!silent) this.loadingSummary = true
 
       try {
         const response = await memberPaymentAttendanceReportApi.summary()
         this.summary = response.data
       } finally {
-        this.loadingSummary = false
+        if (!silent) this.loadingSummary = false
       }
     },
 
-    async loadPayments() {
-      this.loadingPayments = true
+    async loadPayments(silent = false) {
+      if (!silent) this.loadingPayments = true
 
       try {
         const response = await memberPaymentAttendanceReportApi.payments({
@@ -60,12 +60,12 @@ export const useMemberPaymentAttendanceReportStore = defineStore('memberPaymentA
         this.paymentsLastPage = response.data.last_page
         this.paymentsTotal = response.data.total
       } finally {
-        this.loadingPayments = false
+        if (!silent) this.loadingPayments = false
       }
     },
 
-    async loadAttendance() {
-      this.loadingAttendance = true
+    async loadAttendance(silent = false) {
+      if (!silent) this.loadingAttendance = true
 
       try {
         const response = await memberPaymentAttendanceReportApi.attendance({
@@ -82,7 +82,7 @@ export const useMemberPaymentAttendanceReportStore = defineStore('memberPaymentA
         this.attendanceLastPage = response.data.last_page
         this.attendanceTotal = response.data.total
       } finally {
-        this.loadingAttendance = false
+        if (!silent) this.loadingAttendance = false
       }
     },
 

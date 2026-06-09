@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -22,11 +22,50 @@ const members = ref<MemberNutrition[]>([])
 const error = ref('')
 const { loading, run, shimmerStyle } = useDeferredLoading()
 
+const currentPage = ref(1)
+const perPage = 15
+
+const paginatedMembers = computed(() => {
+  const start = (currentPage.value - 1) * perPage
+  const end = start + perPage
+  return members.value.slice(start, end)
+})
+
+const lastPage = computed(() => Math.ceil(members.value.length / perPage) || 1)
+
+const visiblePages = computed(() => {
+  const last = Number(lastPage.value)
+  const current = Number(currentPage.value)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPage(p: number | string) {
+  if (typeof p === 'string') return
+  if (p < 1 || p > lastPage.value || p === currentPage.value) return
+  currentPage.value = p
+}
+
 async function loadMembers() {
   error.value = ''
   try {
     const response = await mealPlanApi.getAllMemberNutrition()
     members.value = (response as any).members ?? []
+    currentPage.value = 1
   } catch {
     error.value = 'Failed to load nutrition monitoring data.'
   }
@@ -118,7 +157,7 @@ onMounted(() => run(loadMembers))
               </tr>
             </thead>
             <tbody>
-              <tr v-for="member in members" :key="member.id">
+              <tr v-for="member in paginatedMembers" :key="member.id">
                 <td>
                   <p class="member-name">{{ member.name }}</p>
                   <p class="member-email">{{ member.email }}</p>
@@ -145,6 +184,24 @@ onMounted(() => run(loadMembers))
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div v-if="members.length" class="pager-bar">
+          <p>Page {{ currentPage }} of {{ lastPage }}</p>
+          <div class="pagination">
+            <button type="button" class="pagination-arrow" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">‹</button>
+            <button
+              v-for="p in visiblePages"
+              :key="p"
+              :class="{ active: Number(p) === Number(currentPage), disabled: p === '...' }"
+              :disabled="p === '...'"
+              type="button"
+              @click="goToPage(p)"
+            >
+              {{ p }}
+            </button>
+            <button type="button" class="pagination-arrow" :disabled="currentPage >= lastPage" @click="goToPage(currentPage + 1)">›</button>
+          </div>
         </div>
       </FitnezCard>
     </div>
@@ -235,5 +292,62 @@ onMounted(() => run(loadMembers))
   color: #64748b;
   font-weight: 700;
   margin-top: 1rem;
+}
+
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.10);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination button {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pagination button.active {
+  background: #0058be;
+  color: white;
+  border-color: #0058be;
+}
+
+.pagination button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 </style>

@@ -11,7 +11,6 @@ use App\Models\FoodLog;
 use App\Models\MealPlan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -169,113 +168,6 @@ class ExcelExportController extends Controller
         }
 
         return $this->download($spreadsheet, 'attendance.xlsx');
-    }
-
-    public function memberReportsSse(Request $request)
-    {
-        $jobId = (string) str()->uuid();
-        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : now()->endOfDay();
-        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : $endDate->copy()->subMonth()->startOfDay();
-
-        $response = new StreamedResponse(function () use ($jobId, $startDate, $endDate) {
-            $this->writeSseProgress($jobId, 5, 'processing', 'Starting report generation...');
-
-            $payments = \App\Models\Payment::query()
-                ->with('user')
-                ->whereBetween('payment_date', [$startDate, $endDate])
-                ->orderByDesc('payment_date')
-                ->get();
-            $this->writeSseProgress($jobId, 20, 'processing', 'Payments data loaded.');
-
-            $attendance = \App\Models\Attendance::query()
-                ->with(['user', 'booking.trainer'])
-                ->whereBetween('check_in_time', [$startDate, $endDate])
-                ->orderByDesc('check_in_time')
-                ->get();
-            $this->writeSseProgress($jobId, 40, 'processing', 'Attendance data loaded.');
-
-            $spreadsheet = new Spreadsheet();
-            $summarySheet = $spreadsheet->getActiveSheet();
-            $summarySheet->setTitle('Summary');
-            $this->writeRow($summarySheet, 1, ['Fitnez Admin Report']);
-            $this->writeRow($summarySheet, 3, ['Period', $startDate->toDateString() . ' to ' . $endDate->toDateString()]);
-            $this->writeRow($summarySheet, 4, ['Total Revenue', (float) $payments->sum('amount')]);
-            $this->writeRow($summarySheet, 5, ['Total Transactions', $payments->count()]);
-            $this->writeRow($summarySheet, 6, ['Successful Transactions', $payments->where('payment_status', 'paid')->count()]);
-            $this->writeRow($summarySheet, 7, ['Pending Transactions', $payments->where('payment_status', 'pending')->count()]);
-            $this->writeRow($summarySheet, 8, ['Total Attendance', $attendance->count()]);
-            $this->writeRow($summarySheet, 9, ['Attendance Today', $attendance->filter(fn($row) => optional($row->check_in_time)->isToday())->count()]);
-            $this->writeSseProgress($jobId, 60, 'processing', 'Summary sheet built.');
-
-            $paymentSheet = $spreadsheet->createSheet();
-            $paymentSheet->setTitle('Payments');
-            $this->writeRow($paymentSheet, 1, ['Invoice', 'Member', 'Email', 'Type', 'Amount', 'Method', 'Status', 'Date']);
-            $r = 2;
-            foreach ($payments as $payment) {
-                $this->writeRow($paymentSheet, $r++, [
-                    $payment->invoice_number, $payment->user->full_name ?? '-', $payment->user->email ?? '-',
-                    $payment->payment_type, (float) $payment->amount, $payment->payment_method ?? '',
-                    $payment->payment_status ?? 'pending', $payment->payment_date ?? '',
-                ]);
-            }
-            $this->writeSseProgress($jobId, 75, 'processing', 'Payment sheet built.');
-
-            $attendanceSheet = $spreadsheet->createSheet();
-            $attendanceSheet->setTitle('Attendance');
-            $this->writeRow($attendanceSheet, 1, ['Member', 'Email', 'Type', 'Check-In', 'Check-Out', 'Booking', 'Trainer', 'Status']);
-            $r = 2;
-            foreach ($attendance as $row) {
-                $this->writeRow($attendanceSheet, $r++, [
-                    $row->user->full_name ?? '-', $row->user->email ?? '-', $row->attendance_type,
-                    $row->check_in_time ?? '', $row->check_out_time ?? '',
-                    $row->booking->session_type ?? '', $row->booking->trainer->full_name ?? '',
-                    $row->check_out_time ? 'Completed' : 'Active',
-                ]);
-            }
-            $this->writeSseProgress($jobId, 90, 'processing', 'Attendance sheet built, finalizing...');
-
-            $filename = 'member-reports-' . $jobId . '.xlsx';
-            $tempPath = sys_get_temp_dir() . '/' . $filename;
-            $writer = new Xlsx($spreadsheet);
-            $writer->save($tempPath);
-
-            $downloadUrl = url('/admin/export/member-reports/download/' . $filename);
-            Cache::put("sse_download_{$jobId}", $tempPath, 300);
-            Cache::put("sse_download_url_{$jobId}", $downloadUrl, 300);
-
-            $this->writeSseProgress($jobId, 100, 'completed', 'Report ready!', ['download_url' => $downloadUrl]);
-        });
-
-        $response->headers->set('Content-Type', 'text/event-stream');
-        $response->headers->set('Cache-Control', 'no-cache');
-        $response->headers->set('X-Accel-Buffering', 'no');
-        $response->headers->set('Connection', 'keep-alive');
-
-        return $response;
-    }
-
-    private function writeSseProgress(string $jobId, int $progress, string $status, string $message, array $extra = []): void
-    {
-        Cache::put("sse_progress_{$jobId}", $progress, 300);
-        Cache::put("sse_status_{$jobId}", $status, 300);
-        Cache::put("sse_message_{$jobId}", $message, 300);
-
-        $data = array_merge(['progress' => $progress, 'status' => $status, 'message' => $message], $extra);
-        echo "event: progress\n";
-        echo 'data: ' . json_encode($data) . "\n\n";
-        ob_flush();
-        flush();
-    }
-
-    public function memberReportsDownload(string $filename)
-    {
-        $tempPath = sys_get_temp_dir() . '/' . basename($filename);
-        if (!file_exists($tempPath)) {
-            abort(404, 'Report file not found or expired.');
-        }
-        return response()->download($tempPath, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ])->deleteFileAfterSend(true);
     }
 
     public function memberReports(Request $request)

@@ -1,5 +1,5 @@
 import { http } from './http'
-import type { TrainerRentHistoryPage, TrainerRentSummary, TrainerIncomeBreakdown } from '../types/trainerRentHistory'
+import type { TrainerRentHistoryPage, TrainerRentSummary } from '../types/trainerRentHistory'
 
 function queryString(query: Record<string, unknown>) {
   const params = new URLSearchParams()
@@ -21,9 +21,5 @@ export const trainerRentHistoryApi = {
 
   list(query: Record<string, unknown>) {
     return http.get<TrainerRentHistoryPage>(`/trainer/incoming-rent-history${queryString(query)}`)
-  },
-
-  breakdown() {
-    return http.get<TrainerIncomeBreakdown>('/trainer/incoming-rent-history/breakdown')
   },
 }
