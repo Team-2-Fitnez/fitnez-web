@@ -19,6 +19,4 @@ class User extends Authenticatable {
     public function isMember(): bool { return $this->roleName()==='member'; }
     public function isAdmin(): bool { return $this->roleName()==='admin'; }
     public function isTrainer(): bool { return $this->roleName()==='trainer'; }
-    public function trainerBookingsAsMember() { return $this->hasMany(TrainerBooking::class, 'member_id'); }
-    public function trainerBookingsAsTrainer() { return $this->hasMany(TrainerBooking::class, 'trainer_id'); }
 }

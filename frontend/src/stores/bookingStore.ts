@@ -19,17 +19,15 @@ export const useBookingStore = defineStore('bookings', () => {
     bookings.value.filter(b => b.status === 'confirmed')
   )
 
-    async loadBookings(silent = false) {
-      if (!silent) this.loading = true
-      try {
-        const response = await bookingsApi.list(this.page)
-        this.bookings = response.data.data
-        this.page = response.data.current_page
-        this.lastPage = response.data.last_page
-      } finally {
-        if (!silent) this.loading = false
-      }
-    },
+  async function loadTrainers() {
+    trainersLoading.value = true
+    try {
+      const response = await bookingsApi.publicTrainers()
+      trainers.value = response.data
+    } finally {
+      trainersLoading.value = false
+    }
+  }
 
   async function loadBookings() {
     loading.value = true

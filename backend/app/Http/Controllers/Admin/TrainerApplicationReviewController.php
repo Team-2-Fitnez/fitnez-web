@@ -63,11 +63,6 @@ class TrainerApplicationReviewController extends Controller
             ]
         );
 
-        $trainerRoleId = \App\Models\Role::query()->where('name', 'trainer')->value('id');
-        if ($trainerRoleId && $application->user) {
-            $application->user->update(['role_id' => $trainerRoleId]);
-        }
-
         $notif = Notification::create([
             'user_id' => $application->user_id,
             'title' => 'Pendaftaran Trainer Disetujui',

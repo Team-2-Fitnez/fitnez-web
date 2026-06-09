@@ -34,16 +34,17 @@ function onSearchInput(value: string) {
 // Dynamic computed properties based on database data
 const currentPlan = computed(() => {
   if (!store.selected?.workout_plans || store.selected.workout_plans.length === 0) return null
-  const plans = store.selected.workout_plans
-  const latest = plans[0]
-  const total = plans.length
-  const completed = plans.filter(p => p.completed).length
+  const plan = store.selected.workout_plans[0]
+  const exercises = plan.workout_exercises || []
+  const total = exercises.length
+  const trackings = store.selected.workout_trackings || []
+  const completed = trackings.filter(t => t.is_completed && exercises.some(ex => ex.id === t.workout_exercise_id)).length
   const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
   return {
-    title: latest.name,
-    category: latest.category,
-    date: latest.date,
-    status: latest.completed ? 'completed' : 'pending',
+    title: plan.title,
+    startDate: plan.start_date,
+    endDate: plan.end_date,
+    status: plan.status,
     completedCount: completed,
     totalCount: total,
     percentage: pct
@@ -51,44 +52,50 @@ const currentPlan = computed(() => {
 })
 
 const recentSessions = computed(() => {
-  const plans = store.selected?.workout_plans || []
-  const completedWorkouts = plans.filter(p => p.completed)
-  return completedWorkouts.slice(0, 3).map(p => ({
-    name: p.name || 'Workout Session',
-    date: p.date ? new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent'
+  const trackings = store.selected?.workout_trackings || []
+  return trackings.slice(0, 3).map(t => ({
+    name: t.workout_exercise?.exercise?.name || 'Workout Session',
+    date: t.workout_date ? new Date(t.workout_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent'
   }))
 })
 
+const latestMealPlan = computed(() => {
+  const plans = store.selected?.meal_plans || []
+  return plans.length > 0 ? plans[0] : null
+})
+
 const nutritionStats = computed(() => {
-  const mealPlan = store.selected?.meal_plan
-  const nutrition = store.selected?.nutrition
-
-  // Get target calories
-  const targetCal = Number(mealPlan?.target_kal || mealPlan?.daily_limit || nutrition?.target_calories || 2000)
-
-  // Get assigned calories (today's eaten calories from food logs!)
-  const todayStr = new Date().toISOString().split('T')[0]
-  const foodLogs = store.selected?.food_logs || []
-  
-  // Sum calories of food logs for today
-  const assignedCal = foodLogs
-    .filter(log => log.logged_date && log.logged_date.startsWith(todayStr))
-    .reduce((sum, log) => sum + Number(log.calories || 0), 0)
-
+  const targetCal = Number(store.selected?.nutrition?.target_calories || 2000)
+  const assignedCal = Number(latestMealPlan.value?.total_calories || 0)
   const calPct = targetCal > 0 ? Math.min(100, Math.round((assignedCal / targetCal) * 100)) : 0
   const calOffset = 276 - (276 * calPct / 100)
 
-  // BMR, TDEE
-  const bmr = Number(mealPlan?.bmr || nutrition?.bmr || 0)
-  const tdee = Number(mealPlan?.tdee || nutrition?.tdee || 0)
+  const targetProt = Number(store.selected?.nutrition?.target_protein || 150)
+  const assignedProt = Number(latestMealPlan.value?.protein_grams || 0)
+  const protPct = targetProt > 0 ? Math.min(100, Math.round((assignedProt / targetProt) * 100)) : 0
+
+  const targetCarb = Number(store.selected?.nutrition?.target_carbs || 250)
+  const assignedCarb = Number(latestMealPlan.value?.carbs_grams || 0)
+  const carbPct = targetCarb > 0 ? Math.min(100, Math.round((assignedCarb / targetCarb) * 100)) : 0
+
+  const targetFat = Number(store.selected?.nutrition?.target_fat || 70)
+  const assignedFat = Number(latestMealPlan.value?.fat_grams || 0)
+  const fatPct = targetFat > 0 ? Math.min(100, Math.round((assignedFat / targetFat) * 100)) : 0
 
   return {
     targetCal,
     assignedCal,
     calPct,
     calOffset,
-    bmr,
-    tdee
+    targetProt,
+    assignedProt,
+    protPct,
+    targetCarb,
+    assignedCarb,
+    carbPct,
+    targetFat,
+    assignedFat,
+    fatPct
   }
 })
 
@@ -122,11 +129,11 @@ function getAge(birthDate?: string | null) {
 
 async function refreshData() {
   await Promise.all([
-    store.loadSummary(true),
-    store.loadMembers(true)
+    store.loadSummary(),
+    store.loadMembers()
   ])
   if (store.selected?.member?.id) {
-    await store.loadDetail(store.selected.member.id, true)
+    await store.loadDetail(store.selected.member.id)
   }
 }
 
@@ -348,7 +355,7 @@ useAutoRefresh(refreshData, 8000)
                     <div class="progress-meta">
                       <div>
                         <h4>{{ currentPlan.title }}</h4>
-                        <p v-if="currentPlan.date">{{ formatDate(currentPlan.date) }}</p>
+                        <p v-if="currentPlan.startDate">{{ formatDate(currentPlan.startDate) }} - {{ formatDate(currentPlan.endDate) }}</p>
                       </div>
                       <span :class="statusClass(currentPlan.status)">{{ currentPlan.status || 'Active' }}</span>
                     </div>
@@ -386,28 +393,32 @@ useAutoRefresh(refreshData, 8000)
                   <div class="nutrition-circular-display">
                     <div class="circle-container">
                       <svg class="circle-svg" viewBox="0 0 100 100">
-                        <circle class="circle-bg" cx="50" cy="50" r="44" stroke-width="8" fill="transparent"></circle>
-                        <circle class="circle-progress" cx="50" cy="50" r="44" stroke-width="8" :stroke-dasharray="276" :stroke-dashoffset="nutritionStats.calOffset" fill="transparent" stroke-linecap="round"></circle>
+                        <circle cx="50" cy="50" r="44" stroke="#1e242c" stroke-width="8" fill="transparent"></circle>
+                        <circle cx="50" cy="50" r="44" stroke="#3b82f6" stroke-width="8" :stroke-dasharray="276" :stroke-dashoffset="nutritionStats.calOffset" fill="transparent" stroke-linecap="round"></circle>
                       </svg>
                       <div class="circle-center-text">
-                        <strong style="font-size: 1.6rem;">{{ nutritionStats.calPct }}%</strong>
-                        <span class="text-dim" style="font-size: 0.6rem; text-transform: uppercase;">eaten today</span>
+                        <strong>{{ nutritionStats.targetCal }}</strong>
+                        <span>kcal / day target</span>
+                        <small class="text-xs text-gray-400 mt-1 block" style="font-size: 0.7rem;">{{ nutritionStats.assignedCal }} kcal assigned</small>
                       </div>
                     </div>
                   </div>
 
-                  <div class="nutrition-details-list" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; padding: 0 0.5rem;">
-                    <div class="nutrition-details-row">
-                      <span class="text-dim">Today's Calories</span>
-                      <strong class="text-white">{{ nutritionStats.assignedCal }} / {{ nutritionStats.targetCal }} kcal</strong>
+                  <div class="macros-flex-grid">
+                    <div class="macro-capsule">
+                      <span class="macro-label">Protein (Target: {{ nutritionStats.targetProt }}g)</span>
+                      <strong class="macro-amount">{{ nutritionStats.assignedProt }}g assigned</strong>
+                      <div class="macro-line-bg"><div class="macro-line-fill bg-blue" :style="{ width: nutritionStats.protPct + '%' }"></div></div>
                     </div>
-                    <div class="nutrition-details-row">
-                      <span class="text-dim">BMR Target</span>
-                      <strong class="text-white">{{ nutritionStats.bmr || '-' }} kcal</strong>
+                    <div class="macro-capsule">
+                      <span class="macro-label">Carbs (Target: {{ nutritionStats.targetCarb }}g)</span>
+                      <strong class="macro-amount">{{ nutritionStats.assignedCarb }}g assigned</strong>
+                      <div class="macro-line-bg"><div class="macro-line-fill bg-orange" :style="{ width: nutritionStats.carbPct + '%' }"></div></div>
                     </div>
-                    <div class="nutrition-details-row last-row">
-                      <span class="text-dim">TDEE Target</span>
-                      <strong class="text-white">{{ nutritionStats.tdee || '-' }} kcal</strong>
+                    <div class="macro-capsule">
+                      <span class="macro-label">Fats (Target: {{ nutritionStats.targetFat }}g)</span>
+                      <strong class="macro-amount">{{ nutritionStats.assignedFat }}g assigned</strong>
+                      <div class="macro-line-bg"><div class="macro-line-fill bg-purple" :style="{ width: nutritionStats.fatPct + '%' }"></div></div>
                     </div>
                   </div>
                 </div>
@@ -424,37 +435,29 @@ useAutoRefresh(refreshData, 8000)
                     <table class="premium-table">
                       <thead>
                         <tr>
-                          <th>Exercise Name</th>
-                          <th>Category</th>
-                          <th>Scheduled Date</th>
-                          <th>Details & Targets</th>
+                          <th>Plan Title</th>
                           <th>Status</th>
+                          <th>Period</th>
+                          <th>Exercises</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr v-for="plan in store.selected.workout_plans" :key="plan.id">
                           <td>
-                            <strong class="text-white">{{ plan.name }}</strong>
+                            <strong class="text-white">{{ plan.title }}</strong>
+                            <p class="text-dim text-xs mt-1">{{ plan.description || 'No description' }}</p>
                           </td>
+                          <td><span :class="statusClass(plan.status)">{{ plan.status || 'not set' }}</span></td>
+                          <td>{{ formatDate(plan.start_date) }} - {{ formatDate(plan.end_date) }}</td>
                           <td>
-                            <span class="status-badge status-blue">{{ plan.category }}</span>
-                          </td>
-                          <td>{{ formatDate(plan.date) }} <span v-if="plan.day">({{ plan.day }})</span></td>
-                          <td>
-                            <div class="exercise-mini-log">
-                              <strong>{{ plan.set }} sets × {{ plan.reps }} reps</strong>
-                              <span v-if="plan.weight > 0"> @ {{ plan.weight }} kg</span>
-                              <span v-if="plan.duration > 0"> ({{ plan.duration }} mins)</span>
+                            <div v-for="item in plan.workout_exercises" :key="item.id" class="exercise-mini-log">
+                              <strong>{{ item.exercise?.name || 'Exercise' }}</strong>
+                              <span>Day {{ item.day_of_week }}, {{ item.sets }} x {{ item.reps }} reps</span>
                             </div>
-                          </td>
-                          <td>
-                            <span :class="['status-badge', plan.completed ? 'status-green' : 'status-orange']">
-                              {{ plan.completed ? 'Completed' : 'Pending' }}
-                            </span>
                           </td>
                         </tr>
                         <tr v-if="!store.selected.workout_plans.length">
-                          <td colspan="5" class="empty-cell">No workout plans scheduled yet.</td>
+                          <td colspan="4" class="empty-cell">No workout plans assigned yet.</td>
                         </tr>
                       </tbody>
                     </table>
@@ -469,18 +472,22 @@ useAutoRefresh(refreshData, 8000)
                     <h3>Nutrition Calculator Targets</h3>
                   </div>
 
-                  <div v-if="store.selected.meal_plan || store.selected.nutrition" class="calculator-values-grid">
+                  <div v-if="store.selected.nutrition" class="calculator-values-grid">
                     <div class="calc-tile">
                       <span>BMR (Basal Metabolic Rate)</span>
-                      <strong>{{ store.selected.meal_plan?.bmr || store.selected.nutrition?.bmr || '-' }} kcal</strong>
+                      <strong>{{ store.selected.nutrition.bmr || '-' }} kcal</strong>
                     </div>
                     <div class="calc-tile">
                       <span>TDEE (Daily Energy Estimate)</span>
-                      <strong>{{ store.selected.meal_plan?.tdee || store.selected.nutrition?.tdee || '-' }} kcal</strong>
+                      <strong>{{ store.selected.nutrition.tdee || '-' }} kcal</strong>
                     </div>
                     <div class="calc-tile highlight-blue">
                       <span>Target Calorie Intake</span>
-                      <strong>{{ store.selected.meal_plan?.target_kal || store.selected.meal_plan?.daily_limit || store.selected.nutrition?.target_calories || '-' }} kcal</strong>
+                      <strong>{{ store.selected.nutrition.target_calories || '-' }} kcal</strong>
+                    </div>
+                    <div class="calc-tile">
+                      <span>Macros Ratio</span>
+                      <small>P: {{ store.selected.nutrition.target_protein }}g - C: {{ store.selected.nutrition.target_carbs }}g - F: {{ store.selected.nutrition.target_fat }}g</small>
                     </div>
                   </div>
                   <div v-else class="empty-placeholder">
@@ -490,7 +497,7 @@ useAutoRefresh(refreshData, 8000)
 
                 <div class="inner-detail-card">
                   <div class="inner-card-head mb-4">
-                    <h3>Member Food Logs</h3>
+                    <h3>Meal Plans</h3>
                   </div>
 
                   <div class="table-wrapper">
@@ -498,18 +505,25 @@ useAutoRefresh(refreshData, 8000)
                       <thead>
                         <tr>
                           <th>Date</th>
-                          <th>Food/Meal Name</th>
-                          <th>Calories</th>
+                          <th>Meal Plan Title</th>
+                          <th>Macro Breakdowns</th>
+                          <th>Meals Assigned</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="log in store.selected.food_logs" :key="log.id">
-                          <td>{{ formatDate(log.logged_date) }}</td>
-                          <td><strong class="text-white">{{ log.food_name }}</strong></td>
-                          <td class="text-orange" style="font-weight: 800;">{{ log.calories }} kcal</td>
+                        <tr v-for="plan in store.selected.meal_plans" :key="plan.id">
+                          <td>{{ formatDate(plan.plan_date) }}</td>
+                          <td><strong class="text-white">{{ plan.title }}</strong></td>
+                          <td>{{ plan.total_calories || 0 }} kcal - P {{ plan.protein_grams || 0 }}g - C {{ plan.carbs_grams || 0 }}g - F {{ plan.fat_grams || 0 }}g</td>
+                          <td>
+                            <div v-for="meal in plan.meals" :key="meal.id" class="meal-mini-log">
+                              <span class="meal-type">{{ meal.meal_type }}:</span>
+                              <span class="food-name">{{ meal.food_name }}</span>
+                            </div>
+                          </td>
                         </tr>
-                        <tr v-if="!store.selected.food_logs?.length">
-                          <td colspan="3" class="empty-cell">No food logs recorded yet.</td>
+                        <tr v-if="!store.selected.meal_plans.length">
+                          <td colspan="4" class="empty-cell">No meal plans assigned yet.</td>
                         </tr>
                       </tbody>
                     </table>
@@ -519,34 +533,9 @@ useAutoRefresh(refreshData, 8000)
 
               <!-- TAB 4: PROGRESS -->
               <div v-if="activeTab === 'Progress'" class="progress-view">
-                <div class="inner-detail-card mb-6">
-                  <div class="inner-card-head mb-4">
-                    <h3>Workout Progress Summary</h3>
-                  </div>
-                  
-                  <div class="progress-stats-grid">
-                    <div class="stat-tile">
-                      <span>Total Scheduled Exercises</span>
-                      <strong>{{ store.selected.workout_plans.length }}</strong>
-                    </div>
-                    <div class="stat-tile highlight-green">
-                      <span>Completed Exercises</span>
-                      <strong>{{ store.selected.workout_plans.filter(p => p.completed).length }}</strong>
-                    </div>
-                    <div class="stat-tile highlight-blue">
-                      <span>Completion Rate</span>
-                      <strong>
-                        {{ store.selected.workout_plans.length > 0 
-                          ? Math.round((store.selected.workout_plans.filter(p => p.completed).length / store.selected.workout_plans.length) * 100) 
-                          : 0 }}%
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
                 <div class="inner-detail-card">
                   <div class="inner-card-head mb-4">
-                    <h3>Completed Workout History</h3>
+                    <h3>Recent Training Tracking Logs</h3>
                   </div>
 
                   <div class="table-wrapper">
@@ -555,29 +544,23 @@ useAutoRefresh(refreshData, 8000)
                         <tr>
                           <th>Date</th>
                           <th>Exercise Name</th>
-                          <th>Category</th>
-                          <th>Target / Load</th>
-                          <th>Duration</th>
+                          <th>Actual Performance</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="plan in store.selected.workout_plans.filter(p => p.completed)" :key="plan.id">
-                          <td>{{ formatDate(plan.date) }} <span v-if="plan.day" class="text-dim">({{ plan.day }})</span></td>
-                          <td><strong class="text-white">{{ plan.name }}</strong></td>
-                          <td><span class="status-badge status-blue">{{ plan.category }}</span></td>
+                        <tr v-for="tracking in store.selected.workout_trackings" :key="tracking.id">
+                          <td>{{ formatDate(tracking.workout_date) }}</td>
+                          <td>{{ tracking.workout_exercise?.exercise?.name || 'Exercise' }}</td>
+                          <td>{{ tracking.actual_sets || 0 }} sets, {{ tracking.actual_reps || 0 }} reps, {{ tracking.actual_weight_kg || 0 }} kg</td>
                           <td>
-                            <div class="exercise-mini-log">
-                              <strong>{{ plan.set }} sets × {{ plan.reps }} reps</strong>
-                              <span v-if="plan.weight > 0" class="text-dim">@ {{ plan.weight }} kg</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span v-if="plan.duration">{{ plan.duration }} mins</span>
-                            <span v-else class="text-dim">-</span>
+                            <span :class="['status-badge', tracking.is_completed ? 'status-green' : 'status-orange']">
+                              {{ tracking.is_completed ? 'Completed' : 'Incomplete' }}
+                            </span>
                           </td>
                         </tr>
-                        <tr v-if="!store.selected.workout_plans.filter(p => p.completed).length">
-                          <td colspan="5" class="empty-cell">No completed workouts recorded yet.</td>
+                        <tr v-if="!store.selected.workout_trackings.length">
+                          <td colspan="4" class="empty-cell">No training logs recorded yet.</td>
                         </tr>
                       </tbody>
                     </table>
@@ -1367,27 +1350,6 @@ useAutoRefresh(refreshData, 8000)
   height: 100%;
 }
 
-.circle-bg {
-  stroke: #1e242c;
-}
-
-.circle-progress {
-  stroke: #f59e0b;
-}
-
-.nutrition-details-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  border-bottom: 1px solid #1e242c;
-  padding-bottom: 0.5rem;
-}
-
-.nutrition-details-row.last-row {
-  border-bottom: none;
-  padding-bottom: 0.25rem;
-}
-
 .circle-center-text {
   position: absolute;
   inset: 0;
@@ -1531,43 +1493,6 @@ useAutoRefresh(refreshData, 8000)
   margin-bottom: 1rem;
 }
 
-/* PROGRESS TAB VALUES */
-.progress-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
-}
-
-.stat-tile {
-  background-color: #1e242c;
-  border: 1px solid #353940;
-  border-radius: 0.75rem;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.stat-tile span {
-  font-size: 0.75rem;
-  color: #848e9c;
-}
-
-.stat-tile strong {
-  font-size: 1.25rem;
-  color: #ffffff;
-  font-weight: 800;
-}
-
-.highlight-green {
-  background-color: rgba(16, 185, 129, 0.15) !important;
-  border-color: #10b981 !important;
-}
-
-.highlight-green strong {
-  color: #10b981 !important;
-}
-
 /* NUTRITION TAB VALUES */
 .calculator-values-grid {
   display: grid;
@@ -1640,8 +1565,7 @@ useAutoRefresh(refreshData, 8000)
 .pager-footer,
 .tabs-nav-bar,
 .premium-table th,
-.premium-table td,
-.nutrition-details-row {
+.premium-table td {
   border-color: rgba(15, 23, 42, 0.08);
 }
 
@@ -1660,7 +1584,6 @@ useAutoRefresh(refreshData, 8000)
 .exercise-mini-log span,
 .meal-mini-log .food-name,
 .calc-tile span,
-.stat-tile span,
 .empty-state-list,
 .detail-loading-state,
 .detail-empty-state,
@@ -1681,7 +1604,6 @@ useAutoRefresh(refreshData, 8000)
 .macro-amount,
 .exercise-mini-log strong,
 .calc-tile strong,
-.stat-tile strong,
 .text-white {
   color: #0f172a;
 }
@@ -1692,7 +1614,6 @@ useAutoRefresh(refreshData, 8000)
 .progress-block,
 .macro-capsule,
 .calc-tile,
-.stat-tile,
 .info-chip,
 .empty-placeholder {
   background: #f8fafc;
@@ -1730,10 +1651,6 @@ useAutoRefresh(refreshData, 8000)
   color: #cbd5e1;
 }
 
-.circle-bg {
-  stroke: #f1f5f9;
-}
-
 .tab-link-btn:hover {
   color: #0f172a;
 }
@@ -1762,14 +1679,5 @@ useAutoRefresh(refreshData, 8000)
 .meal-mini-log .meal-type,
 .text-btn {
   color: #2563eb !important;
-}
-
-.highlight-green {
-  background: #f0fdf4 !important;
-  border-color: #bbf7d0 !important;
-}
-
-.highlight-green strong {
-  color: #16a34a !important;
 }
 </style>
