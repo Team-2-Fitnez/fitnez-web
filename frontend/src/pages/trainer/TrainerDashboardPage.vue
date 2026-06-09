@@ -64,7 +64,7 @@ const weeklyEarnings = computed(() => {
 
   if (rentStore.items && rentStore.items.length > 0) {
     rentStore.items.forEach(item => {
-      const dateStr = item.payment?.payment_date || item.booking?.booking_date
+      const dateStr = item.payment?.payment_date || item.booking?.start_date
       if (dateStr) {
         const itemDate = new Date(dateStr)
         const dayIndex = dayDates.indexOf(itemDate.toDateString())
@@ -107,7 +107,7 @@ const monthlyEarnings = computed(() => {
 
   if (rentStore.items && rentStore.items.length > 0) {
     rentStore.items.forEach(item => {
-      const dateStr = item.payment?.payment_date || item.booking?.booking_date
+      const dateStr = item.payment?.payment_date || item.booking?.start_date
       if (dateStr) {
         const itemDate = new Date(dateStr)
         const year = itemDate.getFullYear()

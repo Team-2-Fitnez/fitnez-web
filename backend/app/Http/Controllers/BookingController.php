@@ -50,17 +50,31 @@ class BookingController extends Controller
         $start = Carbon::parse($data['start_date']);
         $end = $start->copy()->addWeeks(4)->subDay();
 
-        $conflict = TrainerBooking::query()
+        $overlappingBookings = TrainerBooking::query()
             ->where('trainer_id', $data['trainer_id'])
-            ->whereNotIn('status', [TrainerBooking::STATUS_CANCELLED])
-            ->where(function ($q) use ($start, $end) {
-                $q->whereBetween('start_date', [$start, $end])
-                  ->orWhereBetween('end_date', [$start, $end]);
-            })
-            ->exists();
+            ->whereNotIn('status', [TrainerBooking::STATUS_CANCELLED, TrainerBooking::STATUS_COMPLETED])
+            ->where('start_date', '<=', $end)
+            ->where('end_date', '>=', $start)
+            ->get();
+
+        $conflict = false;
+        $newDays = array_map('strtolower', $data['session_days']);
+        $newTime = Carbon::parse($data['session_time'])->format('H:i');
+
+        foreach ($overlappingBookings as $existingBooking) {
+            $existingDays = array_map('strtolower', $existingBooking->session_days ?? []);
+            $commonDays = array_intersect($newDays, $existingDays);
+            if (!empty($commonDays)) {
+                $existingTime = Carbon::parse($existingBooking->session_time)->format('H:i');
+                if ($newTime === $existingTime) {
+                    $conflict = true;
+                    break;
+                }
+            }
+        }
 
         if ($conflict) {
-            return ApiResponse::error('Trainer already has an active booking in this period.', [], 422);
+            return ApiResponse::error('Trainer already has an active booking on these days at the same time.', [], 422);
         }
 
         $totalSessions = $data['sessions_per_week'] * 4;
@@ -86,6 +100,14 @@ class BookingController extends Controller
             ]);
 
             $booking->load(['trainer:id,full_name', 'member:id,full_name']);
+
+            Notification::create([
+                'user_id'           => $booking->trainer_id,
+                'title'             => 'New Booking Request',
+                'body'              => "{$booking->member->full_name} has requested a booking with you.",
+                'notification_type' => 'booking_request',
+                'is_read'           => false,
+            ]);
 
             return $booking;
         });
@@ -155,6 +177,17 @@ class BookingController extends Controller
         }
 
         $booking->update(['status' => $data['status']]);
+
+        // If booking is now completed, mark associated trainer earning as paid
+        if ($data['status'] === TrainerBooking::STATUS_COMPLETED) {
+            TrainerEarning::query()
+                ->where('booking_id', $booking->id)
+                ->where('status', 'pending')
+                ->update([
+                    'status' => 'paid',
+                    'disbursed_at' => now(),
+                ]);
+        }
 
         if ($data['status'] === TrainerBooking::STATUS_COMPLETED) {
             Notification::create([
@@ -235,6 +268,46 @@ class BookingController extends Controller
         }
 
         return ApiResponse::success('Payment confirmed. Chat is now open.', $booking->fresh());
+    }
+
+    /**
+     * Auto-complete bookings that have passed end_date + 24h without trainer confirming.
+     * Intended to be called by a scheduled job.
+     */
+    public function autoCompleteExpiredBookings()
+    {
+        $now = now();
+        $threshold = $now->copy()->subDay(); // bookings whose end_date is older than 24h ago
+        $bookings = TrainerBooking::query()
+            ->where('status', TrainerBooking::STATUS_CONFIRMED)
+            ->where('end_date', '<', $threshold)
+            ->get();
+
+        foreach ($bookings as $booking) {
+            if ($booking->canTransitionTo(TrainerBooking::STATUS_COMPLETED)) {
+                $booking->update(['status' => TrainerBooking::STATUS_COMPLETED]);
+
+                // Update related earning to paid
+                TrainerEarning::query()
+                    ->where('booking_id', $booking->id)
+                    ->where('status', 'pending')
+                    ->update([
+                        'status' => 'paid',
+                        'disbursed_at' => $now,
+                    ]);
+
+                // Notify trainer about earnings disbursement
+                Notification::create([
+                    'user_id' => $booking->trainer_id,
+                    'title' => 'Earnings Disbursed',
+                    'body' => "Your earnings for the completed booking with {$booking->member->full_name} have been transferred.",
+                    'notification_type' => 'earning_paid',
+                    'is_read' => false,
+                ]);
+            }
+        }
+
+        return ApiResponse::success('Auto-completion run completed.', ['processed' => $bookings->count()]);
     }
 
     public function pendingPayments(Request $request)

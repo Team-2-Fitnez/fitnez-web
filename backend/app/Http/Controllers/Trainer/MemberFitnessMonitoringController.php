@@ -128,7 +128,6 @@ class MemberFitnessMonitoringController extends Controller
             ->where('member_id', $member->id)
             ->where('trainer_id', $trainerId)
             ->where('status', TrainerBooking::STATUS_CONFIRMED)
-            ->whereDate('start_date', '<=', $today)
             ->whereDate('end_date', '>=', $today)
             ->exists();
 
@@ -196,11 +195,10 @@ class MemberFitnessMonitoringController extends Controller
     private function bookedMembersQuery(int $trainerId, string $today): Builder
     {
         return User::query()
-            ->whereHas('role', fn ($q) => $q->where('name', 'member'))
+            ->whereHas('role', fn ($q) => $q->whereIn('name', ['member', 'trainer']))
             ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $today) {
                 $query->where('trainer_id', $trainerId)
                     ->where('status', TrainerBooking::STATUS_CONFIRMED)
-                    ->whereDate('start_date', '<=', $today)
                     ->whereDate('end_date', '>=', $today);
             });
     }
