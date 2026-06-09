@@ -14,14 +14,14 @@ export const useAdminUserStore = defineStore('adminUsers', {
     role: '',
     status: '',
     page: 1,
-    perPage: 10,
+    perPage: 15,
     lastPage: 1,
     total: 0,
   }),
 
   actions: {
-    async load() {
-      this.loading = true
+    async load(silent = false) {
+      if (!silent) this.loading = true
       try {
         const query: TableQuery = {
           search: this.search,
@@ -36,7 +36,7 @@ export const useAdminUserStore = defineStore('adminUsers', {
         this.lastPage = response.data.last_page
         this.total = response.data.total
       } finally {
-        this.loading = false
+        if (!silent) this.loading = false
       }
     },
 
@@ -44,13 +44,13 @@ export const useAdminUserStore = defineStore('adminUsers', {
       const response = await adminUsersApi.roles()
       this.roles = response.data
     },
-    async loadSummary() {
-      this.loadingSummary = true
+    async loadSummary(silent = false) {
+      if (!silent) this.loadingSummary = true
       try {
         const response = await adminUsersApi.summary()
         this.summary = response.data
       } finally {
-        this.loadingSummary = false
+        if (!silent) this.loadingSummary = false
       }
     },
 

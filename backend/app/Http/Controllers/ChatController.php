@@ -27,8 +27,9 @@ class ChatController extends Controller
             ->unique()
             ->filter(fn($id) => $id !== $uid);
 
-        // Users from active bookings (pending/confirmed)
-        $bookingPartnerIds = TrainerBooking::active()
+        // Users from active bookings (confirmed only)
+        $bookingPartnerIds = TrainerBooking::query()
+            ->where('status', TrainerBooking::STATUS_CONFIRMED)
             ->where(function ($q) use ($uid) {
                 $q->where('member_id', $uid)->orWhere('trainer_id', $uid);
             })
@@ -133,9 +134,37 @@ class ChatController extends Controller
             'message'     => 'required|string|max:2000',
         ]);
 
+        $uid = $request->user()->id;
+        $receiverId = $data['receiver_id'];
+
+        // Check if there is an existing chat history
+        $hasHistory = ChatMessage::where(function ($q) use ($uid, $receiverId) {
+            $q->where('sender_id', $uid)->where('receiver_id', $receiverId);
+        })->orWhere(function ($q) use ($uid, $receiverId) {
+            $q->where('sender_id', $receiverId)->where('receiver_id', $uid);
+        })->exists();
+
+        if (!$hasHistory) {
+            // Check if there is a confirmed booking
+            $hasConfirmedBooking = TrainerBooking::query()
+                ->where('status', TrainerBooking::STATUS_CONFIRMED)
+                ->where(function ($q) use ($uid, $receiverId) {
+                    $q->where(function ($inner) use ($uid, $receiverId) {
+                        $inner->where('member_id', $uid)->where('trainer_id', $receiverId);
+                    })->orWhere(function ($inner) use ($uid, $receiverId) {
+                        $inner->where('member_id', $receiverId)->where('trainer_id', $uid);
+                    });
+                })
+                ->exists();
+
+            if (!$hasConfirmedBooking) {
+                return ApiResponse::error('Anda hanya dapat mengirim pesan setelah booking dikonfirmasi.', [], 403);
+            }
+        }
+
         $msg = ChatMessage::create([
-            'sender_id'   => $request->user()->id,
-            'receiver_id' => $data['receiver_id'],
+            'sender_id'   => $uid,
+            'receiver_id' => $receiverId,
             'message'     => $data['message'],
         ]);
 
