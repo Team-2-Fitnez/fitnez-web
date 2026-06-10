@@ -74,6 +74,7 @@ class AuthService
             'full_name' => $user->full_name,
             'phone' => $user->phone,
             'birth_date' => optional($user->birth_date)->toDateString(),
+            'age' => $user->age,
             'profile_picture_url' => $user->profile_picture_url,
             'role' => $user->roleName(),
             'is_active' => $user->is_active,

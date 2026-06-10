@@ -89,6 +89,19 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async updateProfile(payload: { full_name: string; age?: number | null; phone?: string | null }) {
+      this.loading = true
+
+      try {
+        const response = await authApi.updateProfile(payload)
+        this.user = response.data
+        cacheUser(response.data)
+        return response.data
+      } finally {
+        this.loading = false
+      }
+    },
+
     async logout() {
       await authService.logout()
       this.clearSession()

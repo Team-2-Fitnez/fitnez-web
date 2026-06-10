@@ -61,6 +61,10 @@ export const authApi = {
     return http.get<FitnezUser>('/auth/me')
   },
 
+  updateProfile(payload: { full_name: string; age?: number | null; phone?: string | null }) {
+    return http.patch<FitnezUser>('/auth/profile', payload)
+  },
+
   logout() {
     return http.post<null>('/auth/logout')
   },

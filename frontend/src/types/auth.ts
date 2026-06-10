@@ -3,6 +3,7 @@ export type FitnezUser = {
   email: string
   full_name: string
   phone?: string | null
+  age?: number | null
   birth_date?: string | null
   profile_picture_url?: string | null
   role: 'admin' | 'trainer' | 'member' | string
