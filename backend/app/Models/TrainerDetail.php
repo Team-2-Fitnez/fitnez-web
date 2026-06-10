@@ -13,19 +13,22 @@ class TrainerDetail extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'user_id',
-        'specialization',
-        'biography',
-        'experience_years',
-        'hourly_rate',
-        'avg_rating',
+        'user_id', 'specialization', 'biography',
+        'experience_years', 'hourly_rate', 'avg_rating',
+        'base_price',
     ];
 
     protected $casts = [
         'experience_years' => 'integer',
         'hourly_rate' => 'decimal:2',
         'avg_rating' => 'float',
+        'base_price' => 'decimal:2',
     ];
+
+    public function getMemberPriceAttribute(): float
+    {
+        return round((float) ($this->base_price ?? 0) * 1.5, 2);
+    }
 
     public function user()
     {

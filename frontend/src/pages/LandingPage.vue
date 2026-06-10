@@ -200,7 +200,6 @@ onMounted(() => {
             <ul class="space-y-3 mb-10 text-sm flex-1">
               <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Gym access</li>
               <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Manual payment</li>
-              <li class="flex items-center gap-2 text-white/50"><span class="material-symbols-outlined text-lg" data-icon="close">close</span> Member account</li>
             </ul>
             <RouterLink :to="{ name: 'register', query: { package: 'PKG_1_MONTH' } }" class="w-full bg-white text-[#f97316] py-3 rounded-xl font-bold hover:bg-opacity-90 hover:shadow-md transition-all text-center block">Select Package</RouterLink>
           </div>
@@ -213,7 +212,6 @@ onMounted(() => {
             <ul class="space-y-3 mb-10 text-sm flex-1">
               <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Gym access</li>
               <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Better monthly value</li>
-              <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Member account</li>
             </ul>
             <RouterLink :to="{ name: 'register', query: { package: 'PKG_3_MONTHS' } }" class="w-full bg-white text-[#f97316] py-3 rounded-xl font-bold hover:bg-opacity-90 hover:shadow-md transition-all text-center block">Select Package</RouterLink>
           </div>
@@ -228,8 +226,7 @@ onMounted(() => {
             <p class="text-3xl font-black mb-6 group-hover:scale-105 transition-transform origin-left">Rp1.200.000</p>
             <ul class="space-y-3 mb-10 text-sm flex-1">
               <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Gym access</li>
-              <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Free yoga class</li>
-              <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Free aerobics class</li>
+              <li class="flex items-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="check">check</span> Free class access</li>
             </ul>
             <RouterLink :to="{ name: 'register', query: { package: 'PKG_6_MONTHS_PLUS' } }" class="w-full bg-white text-[#f97316] py-3 rounded-xl font-bold hover:bg-opacity-90 hover:shadow-md transition-all text-center block">Select Package</RouterLink>
           </div>

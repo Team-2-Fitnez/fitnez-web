@@ -10,6 +10,7 @@ export const useNotificationStore = defineStore('notifications', {
     page: 1,
     lastPage: 1,
     perPage: 10,
+    total: 0,
   }),
 
   actions: {
@@ -20,6 +21,7 @@ export const useNotificationStore = defineStore('notifications', {
         this.items = response.data.data
         this.page = response.data.current_page
         this.lastPage = response.data.last_page
+        this.total = response.data.total
       } finally {
         this.loading = false
       }
@@ -41,6 +43,11 @@ export const useNotificationStore = defineStore('notifications', {
       this.items = this.items.map((n) => ({ ...n, is_read: true }))
       this.unreadCount = 0
     },
+
+    async goToPage(page: number) {
+      if (page < 1 || page > this.lastPage || page === this.page) return
+      this.page = page
+      await this.load()
+    },
   },
 })
-

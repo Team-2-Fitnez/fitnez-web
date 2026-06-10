@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { adminSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
@@ -43,13 +43,49 @@ async function loadSummary() {
   }
 }
 
+const page = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
+const perPage = ref(15)
+
 async function loadPayments() {
   try {
-    const response = await http.get<{ data: MemberReportPayment[] }>('/admin/member-reports/payments?per_page=50')
+    const response = await http.get<any>(`/admin/member-reports/payments?per_page=${perPage.value}&page=${page.value}`)
     payments.value = response.data.data || []
+    page.value = response.data.current_page || 1
+    lastPage.value = response.data.last_page || 1
+    total.value = response.data.total || 0
   } catch {
     window.showFitnezToast('Failed to load payment data.', 'error')
   }
+}
+
+const visiblePages = computed(() => {
+  const last = Number(lastPage.value)
+  const current = Number(page.value)
+  if (last <= 5) {
+    return Array.from({ length: last }, (_, i) => i + 1)
+  }
+  if (current <= 2) {
+    return [1, 2, 3, '...', last]
+  }
+  if (current >= last - 1) {
+    return [1, '...', last - 2, last - 1, last]
+  }
+  if (current === 3) {
+    return [1, 2, 3, 4, '...', last]
+  }
+  if (current === last - 2) {
+    return [1, '...', last - 3, last - 2, last - 1, last]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', last]
+})
+
+function goToPage(p: number | string) {
+  if (typeof p === 'string') return
+  if (p < 1 || p > lastPage.value || p === page.value) return
+  page.value = p
+  loadPayments()
 }
 
 async function refreshData() {
@@ -117,6 +153,23 @@ useAutoRefresh(refreshData, 8000)
             </tbody>
           </table>
         </div>
+        <div class="pager-bar">
+          <p>Page {{ page }} of {{ lastPage }}</p>
+          <div class="pagination">
+            <button type="button" class="pagination-arrow" :disabled="page <= 1" @click="goToPage(page - 1)">‹</button>
+            <button
+              v-for="p in visiblePages"
+              :key="p"
+              :class="{ active: Number(p) === Number(page), disabled: p === '...' }"
+              :disabled="p === '...'"
+              type="button"
+              @click="goToPage(p)"
+            >
+              {{ p }}
+            </button>
+            <button type="button" class="pagination-arrow" :disabled="page >= lastPage" @click="goToPage(page + 1)">›</button>
+          </div>
+        </div>
       </FitnezCard>
     </template>
   </WorkspaceLayout>
@@ -151,5 +204,61 @@ useAutoRefresh(refreshData, 8000)
   font-weight: 800;
   padding: 2rem;
   text-align: center;
+}
+
+.pager-bar {
+  align-items: center;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+}
+
+.pager-bar p {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination button {
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pagination button.active {
+  background: #0058be;
+  color: white;
+  border-color: #0058be;
+}
+
+.pagination button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 </style>

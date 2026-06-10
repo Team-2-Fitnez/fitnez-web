@@ -3,6 +3,7 @@ export type FitnezUser = {
   email: string
   full_name: string
   phone?: string | null
+  age?: number | null
   birth_date?: string | null
   profile_picture_url?: string | null
   role: 'admin' | 'trainer' | 'member' | string
@@ -14,6 +15,24 @@ export type FitnezUser = {
   membership_expires_at?: string | null
   free_class_access?: boolean | null
   membership_package?: {
+    id: number
+    code: string
+    name: string
+    duration_months: number
+    price: number
+    free_class_access: boolean
+    benefits?: string[] | null
+    is_active?: boolean
+  } | null
+  membership_status?: 'active' | 'expiring_soon' | 'expired' | 'grace_expired' | 'no_package' | 'not_applicable' | string
+  membership_days_left?: number | null
+  membership_is_expired?: boolean
+  membership_expires_within_3_days?: boolean
+  membership_renewal_deadline_at?: string | null
+  renewal_package_id?: number | null
+  membership_renewal_starts_at?: string | null
+  membership_renewal_expires_at?: string | null
+  renewal_package?: {
     id: number
     code: string
     name: string

@@ -9,12 +9,26 @@ import SkeletonStatGrid from '../../components/ui/skeleton/SkeletonStatGrid.vue'
 import SkeletonTable from '../../components/ui/SkeletonTable.vue'
 import { useDeferredLoading } from '../../composables/useDeferredLoading'
 import { useAutoRefresh } from '../../composables/useAutoRefresh'
+import { useForm, useField } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
+import { z } from 'zod'
+import FormError from '../../components/shared/FormError.vue'
 
 const payments = ref<any[]>([])
 const { loading, run, shimmerStyle } = useDeferredLoading()
 const submitting = ref(false)
 const summary = ref({ total_payments: 0, total_amount: 0, paid_count: 0, pending_count: 0 })
-const demoAmount = ref(100000)
+
+const paymentSchema = toTypedSchema(
+  z.object({
+    amount: z.number({ invalid_type_error: 'Amount must be a number' }).min(1000, 'Minimum amount is Rp 1,000'),
+  }),
+)
+const { handleSubmit, resetForm } = useForm({
+  validationSchema: paymentSchema,
+  initialValues: { amount: 100000 },
+})
+const { value: demoAmount, errorMessage: amountError } = useField<number>('amount')
 
 type PaymentSummary = typeof summary.value
 type PaymentList = { data: any[] }
@@ -32,7 +46,9 @@ async function loadSummary() {
   try {
     const res = await http.get<PaymentSummary>('/member/payments/summary')
     summary.value = res.data
-  } catch {}
+  } catch {
+    window.showFitnezToast('Failed to load payment summary.', 'error')
+  }
 }
 
 async function loadPayments() {
@@ -44,18 +60,19 @@ async function loadPayments() {
   }
 }
 
-async function createDemoPayment() {
+const createDemoPayment = handleSubmit(async (values) => {
   submitting.value = true
   try {
-    await http.post('/member/payments/simulate-create', { amount: demoAmount.value })
+    await http.post('/member/payments/simulate-create', { amount: values.amount })
     window.showFitnezToast('Demo invoice successfully created!', 'success')
+    resetForm({ values: { amount: 100000 } })
     await Promise.all([loadSummary(), loadPayments()])
   } catch {
     window.showFitnezToast('Failed to create demo invoice.', 'error')
   } finally {
     submitting.value = false
   }
-}
+})
 
 async function payNow(paymentId: number) {
   submitting.value = true
@@ -102,15 +119,18 @@ useAutoRefresh(refreshData, 8000)
 
     <div class="card mb-6">
       <h3 class="title-md mb-4">🧪 Demo Payment Gateway (Simulation)</h3>
-      <div class="flex flex-wrap items-end gap-4">
-        <div>
-          <label class="form-label">Amount (Rp)</label>
-          <input type="number" v-model.number="demoAmount" class="form-input" min="1000" />
+      <form @submit="createDemoPayment">
+        <div class="flex flex-wrap items-end gap-4">
+          <div>
+            <label class="form-label">Amount (Rp)</label>
+            <input type="number" v-model.number="demoAmount" class="form-input" min="1000" />
+            <FormError :message="amountError" />
+          </div>
+          <button type="submit" class="button button-primary" :disabled="submitting">
+            {{ submitting ? 'Processing...' : '💰 Create Demo Invoice' }}
+          </button>
         </div>
-        <button type="button" class="button button-primary" :disabled="submitting" @click="createDemoPayment">
-          {{ submitting ? 'Processing...' : '💰 Create Demo Invoice' }}
-        </button>
-      </div>
+      </form>
       <p class="text-xs text-muted mt-2">Click to create a mock invoice, then click "Pay Demo" to simulate a successful payment.</p>
     </div>
 

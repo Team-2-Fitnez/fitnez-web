@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { installGuard } from '../router-guard'
 import PrivacyCookiePolicy from '../pages/PrivacyCookiePolicy.vue'
 import LandingPage from '../pages/LandingPage.vue'
+import { landingVisitService } from '../services/landingVisitService'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,7 +28,6 @@ const router = createRouter({
     { path: '/admin/visitor-analytics', name: 'admin-visitor-analytics', component: () => import('../pages/admin/VisitorAnalyticsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/auth-activity', name: 'admin-auth-activity', component: () => import('../pages/admin/AuthActivityReportPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/member-reports', redirect: '/admin/check-in-logs' },
-    { path: '/admin/nutrition-monitoring', name: 'admin-nutrition-monitoring', component: () => import('../pages/admin/AdminNutritionMonitoringPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/notifications', name: 'admin-notifications', component: () => import('../pages/admin/AdminNotificationsPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/users', name: 'admin-users', component: () => import('../pages/admin/AdminUsersPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
     { path: '/admin/trainers', name: 'admin-trainers', component: () => import('../pages/admin/AdminTrainersPage.vue'), meta: { requiresAuth: true, role: 'admin' } },
@@ -44,7 +44,7 @@ const router = createRouter({
     { path: '/member/hire-trainer', name: 'member-hire-trainer', component: () => import('../pages/member/MemberHireTrainerPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/schedule', name: 'member-schedule', component: () => import('../pages/member/MemberSchedulePage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/chat', name: 'member-chat', component: () => import('../pages/member/MemberChatPage.vue'), meta: { requiresAuth: true, role: 'member' } },
-    { path: '/member/memberships', redirect: '/member/profile' },
+    { path: '/member/memberships', name: 'member-memberships', component: () => import('../pages/member/MemberMembershipPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/profile', name: 'member-profile', component: () => import('../pages/member/MemberProfilePage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/notifications', name: 'member-notifications', component: () => import('../pages/member/MemberNotificationsPage.vue'), meta: { requiresAuth: true, role: 'member' } },
     { path: '/member/attendance', name: 'member-attendance', component: () => import('../pages/member/MemberAttendancePage.vue'), meta: { requiresAuth: true, role: 'member' } },
@@ -81,4 +81,18 @@ const router = createRouter({
 })
 
 installGuard(router)
+
+router.afterEach((to) => {
+  if (
+    to.path === '/' ||
+    to.path.startsWith('/admin') ||
+    to.path.startsWith('/member') ||
+    to.path.startsWith('/trainer')
+  ) {
+    return
+  }
+
+  landingVisitService.trackCurrentLandingPage(to.path)
+})
+
 export default router

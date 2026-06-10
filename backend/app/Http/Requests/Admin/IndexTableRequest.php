@@ -32,13 +32,13 @@ class IndexTableRequest extends FormRequest
             'browser' => ['nullable', 'string', 'max:100'],
             'device' => ['nullable', 'string', 'max:100'],
             'page' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:250'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:250'],
         ];
     }
 
     public function perPage(int $default = 10): int
     {
-        return min(max((int) ($this->validated('per_page') ?? $default), 1), 100);
+        return min(max((int) ($this->validated('per_page') ?? $default), 1), 250);
     }
 }

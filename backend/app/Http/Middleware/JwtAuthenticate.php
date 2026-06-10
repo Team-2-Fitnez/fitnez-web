@@ -29,6 +29,19 @@ class JwtAuthenticate
             $payload = $this->jwtService->payloadFromToken($token);
             $user = $this->jwtService->userFromToken($token);
 
+            if ($user->isPastMembershipRenewalGracePeriod()) {
+                $user->delete();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This membership account has passed the renewal deadline and has been removed.',
+                    'data' => null,
+                ], 410);
+            }
+
+            $user->activateDueMembershipRenewal();
+            $user->refresh()->loadMissing('role');
+
             Auth::setUser($user);
             $request->setUserResolver(fn () => $user);
             $request->attributes->set('jwt_payload', $payload);

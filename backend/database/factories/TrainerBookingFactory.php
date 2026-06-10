@@ -12,17 +12,23 @@ class TrainerBookingFactory extends Factory
 
     public function definition(): array
     {
+        $startDate = fake()->dateTimeBetween('today', '+1 week');
+        $endDate = (clone $startDate)->modify('+1 month');
         return [
             'member_id' => User::factory(),
             'trainer_id' => User::factory(),
-            'booking_date' => fake()->dateTimeBetween('today', '+1 month')->format('Y-m-d'),
-            'start_time' => '10:00',
-            'end_time' => '11:00',
-            'session_type' => 'online',
-            'location' => 'Gym Utama',
+            'start_date' => $startDate->format('Y-m-d'),
+            'end_date' => $endDate->format('Y-m-d'),
+            'sessions_per_week' => 3,
+            'session_days' => ['Monday', 'Wednesday', 'Friday'],
+            'session_time' => '10:00',
             'member_notes' => fake()->sentence(),
             'status' => TrainerBooking::STATUS_PENDING,
-            'total_price' => fake()->randomFloat(2, 50000, 500000),
+            'base_price_per_session' => 100000.00,
+            'member_price_per_session' => 120000.00,
+            'total_member_price' => 1440000.00,
+            'total_trainer_price' => 1200000.00,
+            'total_sessions' => 12,
         ];
     }
 
@@ -44,20 +50,5 @@ class TrainerBookingFactory extends Factory
     public function cancelled(): static
     {
         return $this->state(fn() => ['status' => TrainerBooking::STATUS_CANCELLED]);
-    }
-
-    public function rejected(): static
-    {
-        return $this->state(fn() => ['status' => TrainerBooking::STATUS_REJECTED]);
-    }
-
-    public function online(): static
-    {
-        return $this->state(fn() => ['session_type' => 'online']);
-    }
-
-    public function offline(): static
-    {
-        return $this->state(fn() => ['session_type' => 'offline', 'location' => 'Gym Utama']);
     }
 }

@@ -97,8 +97,8 @@ class MemberPaymentAttendanceReportController extends Controller
                                 ->orWhere('phone', 'ilike', $search);
                         })
                         ->orWhereHas('booking', function ($bookingQuery) use ($search) {
-                            $bookingQuery->where('session_type', 'ilike', $search)
-                                ->orWhere('location', 'ilike', $search);
+                            $bookingQuery->where('member_notes', 'ilike', $search)
+                                ->orWhere('session_time', 'ilike', $search);
                         });
                 });
             })
@@ -109,5 +109,39 @@ class MemberPaymentAttendanceReportController extends Controller
             ->paginate($request->perPage(15));
 
         return ApiResponse::success('Member attendance report loaded.', $attendance);
+    }
+
+    public function nutrition(Request $request)
+    {
+        $mealPlans = \App\Models\MealPlan::query()->with('user')->get()->groupBy('user_id');
+        $userIds = $mealPlans->keys();
+
+        $foodLogs = \App\Models\FoodLog::query()
+            ->selectRaw('user_id, sum(calories) as total_calories')
+            ->whereIn('user_id', $userIds)
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
+
+        $members = [];
+        foreach ($mealPlans as $userId => $plans) {
+            $user = $plans->first()->user;
+            if (!$user) continue;
+
+            $totalCalories = (int) ($foodLogs[$userId]->total_calories ?? 0);
+            $dailyLimit = (int) $plans->max('daily_limit');
+
+            $members[] = [
+                'id' => $user->id,
+                'name' => $user->full_name,
+                'email' => $user->email,
+                'daily_limit' => $dailyLimit,
+                'total_calories' => $totalCalories,
+            ];
+        }
+
+        return ApiResponse::success('Nutrition monitoring data loaded.', [
+            'members' => $members
+        ]);
     }
 }

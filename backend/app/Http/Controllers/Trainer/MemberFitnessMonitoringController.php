@@ -4,27 +4,26 @@ namespace App\Http\Controllers\Trainer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Trainer\TrainerMonitoringRequest;
+use App\Models\FoodLog;
 use App\Models\MealPlan;
 use App\Models\NutritionCalculator;
-use App\Models\Role;
+use App\Models\TrainerBooking;
 use App\Models\User;
 use App\Models\WorkoutPlan;
 use App\Models\WorkoutTracking;
 use App\Support\ApiResponse;
 use App\Support\SearchTerm;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class MemberFitnessMonitoringController extends Controller
 {
     public function summary(Request $request)
     {
-        $memberRoleId = Role::query()->where('name', 'member')->value('id');
+        $trainerId = $request->user()->id;
+        $today = now()->toDateString();
 
-        $memberQuery = User::query()
-            ->where('id', '!=', $request->user()->id)
-            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId));
-
+        $memberQuery = $this->bookedMembersQuery($trainerId, $today);
         $membersPluckQuery = (clone $memberQuery)->pluck('id');
 
         $membersNow = (clone $memberQuery)->count();
@@ -43,16 +42,24 @@ class MemberFitnessMonitoringController extends Controller
         $mealsPrev = MealPlan::query()->whereIn('user_id', $membersPluckQuery)->whereBetween('created_at', [now()->subDays(14), now()->subDays(7)])->count();
         $mealsTrend = $this->calculateTrend($mealsNow, $mealsPrev);
 
+        $recentTrackings = WorkoutTracking::query()
+            ->whereIn('user_id', $membersPluckQuery)
+            ->with(['user', 'workoutExercise.exercise'])
+            ->orderByDesc('logged_at')
+            ->limit(10)
+            ->get();
+
         return ApiResponse::success('Trainer monitoring summary loaded.', [
             'total_members' => $membersNow,
             'total_members_trend' => $membersTrend,
-            'active_workout_plans' => WorkoutPlan::query()->whereIn('user_id', $membersPluckQuery)->where('status', 'active')->count(),
+            'active_workout_plans' => WorkoutPlan::query()->whereIn('user_id', $membersPluckQuery)->where('completed', false)->count(),
             'active_workout_plans_trend' => $plansTrend,
             'completed_trackings' => WorkoutTracking::query()->whereIn('user_id', $membersPluckQuery)->where('is_completed', true)->count(),
             'completed_trackings_trend' => $logsTrend,
             'meal_plans' => MealPlan::query()->whereIn('user_id', $membersPluckQuery)->count(),
             'meal_plans_trend' => $mealsTrend,
             'nutrition_calculations' => NutritionCalculator::query()->whereIn('user_id', $membersPluckQuery)->count(),
+            'recent_trackings' => $recentTrackings,
         ]);
     }
 
@@ -61,6 +68,7 @@ class MemberFitnessMonitoringController extends Controller
         if ($previous == 0) {
             return $current > 0 ? 100.0 : 0.0;
         }
+
         return round((($current - $previous) / $previous) * 100, 1);
     }
 
@@ -68,12 +76,11 @@ class MemberFitnessMonitoringController extends Controller
     {
         $data = $request->validated();
         $search = SearchTerm::contains($data['search'] ?? null);
-        $memberRoleId = Role::query()->where('name', 'member')->value('id');
+        $trainerId = $request->user()->id;
+        $today = now()->toDateString();
 
-        $members = User::query()
+        $members = $this->bookedMembersQuery($trainerId, $today)
             ->with('role')
-            ->where('id', '!=', $request->user()->id)
-            ->when($memberRoleId, fn ($query) => $query->where('role_id', $memberRoleId))
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('full_name', 'ilike', $search)
@@ -110,17 +117,29 @@ class MemberFitnessMonitoringController extends Controller
 
     public function show(Request $request, User $member)
     {
-        if ($member->roleName() === 'admin' || $member->id === $request->user()->id) {
+        if ($member->roleName() === 'admin') {
             return ApiResponse::error('This member cannot be opened from trainer monitoring.', [], 403);
+        }
+
+        $trainerId = $request->user()->id;
+        $today = now()->toDateString();
+
+        $hasActiveBooking = TrainerBooking::query()
+            ->where('member_id', $member->id)
+            ->where('trainer_id', $trainerId)
+            ->where('status', TrainerBooking::STATUS_CONFIRMED)
+            ->whereDate('end_date', '>=', $today)
+            ->exists();
+
+        if (! $hasActiveBooking) {
+            return ApiResponse::error('You do not have an active booking for this member.', [], 403);
         }
 
         $workoutPlans = WorkoutPlan::query()
             ->where('user_id', $member->id)
-            ->with(['workoutExercises' => function ($query) {
-                $query->with('exercise')->orderBy('day_of_week')->orderBy('id');
-            }])
             ->orderByDesc('date')
-            ->limit(10)
+            ->orderByDesc('id')
+            ->limit(30)
             ->get();
 
         $trackings = WorkoutTracking::query()
@@ -143,11 +162,22 @@ class MemberFitnessMonitoringController extends Controller
             ->limit(10)
             ->get();
 
+        $mealPlan = MealPlan::query()
+            ->where('user_id', $member->id)
+            ->first();
+
+        $foodLogs = FoodLog::query()
+            ->where('user_id', $member->id)
+            ->orderByDesc('logged_date')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
         return ApiResponse::success('Member fitness detail loaded.', [
             'member' => $member->load('role'),
             'summary' => [
                 'workout_plans' => WorkoutPlan::query()->where('user_id', $member->id)->count(),
-                'active_workout_plans' => WorkoutPlan::query()->where('user_id', $member->id)->where('status', 'active')->count(),
+                'active_workout_plans' => WorkoutPlan::query()->where('user_id', $member->id)->where('completed', false)->count(),
                 'completed_trackings' => WorkoutTracking::query()->where('user_id', $member->id)->where('is_completed', true)->count(),
                 'incomplete_trackings' => WorkoutTracking::query()->where('user_id', $member->id)->where('is_completed', false)->count(),
                 'meal_plans' => MealPlan::query()->where('user_id', $member->id)->count(),
@@ -157,6 +187,19 @@ class MemberFitnessMonitoringController extends Controller
             'workout_trackings' => $trackings,
             'nutrition' => $nutrition,
             'meal_plans' => $mealPlans,
+            'meal_plan' => $mealPlan,
+            'food_logs' => $foodLogs,
         ]);
+    }
+
+    private function bookedMembersQuery(int $trainerId, string $today): Builder
+    {
+        return User::query()
+            ->whereHas('role', fn ($q) => $q->whereIn('name', ['member', 'trainer']))
+            ->whereHas('trainerBookingsAsMember', function ($query) use ($trainerId, $today) {
+                $query->where('trainer_id', $trainerId)
+                    ->where('status', TrainerBooking::STATUS_CONFIRMED)
+                    ->whereDate('end_date', '>=', $today);
+            });
     }
 }

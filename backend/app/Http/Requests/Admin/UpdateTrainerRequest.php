@@ -30,7 +30,7 @@ class UpdateTrainerRequest extends FormRequest
             'password' => ['nullable', 'confirmed', Password::min(16)->mixedCase()->symbols()],
             'specialization' => ['nullable', 'string', 'max:100'],
             'biography' => ['nullable', 'string'],
-            'experience_years' => ['nullable', 'integer', 'min:0', 'max:80'],
+            'experience_years' => ['nullable', 'integer', 'min:0', 'max:50'],
             'hourly_rate' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['required', 'boolean'],
         ];

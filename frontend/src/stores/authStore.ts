@@ -28,7 +28,7 @@ function cacheUser(user: FitnezUser | null) {
 
 function isAuthError(error: unknown): boolean {
   const status = (error as { status?: number })?.status
-  return status === 401 || status === 403
+  return status === 401 || status === 403 || status === 410
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -84,6 +84,19 @@ export const useAuthStore = defineStore('auth', {
         const result = await authService.memberLogin(email, password)
         this.user = result.user
         cacheUser(result.user)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async updateProfile(payload: { full_name: string; age?: number | null; phone?: string | null }) {
+      this.loading = true
+
+      try {
+        const response = await authApi.updateProfile(payload)
+        this.user = response.data
+        cacheUser(response.data)
+        return response.data
       } finally {
         this.loading = false
       }

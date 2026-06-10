@@ -54,8 +54,8 @@ class MemberPaymentController extends Controller
 
         $notif = Notification::create([
             'user_id' => $payment->user_id,
-            'title' => 'Tagihan Baru',
-            'body' => 'Tagihan ' . $payment->invoice_number . ' sebesar Rp ' . number_format($payment->amount, 0, ',', '.') . ' telah dibuat.',
+            'title' => 'New Invoice',
+            'body' => 'Invoice ' . $payment->invoice_number . ' for Rp ' . number_format($payment->amount, 0, ',', '.') . ' has been created.',
             'notification_type' => 'payment_in',
             'is_read' => false,
         ]);
@@ -88,7 +88,7 @@ class MemberPaymentController extends Controller
         $notif = Notification::create([
             'user_id' => $payment->user_id,
             'title' => 'Payment Successful',
-            'body' => 'Payment ' . $payment->invoice_number . ' amount Rp ' . number_format($payment->amount, 0, ',', '.') . ' Has Been Confirmed.',
+            'body' => 'Payment ' . $payment->invoice_number . ' amount Rp ' . number_format($payment->amount, 0, ',', '.') . ' has been confirmed.',
             'notification_type' => 'payment_in',
             'is_read' => false,
         ]);

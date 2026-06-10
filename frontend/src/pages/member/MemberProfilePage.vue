@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import FitnezButton from '../../components/ui/FitnezButton.vue'
 import { trainerApplicationApi, type TrainerApplicationStatusResult } from '../../api/trainerApplicationApi'
+import { memberMembershipApi } from '../../api/memberMembershipApi'
 import { useAuthStore } from '../../stores/authStore'
 
 const router = useRouter()
@@ -13,6 +14,8 @@ const status = ref<TrainerApplicationStatusResult | null>(null)
 const loading = ref(false)
 const error = ref('')
 const message = ref('')
+const showDeleteConfirm = ref(false)
+const deletingAccount = ref(false)
 
 const user = computed(() => auth.user)
 const membership = computed(() => user.value?.membership_package)
@@ -38,6 +41,95 @@ const membershipBenefits = computed(() => {
     'Monitor workout plan, meal plan, payments, and schedule from member workspace',
   ]
 })
+
+const profileEditing = ref(false)
+const profileSaving = ref(false)
+const profileError = ref('')
+const profileMessage = ref('')
+const profileForm = ref({
+  full_name: '',
+  age: '',
+  phone: '',
+})
+const profileAge = computed(() => user.value?.age ?? calculateAge(user.value?.birth_date))
+
+function calculateAge(value?: string | null) {
+  if (!value) return null
+  const birthDate = new Date(value)
+  if (Number.isNaN(birthDate.getTime())) return null
+
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1
+  }
+
+  return age >= 0 ? age : null
+}
+
+function syncProfileForm() {
+  profileForm.value = {
+    full_name: user.value?.full_name || '',
+    age: profileAge.value?.toString() || '',
+    phone: user.value?.phone || '',
+  }
+}
+
+function startEditProfile() {
+  syncProfileForm()
+  profileError.value = ''
+  profileMessage.value = ''
+  profileEditing.value = true
+}
+
+function cancelEditProfile() {
+  syncProfileForm()
+  profileError.value = ''
+  profileEditing.value = false
+}
+
+async function saveProfile() {
+  profileError.value = ''
+  profileMessage.value = ''
+
+  const fullName = profileForm.value.full_name.trim()
+  const phone = profileForm.value.phone.trim()
+  const age = profileForm.value.age.trim() ? Number(profileForm.value.age) : null
+
+  if (fullName.length < 3) {
+    profileError.value = 'Full name must contain at least 3 characters.'
+    return
+  }
+
+  if (age !== null && (!Number.isInteger(age) || age < 1 || age > 120)) {
+    profileError.value = 'Age must be a number between 1 and 120.'
+    return
+  }
+
+  profileSaving.value = true
+
+  try {
+    await auth.updateProfile({
+      full_name: fullName,
+      age,
+      phone: phone || null,
+    })
+    profileEditing.value = false
+    profileMessage.value = 'Profile updated successfully.'
+    syncProfileForm()
+  } catch (e: any) {
+    const errors = e?.payload?.errors
+    profileError.value = errors
+      ? Object.values(errors).flat().join(' ')
+      : e?.message || 'Failed to update profile.'
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+watch(user, syncProfileForm, { immediate: true })
 
 function formatDate(value?: string | null) {
   if (!value) return '-'
@@ -79,6 +171,24 @@ async function enterTrainerWorkspace() {
 
 function goToTrainerRegistration() {
   router.push('/trainer/apply')
+}
+
+function goToRenewal() {
+  router.push('/member/memberships')
+}
+
+async function deleteAccount() {
+  deletingAccount.value = true
+  error.value = ''
+
+  try {
+    await memberMembershipApi.deleteAccount()
+  } catch {
+    // The account may already be deleted on the backend.
+  } finally {
+    auth.clearSession()
+    window.location.href = '/'
+  }
 }
 
 onMounted(loadTrainerStatus)
@@ -143,6 +253,9 @@ onMounted(loadTrainerStatus)
                 <p>Member Profile</p>
                 <h2>Personal Information</h2>
               </div>
+              <button v-if="!profileEditing" class="profile-edit-button" type="button" @click="startEditProfile">
+                Edit Profile
+              </button>
             </div>
 
             <div class="info-grid">
@@ -157,16 +270,40 @@ onMounted(loadTrainerStatus)
                 <strong>{{ user?.email || '-' }}</strong>
               </div>
               <div class="info-box">
+                <span class="material-symbols-outlined">cake</span>
+                <small>Age</small>
+                <strong>{{ profileAge ?? '-' }}</strong>
+              </div>
+              <div class="info-box">
                 <span class="material-symbols-outlined">call</span>
                 <small>Phone Number</small>
                 <strong>{{ user?.phone || '-' }}</strong>
               </div>
-              <div class="info-box">
-                <span class="material-symbols-outlined">cake</span>
-                <small>Date of Birth</small>
-                <strong>{{ formatDate(user?.birth_date) }}</strong>
-              </div>
             </div>
+
+            <form v-if="profileEditing" class="profile-form" @submit.prevent="saveProfile">
+              <div class="form-grid">
+                <label class="form-field">
+                  <span>Full Name</span>
+                  <input v-model="profileForm.full_name" type="text" autocomplete="name" />
+                </label>
+                <label class="form-field">
+                  <span>Age</span>
+                  <input v-model="profileForm.age" type="number" min="1" max="120" inputmode="numeric" />
+                </label>
+                <label class="form-field">
+                  <span>Phone Number</span>
+                  <input v-model="profileForm.phone" type="tel" autocomplete="tel" />
+                </label>
+              </div>
+              <p v-if="profileError" class="alert alert-error">{{ profileError }}</p>
+              <p v-if="profileMessage" class="alert alert-info">{{ profileMessage }}</p>
+              <div class="action-row">
+                <button class="safe-button" type="button" :disabled="profileSaving" @click="cancelEditProfile">Cancel</button>
+                <button class="profile-save-button" type="submit" :disabled="profileSaving">{{ profileSaving ? 'Saving...' : 'Save Profile' }}</button>
+              </div>
+            </form>
+            <p v-else-if="profileMessage" class="alert alert-info">{{ profileMessage }}</p>
           </article>
 
           <article class="surface-card membership-card">
@@ -206,6 +343,9 @@ onMounted(loadTrainerStatus)
                 </div>
               </div>
             </div>
+            <div class="action-row">
+              <FitnezButton type="button" @click="goToRenewal">Renew Membership</FitnezButton>
+            </div>
           </article>
 
           <article class="surface-card trainer-card">
@@ -236,6 +376,26 @@ onMounted(loadTrainerStatus)
               <FitnezButton v-if="status?.can_access_trainer_workspace || user?.can_access_trainer_workspace" type="button" :disabled="loading" @click="enterTrainerWorkspace">
                 Enter Trainer Workspace
               </FitnezButton>
+            </div>
+          </article>
+
+          <article class="surface-card danger-card">
+            <div class="section-head">
+              <div>
+                <p>Account Control</p>
+                <h2>Delete Account</h2>
+              </div>
+            </div>
+            <p class="trainer-copy">Delete your current member account from Fitnez. This action returns you to the landing page.</p>
+            <div v-if="!showDeleteConfirm" class="action-row">
+              <button class="danger-button" type="button" @click="showDeleteConfirm = true">Delete Account</button>
+            </div>
+            <div v-else class="confirm-box">
+              <p>Are you sure you want to delete your account?</p>
+              <div class="action-row">
+                <button class="safe-button" type="button" :disabled="deletingAccount" @click="showDeleteConfirm = false">Back</button>
+                <button class="danger-button" type="button" :disabled="deletingAccount" @click="deleteAccount">{{ deletingAccount ? 'Deleting...' : 'Yes, Delete Account' }}</button>
+              </div>
             </div>
           </article>
         </main>
@@ -433,18 +593,81 @@ onMounted(loadTrainerStatus)
   overflow-wrap: anywhere;
 }
 
-.membership-status.aktif {
+.profile-edit-button,
+.profile-save-button {
+  background: #0058be;
+  border: 0;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 950;
+  padding: 0.75rem 1rem;
+}
+
+.profile-save-button {
+  background: #ff7a1a;
+}
+
+.profile-edit-button:disabled,
+.profile-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.profile-form {
+  background: #f8fafc;
+  border: 1px solid #dfe6ef;
+  border-radius: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form-field span {
+  color: #596579;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.form-field input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.8rem;
+  color: #07172f;
+  font-size: 0.92rem;
+  font-weight: 800;
+  outline: none;
+  padding: 0.78rem 0.85rem;
+}
+
+.form-field input:focus {
+  border-color: #0058be;
+  box-shadow: 0 0 0 3px rgba(0, 88, 190, 0.12);
+}
+
+.membership-status.active {
   background: #dcfce7;
   color: #047857;
 }
 
-.membership-status.kedaluwarsa,
-.membership-status.nonaktif {
+.membership-status.expired,
+.membership-status.inactive {
   background: #fee2e2;
   color: #be123c;
 }
 
-.membership-status.belum {
+.membership-status.no,
+.membership-status.no_package {
   background: #f1f5f9;
   color: #475569;
 }
@@ -516,13 +739,56 @@ onMounted(loadTrainerStatus)
   margin-top: 1rem;
 }
 
+.danger-card {
+  border-color: rgba(190, 18, 60, 0.18);
+}
+
+.danger-button,
+.safe-button {
+  border: 0;
+  border-radius: 999px;
+  font-weight: 950;
+  padding: 0.8rem 1rem;
+}
+
+.danger-button {
+  background: #be123c;
+  color: #ffffff;
+}
+
+.safe-button {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.danger-button:disabled,
+.safe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.confirm-box {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.confirm-box p {
+  color: #9f1239;
+  font-weight: 900;
+  margin: 0;
+}
+
 @media (max-width: 1020px) {
   .profile-grid,
   .membership-body {
     grid-template-columns: 1fr;
   }
 
-  .info-grid {
+  .info-grid,
+  .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -533,6 +799,7 @@ onMounted(loadTrainerStatus)
   }
 
   .info-grid,
+  .form-grid,
   .membership-meta {
     grid-template-columns: 1fr;
   }

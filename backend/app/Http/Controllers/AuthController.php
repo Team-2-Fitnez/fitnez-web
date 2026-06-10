@@ -12,9 +12,11 @@ use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginMemberRequest;
 use App\Http\Requests\Auth\RegisterProspectiveMemberRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Requests\Auth\VerifyLoginOtpRequest;
 use App\Models\User;
 use App\Services\Auth\AuthCookie;
+use App\Services\Auth\AuthService;
 use App\Services\Otp\OtpManager;
 use App\Support\ApiResponse;
 use Illuminate\Support\Facades\Hash;
@@ -103,6 +105,20 @@ class AuthController extends Controller
     public function me(GetAuthenticatedUserAction $action)
     {
         return ApiResponse::success('Authenticated user.', $action->handle(request()));
+    }
+
+    public function updateProfile(UpdateProfileRequest $request, AuthService $authService)
+    {
+        $user = $request->user();
+        $data = $request->validated();
+
+        $user->forceFill([
+            'full_name' => $data['full_name'],
+            'age' => $data['age'] ?? null,
+            'phone' => $data['phone'] ?? null,
+        ])->save();
+
+        return ApiResponse::success('Profile updated successfully.', $authService->userPayload($user->refresh()));
     }
 
     public function logout(LogoutUserAction $action, AuthCookie $cookie)

@@ -30,7 +30,7 @@ class BookingFeatureTest extends TestCase
 
         TrainerDetail::factory()->create([
             'user_id' => $this->trainer->id,
-            'hourly_rate' => 100_000,
+            'base_price' => 100_000,
         ]);
     }
 
@@ -40,17 +40,16 @@ class BookingFeatureTest extends TestCase
 
         $response = $this->postJson('/api/bookings', [
             'trainer_id' => $this->trainer->id,
-            'booking_date' => now()->addDay()->format('Y-m-d'),
-            'start_time' => '09:00',
-            'end_time' => '10:00',
-            'session_type' => 'online',
-            'total_price' => 90_000,
+            'start_date' => now()->addDay()->format('Y-m-d'),
+            'sessions_per_week' => 3,
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
         ]);
 
         $response->assertStatus(201)
             ->assertJsonStructure([
                 'success', 'message', 'data' => [
-                    'id', 'member_id', 'trainer_id', 'status', 'total_price',
+                    'id', 'member_id', 'trainer_id', 'status',
                 ],
             ]);
 
@@ -67,11 +66,10 @@ class BookingFeatureTest extends TestCase
 
         $this->postJson('/api/bookings', [
             'trainer_id' => $this->trainer->id,
-            'booking_date' => now()->addDay()->format('Y-m-d'),
-            'start_time' => '09:00',
-            'end_time' => '10:00',
-            'session_type' => 'online',
-            'total_price' => 90_000,
+            'start_date' => now()->addDay()->format('Y-m-d'),
+            'sessions_per_week' => 3,
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
         ]);
 
         $this->assertDatabaseHas('notifications', [
@@ -84,36 +82,91 @@ class BookingFeatureTest extends TestCase
     {
         $this->authenticateAs($this->member);
 
-        $date = now()->addDay()->format('Y-m-d');
+        $startDate = now()->addDay();
+        $endDate = (clone $startDate)->modify('+4 weeks')->modify('-1 day');
 
         TrainerBooking::factory()->create([
             'trainer_id' => $this->trainer->id,
-            'booking_date' => $date,
-            'start_time' => '09:00',
-            'end_time' => '10:00',
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
             'status' => TrainerBooking::STATUS_CONFIRMED,
         ]);
 
         $response = $this->postJson('/api/bookings', [
             'trainer_id' => $this->trainer->id,
-            'booking_date' => $date,
-            'start_time' => '09:30',
-            'end_time' => '10:30',
-            'session_type' => 'online',
-            'total_price' => 90_000,
+            'start_date' => $startDate->toDateString(),
+            'sessions_per_week' => 3,
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
         ]);
 
         $response->assertStatus(422);
+    }
+
+    public function test_booking_allowed_on_same_day_different_time(): void
+    {
+        $this->authenticateAs($this->member);
+
+        $startDate = now()->addDay();
+        $endDate = (clone $startDate)->modify('+4 weeks')->modify('-1 day');
+
+        TrainerBooking::factory()->create([
+            'trainer_id' => $this->trainer->id,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
+            'status' => TrainerBooking::STATUS_CONFIRMED,
+        ]);
+
+        $response = $this->postJson('/api/bookings', [
+            'trainer_id' => $this->trainer->id,
+            'start_date' => $startDate->toDateString(),
+            'sessions_per_week' => 3,
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '10:00',
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_booking_allowed_if_previous_booking_completed(): void
+    {
+        $this->authenticateAs($this->member);
+
+        $startDate = now()->addDay();
+        $endDate = (clone $startDate)->modify('+4 weeks')->modify('-1 day');
+
+        TrainerBooking::factory()->create([
+            'trainer_id' => $this->trainer->id,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
+            'status' => TrainerBooking::STATUS_COMPLETED,
+        ]);
+
+        $response = $this->postJson('/api/bookings', [
+            'trainer_id' => $this->trainer->id,
+            'start_date' => $startDate->toDateString(),
+            'sessions_per_week' => 3,
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
+        ]);
+
+        $response->assertStatus(201);
     }
 
     public function test_unauthenticated_user_cannot_book(): void
     {
         $response = $this->postJson('/api/bookings', [
             'trainer_id' => $this->trainer->id,
-            'booking_date' => now()->addDay()->format('Y-m-d'),
-            'start_time' => '09:00',
-            'end_time' => '10:00',
-            'session_type' => 'online',
+            'start_date' => now()->addDay()->format('Y-m-d'),
+            'sessions_per_week' => 3,
+            'session_days' => ['monday', 'wednesday', 'friday'],
+            'session_time' => '09:00',
         ]);
 
         $response->assertStatus(401);
@@ -138,16 +191,16 @@ class BookingFeatureTest extends TestCase
 
     public function test_valid_status_transition_from_pending_to_confirmed(): void
     {
-        $this->authenticateAs($this->trainer);
+        $admin = User::factory()->admin()->create();
+        $this->authenticateAs($admin);
 
-        $booking = TrainerBooking::factory()->pending()->create([
+        $booking = TrainerBooking::factory()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id,
+            'status' => TrainerBooking::STATUS_PENDING_PAYMENT,
         ]);
 
-        $response = $this->patchJson("/api/bookings/{$booking->id}/status", [
-            'status' => TrainerBooking::STATUS_CONFIRMED,
-        ]);
+        $response = $this->postJson("/api/admin/bookings/{$booking->id}/confirm-payment");
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('trainer_bookings', [

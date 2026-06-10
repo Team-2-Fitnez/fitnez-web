@@ -5,9 +5,14 @@ export const adminSidebarItems = [
   { label: 'Payments', to: '/admin/payments', icon: 'Payments' },
   { label: 'Trainer Applications', to: '/admin/trainer-applications', icon: 'Applications' },
   { label: 'Check-In Logs & Reports', to: '/admin/check-in-logs', icon: 'Logs' },
-  { label: 'Visitor Analytics', to: '/admin/visitor-analytics', icon: 'Analytics' },
-  { label: 'Landing Visitors', to: '/admin/landing-visits', icon: 'Reports' },
-  { label: 'Nutrition Monitoring', to: '/admin/nutrition-monitoring', icon: 'Nutrition' },
+  {
+    label: 'Visitor Insights',
+    icon: 'VisitorInsights',
+    submenu: [
+      { label: 'Visitor Analytics', to: '/admin/visitor-analytics', icon: 'Analytics' },
+      { label: 'Landing Visitors', to: '/admin/landing-visits', icon: 'Reports' },
+    ],
+  },  
   { label: 'Notifications', to: '/admin/notifications', icon: 'Notifications' },
 ]
 
@@ -41,4 +46,3 @@ export const trainerSidebarItems = [
   { label: 'Notifications', to: '/trainer/notifications', icon: 'Notifications' },
   { label: 'Profile', to: '/trainer/profile', icon: 'Profile' },
 ]
-
