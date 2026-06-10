@@ -241,6 +241,11 @@ onMounted(() => {
       // Socket.io not available; polling will catch notifications
     }
   }
+
+  window.addEventListener('fitnez-update-unread', (e: Event) => {
+    const customEvent = e as CustomEvent
+    hasUnread.value = customEvent.detail.hasUnread
+  })
 })
 
 onUnmounted(() => {
@@ -248,6 +253,7 @@ onUnmounted(() => {
   if (socketIoCleanup) socketIoCleanup()
   if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', handleKeydown)
+    window.removeEventListener('fitnez-update-unread', () => {})
   }
   if (typeof document !== 'undefined') {
     document.body.style.overflow = previousBodyOverflow

@@ -26,7 +26,15 @@ class NotificationController extends Controller
             ->unread()
             ->count();
 
-        return ApiResponse::success('Unread notifications loaded.', ['count' => $count]);
+        $latest = Notification::query()
+            ->visibleTo($request->user())
+            ->orderByDesc('id')
+            ->first();
+
+        return ApiResponse::success('Unread notifications loaded.', [
+            'count' => $count,
+            'latest_id' => $latest ? $latest->id : null,
+        ]);
     }
 
     public function markAsReadIndividual(Request $request, Notification $notification)

@@ -5,16 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-<<<<<<< HEAD
-use Laravel\Sanctum\HasApiTokens;
-
-class User extends Authenticatable
-{
-    use HasApiTokens, HasFactory, Notifiable;
-
-    protected $table = 'users';
-    
-=======
 
 class User extends Authenticatable
 {
@@ -22,7 +12,6 @@ class User extends Authenticatable
 
     protected $table = 'users';
 
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
     const CREATED_AT = 'created_at';
     const UPDATED_AT = null;
 
@@ -31,10 +20,7 @@ class User extends Authenticatable
         'password_hash',
         'full_name',
         'birth_date',
-<<<<<<< HEAD
-=======
         'age',
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
         'phone',
         'profile_picture_url',
         'role_id',
@@ -45,16 +31,6 @@ class User extends Authenticatable
         'membership_started_at',
         'membership_expires_at',
         'free_class_access',
-<<<<<<< HEAD
-    ];
-
-    protected $hidden = [
-        'password_hash',
-    ];
-
-    protected $casts = [
-        'birth_date' => 'date',
-=======
         'renewal_package_id',
         'membership_renewal_starts_at',
         'membership_renewal_expires_at',
@@ -65,18 +41,14 @@ class User extends Authenticatable
     protected $casts = [
         'birth_date' => 'date',
         'age' => 'integer',
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
         'created_at' => 'datetime',
         'last_login' => 'datetime',
         'is_active' => 'boolean',
         'email_verified_at' => 'datetime',
         'membership_started_at' => 'datetime',
         'membership_expires_at' => 'datetime',
-<<<<<<< HEAD
-=======
         'membership_renewal_starts_at' => 'datetime',
         'membership_renewal_expires_at' => 'datetime',
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
         'free_class_access' => 'boolean',
     ];
 
@@ -95,14 +67,11 @@ class User extends Authenticatable
         return $this->belongsTo(MembershipPackage::class);
     }
 
-<<<<<<< HEAD
-=======
     public function renewalPackage()
     {
         return $this->belongsTo(MembershipPackage::class, 'renewal_package_id');
     }
 
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
     public function trainerDetail()
     {
         return $this->hasOne(TrainerDetail::class);
@@ -118,8 +87,6 @@ class User extends Authenticatable
         return $this->hasOne(TrainerApplication::class)->latestOfMany();
     }
 
-<<<<<<< HEAD
-=======
     public function trainerBookingsAsMember()
     {
         return $this->hasMany(TrainerBooking::class, 'member_id');
@@ -130,7 +97,6 @@ class User extends Authenticatable
         return $this->hasMany(TrainerBooking::class, 'trainer_id');
     }
 
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
     public function roleName(): ?string
     {
         return $this->role?->name;
@@ -150,8 +116,6 @@ class User extends Authenticatable
     {
         return $this->roleName() === 'trainer';
     }
-<<<<<<< HEAD
-=======
 
     public function membershipStatus(): string
     {
@@ -222,6 +186,5 @@ class User extends Authenticatable
         $this->unsetRelation('membershipPackage');
         $this->unsetRelation('renewalPackage');
     }
->>>>>>> 5bf28d8690c0e0605f52a8554950e80a6058e6a5
 }
 

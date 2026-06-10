@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
 import { useNotificationStore } from '../../stores/notificationStore'
@@ -10,6 +10,10 @@ import { useAutoRefresh } from '../../composables/useAutoRefresh'
 
 const store = useNotificationStore()
 const { loading: initialLoading, run, shimmerStyle } = useDeferredLoading()
+
+watch(() => store.unreadCount, (count) => {
+  window.dispatchEvent(new CustomEvent('fitnez-update-unread', { detail: { hasUnread: count > 0 } }))
+}, { immediate: true })
 
 function formatTime(dateStr: string) {
   if (!dateStr) return '--:--'
@@ -89,7 +93,7 @@ async function refreshData() {
 onMounted(() => {
   run(refreshData)
 })
-useAutoRefresh(refreshData, 8000)
+useAutoRefresh(() => store.loadUnreadCount(), 8000)
 </script>
 
 <template>

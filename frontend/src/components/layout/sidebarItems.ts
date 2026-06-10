@@ -13,7 +13,6 @@ export const adminSidebarItems = [
       { label: 'Landing Visitors', to: '/admin/landing-visits', icon: 'Reports' },
     ],
   },  
-  { label: 'Notifications', to: '/admin/notifications', icon: 'Notifications' },
 ]
 
 export const memberSidebarItems = [
@@ -33,7 +32,6 @@ export const memberSidebarItems = [
   { label: 'Payments', to: '/member/payments', icon: 'Payments' },
   { label: 'Chat', to: '/member/chat', icon: 'Chat' },
   { label: 'Profile', to: '/member/profile', icon: 'Profile' },
-  { label: 'Notifications', to: '/member/notifications', icon: 'Notifications' },
 ]
 
 export const trainerSidebarItems = [
@@ -43,6 +41,5 @@ export const trainerSidebarItems = [
   { label: 'Members', to: '/trainer/members', icon: 'Members' },
   { label: 'Chat', to: '/trainer/chat', icon: 'Chat' },
   { label: 'Trainer Reports', to: '/trainer/rent-history', icon: 'Reports' },
-  { label: 'Notifications', to: '/trainer/notifications', icon: 'Notifications' },
   { label: 'Profile', to: '/trainer/profile', icon: 'Profile' },
 ]

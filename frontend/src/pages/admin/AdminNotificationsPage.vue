@@ -100,6 +100,7 @@ export default {
       total: 0,
       readAdminNotifIds: JSON.parse(localStorage.getItem('fitnez_admin_read_notifs') || '[]'),
       refreshInterval: null,
+      latestNotifId: null,
     }
   },
   computed: {
@@ -114,9 +115,20 @@ export default {
   },
   async mounted() {
     await this.fetchAdminData()
+    if (this.notifications.length > 0 && this.page === 1) {
+      this.latestNotifId = this.notifications[0].id
+    } else {
+      try {
+        const { data } = await api.get('/admin/notifications?page=1&per_page=1')
+        if (data.notifications && data.notifications.length > 0) {
+          this.latestNotifId = data.notifications[0].id
+        }
+      } catch (e) {}
+    }
+
     this.refreshInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        this.fetchAdminData()
+        this.pollForNewNotifications()
       }
     }, 8000)
   },
@@ -132,23 +144,25 @@ export default {
     iconName(type) {
       if (type === 'member') return 'person_add'
       if (type === 'trainer') return 'badge'
+      if (type === 'payment') return 'payments'
       return 'check_circle'
     },
     iconClass(type) {
       return {
         'notification-icon-member': type === 'member',
-        'notification-icon-trainer': type === 'trainer',
+        'notification-icon-trainer': type === 'trainer' || type === 'payment',
         'notification-icon-system': type === 'system',
       }
     },
     notificationPrefix(type) {
       if (type === 'member') return 'New Member Registration'
       if (type === 'trainer') return 'New Trainer Application'
+      if (type === 'payment') return 'Trainer Hire Payment'
       return 'System Update'
     },
     nameClass(type) {
       if (type === 'system') return 'notification-name-system'
-      if (type === 'trainer') return 'notification-name-trainer'
+      if (type === 'trainer' || type === 'payment') return 'notification-name-trainer'
       return 'notification-name-member'
     },
     notificationDescription(item) {
@@ -158,16 +172,20 @@ export default {
     },
     statusLabel(item) {
       if (item.type === 'system') return 'Active'
+      if (item.type === 'payment') return item.status === 'pending_payment' ? 'Awaiting Verification' : 'Verified'
       return item.status === 'awaiting_admin_review' || item.status === 'pending' ? 'Pending' : 'Completed'
     },
     statusClass(item) {
       if (item.type === 'system') return 'status-success'
+      if (item.type === 'payment') return item.status === 'pending_payment' ? 'status-warning' : 'status-success'
       return item.status === 'awaiting_admin_review' || item.status === 'pending' ? 'status-warning' : 'status-success'
     },
     markAsRead(id) {
       if (!this.readAdminNotifIds.includes(id)) {
         this.readAdminNotifIds.push(id)
         localStorage.setItem('fitnez_admin_read_notifs', JSON.stringify(this.readAdminNotifIds))
+        const hasUnread = this.notifications.some(n => !this.isRead(n.id))
+        window.dispatchEvent(new CustomEvent('fitnez-update-unread', { detail: { hasUnread } }))
       }
     },
     markAllRead() {
@@ -177,6 +195,7 @@ export default {
         }
       })
       localStorage.setItem('fitnez_admin_read_notifs', JSON.stringify(this.readAdminNotifIds))
+      window.dispatchEvent(new CustomEvent('fitnez-update-unread', { detail: { hasUnread: false } }))
     },
     async goToPage(page) {
       if (typeof page === 'string') return
@@ -185,18 +204,57 @@ export default {
       this.page = page
       await this.fetchAdminData()
     },
+    async pollForNewNotifications() {
+      try {
+        const { data } = await api.get('/admin/notifications?page=1&per_page=10')
+        const latestNotifs = data.notifications || []
+        
+        if (latestNotifs.length > 0) {
+          const currentLatestId = latestNotifs[0].id
+          
+          if (this.latestNotifId && currentLatestId !== this.latestNotifId) {
+            const newIndex = latestNotifs.findIndex(n => n.id === this.latestNotifId)
+            const newNotifs = newIndex === -1 ? latestNotifs : latestNotifs.slice(0, newIndex)
+            
+            newNotifs.forEach(n => {
+              if (!this.readAdminNotifIds.includes(n.id)) {
+                window.showFitnezToast(`🔔 New ${this.notificationPrefix(n.type)}: ${n.name || 'Anonymous'}`, 'info')
+              }
+            })
+            
+            this.latestNotifId = currentLatestId
+            
+            if (this.page !== 1) {
+              this.page = 1
+            }
+            await this.fetchAdminData()
+          } else if (!this.latestNotifId) {
+            this.latestNotifId = currentLatestId
+            await this.fetchAdminDataSilent()
+          } else {
+            await this.fetchAdminDataSilent()
+          }
+        }
+      } catch (error) {}
+    },
+    async fetchAdminDataSilent() {
+      try {
+        const { data } = await api.get(`/admin/notifications?page=${this.page}&per_page=${this.perPage}`)
+        this.notifications = data.notifications || []
+        this.page = data.current_page || this.page
+        this.lastPage = data.last_page || 1
+        this.total = data.total || this.notifications.length
+        this.activeUsers = data.activeUsers || 0
+        this.pendingMemberCount = data.pendingMemberCount || 0
+        this.pendingTrainerCount = data.pendingTrainerCount || 0
+
+        const hasUnread = this.notifications.some(n => !this.isRead(n.id))
+        window.dispatchEvent(new CustomEvent('fitnez-update-unread', { detail: { hasUnread } }))
+      } catch (error) {}
+    },
     async fetchAdminData() {
       try {
-        const { data } = await api.get('/admin/notifications')
-        
-        const currentIds = this.notifications.map(n => n.id)
-        const newNotifs = (data.notifications || []).filter(n => !currentIds.includes(n.id) && !this.readAdminNotifIds.includes(n.id))
-        
-        if (this.notifications.length > 0 && newNotifs.length > 0) {
-          newNotifs.forEach(n => {
-            window.showFitnezToast(`🔔 New ${this.notificationPrefix(n.type)}: ${n.name || 'Anonymous'}`, 'info')
-          })
-        }
+        const { data } = await api.get(`/admin/notifications?page=${this.page}&per_page=${this.perPage}`)
         
         this.notifications = data.notifications || []
         this.page = data.current_page || this.page
@@ -205,6 +263,9 @@ export default {
         this.activeUsers = data.activeUsers || 0
         this.pendingMemberCount = data.pendingMemberCount || 0
         this.pendingTrainerCount = data.pendingTrainerCount || 0
+
+        const hasUnread = this.notifications.some(n => !this.isRead(n.id))
+        window.dispatchEvent(new CustomEvent('fitnez-update-unread', { detail: { hasUnread } }))
       } catch (error) {
         window.showFitnezToast('Failed to fetch admin data.', 'error')
       }

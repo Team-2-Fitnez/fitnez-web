@@ -165,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { memberSidebarItems } from '../../components/layout/sidebarItems'
 import SkeletonList from '../../components/ui/SkeletonList.vue'
@@ -188,6 +188,16 @@ let refreshInterval: ReturnType<typeof setInterval> | null = null
 const hasUnreadNotifications = computed(() =>
   realNotifications.value.some(n => !n.is_read)
 )
+
+const hasUnreadTotal = computed(() => {
+  const unreadNotifs = realNotifications.value.some(n => !n.is_read)
+  const unreadWorkouts = [...kemarin.value, ...hariIni.value, ...besok.value].some(n => !n.is_read)
+  return unreadNotifs || unreadWorkouts
+})
+
+watch(hasUnreadTotal, (val) => {
+  window.dispatchEvent(new CustomEvent('fitnez-update-unread', { detail: { hasUnread: val } }))
+}, { immediate: true })
 
 function groupWorkoutReminders(reminders: any[]) {
   kemarin.value = []

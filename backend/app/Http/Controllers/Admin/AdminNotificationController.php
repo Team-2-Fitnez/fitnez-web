@@ -28,10 +28,10 @@ class AdminNotificationController extends Controller
                 'email' => $item->email,
                 'plan' => $item->package?->name ?? 'Basic',
                 'status' => $item->status,
-                'created_at' => ($item->created_at ?? now())->toDateTimeString(),
+                'created_at' => ($item->created_at ?? now())->toIso8601String(),
             ]);
 
-        $pendingTrainers = TrainerApplication::with('user')->orderByDesc('id')
+        $pendingTrainers = TrainerApplication::with('user')->orderByDesc('submitted_at')
             ->get()
             ->map(fn($item) => [
                 'id' => 'trainer_' . $item->id,
@@ -41,27 +41,45 @@ class AdminNotificationController extends Controller
                 'email' => $item->user->email ?? '-',
                 'specialty' => 'Fitness Specialist',
                 'status' => $item->status,
-                'created_at' => ($item->created_at ?? now())->toDateTimeString(),
+                'created_at' => ($item->submitted_at ?? now())->toIso8601String(),
+            ]);
+
+        $newUsers = User::with('membershipPackage')->whereHas('role', fn($q) => $q->where('name', 'member'))
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn($item) => [
+                'id' => 'new_user_' . $item->id,
+                'real_id' => $item->id,
+                'type' => 'member',
+                'name' => $item->full_name,
+                'email' => $item->email,
+                'plan' => $item->membershipPackage?->name ?? 'No Plan',
+                'status' => $item->is_active ? 'active account' : 'inactive account',
+                'created_at' => ($item->created_at ?? now())->toIso8601String(),
+            ]);
+
+        $pendingPayments = \App\Models\TrainerBooking::with(['member', 'trainer'])
+            ->where('status', \App\Models\TrainerBooking::STATUS_PENDING_PAYMENT)
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn($item) => [
+                'id' => 'payment_' . $item->id,
+                'real_id' => $item->id,
+                'type' => 'payment',
+                'name' => ($item->member->full_name ?? 'Unknown') . ' to ' . ($item->trainer->full_name ?? 'Trainer'),
+                'email' => 'Proof Uploaded - Total: Rp ' . number_format($item->total_member_price, 0, ',', '.'),
+                'plan' => 'Trainer Hire',
+                'status' => $item->status,
+                'created_at' => ($item->created_at ?? now())->toIso8601String(),
             ]);
 
         $activeUsersCount = User::where('is_active', true)->count();
-        
-
-        $systemNotifs = collect([[
-            'id' => 'system_active_users',
-            'real_id' => 0,
-            'type' => 'system',
-            'name' => 'System Status',
-            'email' => 'Total Active Accounts',
-            'plan' => $activeUsersCount . ' Active Accounts',
-            'status' => 'info',
-            'created_at' => now()->toDateTimeString(),
-        ]]);
 
         $allNotifications = $pendingMembers
             ->concat($pendingTrainers)
-            ->concat($systemNotifs)
-            ->sortByDesc('created_at')
+            ->concat($pendingPayments)
+            ->concat($newUsers)
+            ->sortByDesc(fn($item) => \Carbon\Carbon::parse($item['created_at'])->timestamp)
             ->values();
 
         $pageItems = $allNotifications
