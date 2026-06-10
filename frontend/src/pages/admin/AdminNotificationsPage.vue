@@ -187,7 +187,17 @@ export default {
     },
     async fetchAdminData() {
       try {
-        const { data } = await api.get(`/admin/notifications?page=${this.page}&per_page=${this.perPage}`)
+        const { data } = await api.get('/admin/notifications')
+        
+        const currentIds = this.notifications.map(n => n.id)
+        const newNotifs = (data.notifications || []).filter(n => !currentIds.includes(n.id) && !this.readAdminNotifIds.includes(n.id))
+        
+        if (this.notifications.length > 0 && newNotifs.length > 0) {
+          newNotifs.forEach(n => {
+            window.showFitnezToast(`🔔 New ${this.notificationPrefix(n.type)}: ${n.name || 'Anonymous'}`, 'info')
+          })
+        }
+        
         this.notifications = data.notifications || []
         this.page = data.current_page || this.page
         this.lastPage = data.last_page || 1
@@ -394,6 +404,12 @@ export default {
 
 .notification-item-unread {
   cursor: pointer;
+  background: #f0f7ff;
+  border-left: 4px solid #0058be;
+}
+
+.notification-item-unread:hover {
+  background: #e6f0fa;
 }
 
 .notification-icon {
