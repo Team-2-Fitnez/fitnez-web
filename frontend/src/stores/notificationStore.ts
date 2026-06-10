@@ -11,6 +11,7 @@ export const useNotificationStore = defineStore('notifications', {
     lastPage: 1,
     perPage: 10,
     total: 0,
+    latestId: null as number | null,
   }),
 
   actions: {
@@ -30,6 +31,19 @@ export const useNotificationStore = defineStore('notifications', {
     async loadUnreadCount() {
       const response = await notificationsApi.unreadCount()
       this.unreadCount = response.data.count
+
+      const newLatestId = response.data.latest_id
+      if (this.latestId && newLatestId && newLatestId !== this.latestId) {
+        window.showFitnezToast?.('🔔 New notification received!', 'info')
+        if (this.page !== 1) {
+          this.page = 1
+        }
+        await this.load()
+      } else if (!this.latestId && newLatestId) {
+        this.latestId = newLatestId
+      } else if (newLatestId && newLatestId !== this.latestId) {
+        this.latestId = newLatestId
+      }
     },
 
     async markAsRead(id: number) {

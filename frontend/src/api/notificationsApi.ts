@@ -7,7 +7,7 @@ export const notificationsApi = {
     return http.get<Paginated<NotificationItem>>(`/notifications?page=${page}&per_page=${perPage}`)
   },
   unreadCount() {
-    return http.get<{ count: number }>('/notifications/unread-count')
+    return http.get<{ count: number; latest_id: number | null }>('/notifications/unread-count')
   },
   markAsRead(id: number) {
     return http.patch<NotificationItem>(`/notifications/${id}/read`)
