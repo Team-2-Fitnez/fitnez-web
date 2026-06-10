@@ -20,6 +20,7 @@ class User extends Authenticatable
         'password_hash',
         'full_name',
         'birth_date',
+        'age',
         'phone',
         'profile_picture_url',
         'role_id',
@@ -39,6 +40,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'birth_date' => 'date',
+        'age' => 'integer',
         'created_at' => 'datetime',
         'last_login' => 'datetime',
         'is_active' => 'boolean',
