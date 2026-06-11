@@ -20,17 +20,6 @@ member@fitnez.test
 
 ## Important commands
 
-Backend:
-
-```bash
-cd backend
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan migrate --seed
-php artisan serve
-```
-
 Docker:
 
 ```bash
@@ -51,7 +40,6 @@ Folder yang benar adalah folder yang berisi file:
 docker-compose.yml
 backend/
 frontend/
-docker/
 ```
 
 Contoh:
@@ -97,20 +85,6 @@ backend/.env
 frontend/
 docker-compose.yml
 ```
-
-Kalau kalian sudah punya `backend/.env`, jangan langsung ditimpa. Lebih aman backup dulu:
-
-```bash
-cp backend/.env backend/.env.backup
-```
-
-Lalu baru copy file `.env` yang baru:
-
-```bash
-cp .env backend/.env
-```
-
-Catatan penting: file `.env` asli jangan di-push ke GitHub. File ini dipakai untuk konfigurasi local masing-masing anggota.
 
 ---
 
@@ -363,43 +337,6 @@ Kalau OTP tidak muncul, cek `backend/.env` dan pastikan:
 MAIL_MAILER=log
 ```
 
----
-## 17. Masalah yang Paling Sering Terjadi
-### Database tidak terhubung
-
-Cek `backend/.env`.
-Untuk Docker, database host harus:
-
-```env
-DB_HOST=db
-```
-
-Jangan pakai:
-
-```env
-DB_HOST=localhost
-```
-
-Kenapa? Karena di dalam Docker, `localhost` berarti container Laravel itu sendiri, bukan container database. Database ada di service Docker bernama `db`.
-
-### Frontend tidak bisa akses API
-Cek `frontend/vite.config.js`.
-Kalau frontend berjalan di Docker, proxy `/api` harus:
-
-```js
-target: 'http://nginx'
-```
-
-### Cookie consent muncul tapi tidak masuk database
-
-Cek tiga hal:
-
-```txt
-1. Route POST /api/cookie-consents sudah ada
-2. Migration cookie_consents sudah dijalankan
-3. Proxy /api di Vite sudah mengarah ke http://nginx
-```
-
 ### Laravel tidak bisa menulis log atau upload file
 Cek permission:
 
@@ -407,14 +344,6 @@ Cek permission:
 docker compose exec app mkdir -p storage/logs bootstrap/cache
 docker compose exec app chmod -R 775 storage bootstrap/cache
 docker compose exec app chown -R www-data:www-data storage bootstrap/cache
-```
-
-### Container conflict
-Kalau muncul container name already in use:
-
-```bash
-docker rm -f fitnez-app fitnez-nginx fitnez-frontend fitnez-db
-docker compose up -d --build
 ```
 
 ---
@@ -449,34 +378,91 @@ Lalu buka:
 ```txt
 http://localhost:5173
 ```
-
 ---
 
-## 19. Catatan untuk Kalian.
-Jangan commit file:
+## Fitur tersedia.
 
-```txt
-backend/.env
-frontend/.env
+Fitur authentication-attendance-profile
+```
+Fitur Authentication:
+1. Cara kerjanya user bisa register atau login terlebih dahulu, jika register cukup mengisi data dan password, lalu langsung pilih paket membership, setelah itu nanti akan admin approve dan user bisa login menggunakan akun yang sudah terdaftar.
+2. User bisa cek status registrasinya di halaman login
+3. Jika user langsung login dan user lupa password, maka user bisa input email yang digunakan untuk di kirimkan otp oleh admin (otp diakses oleh admin dan admin akan mengirim lewat email untuk dimasukkan otpnya). Jika user sudah memasukkan otp dengan benar, dan memasukkan password dengan benar, user bisa langsung melakukan login ulang dengan password yang baru.
+
+Fitur Attendance:
+1. User bisa checkin untuk melakukan absensi yang artinya ia masuk untuk berolahraga hari ini di dashboard dan checkout jika aktivitas di gym sudah selesai.
+
+Fitur Profile:
+1. User bisa edit profil dan data dirinya (belum tersedia ubah email) di menu profil.
+2. User bisa renewal subscriptionnya dari profil.
+3. Jika user adalah member sekaligus trainer, bisa menggunakan fitur switch profile di dalam menu profile. Dan bisa berganti workspace.
 ```
 
-Yang boleh di-commit adalah file contoh:
+Fitur workoutplan-notification
+```
+Fitur Workout Plan: 
+1. User menambahkan daftar latihan
+2. Daftar latihan akan masuk ke dalam jadwal latihan
+3. Setelah menambahkan jadwal latihan, maka reminder latihan tersebut akan masuk ke notifikasi member
+4. Jika user salah mengisi data latihan maka di bagian jadwal latihan data nya bisa di edit
+5. Jika user ingin menghapus latihan tersebut maka, user bisa menghapus data yang ada di jadwal latihan. Ada hapus untuk jadwal latihan tertentu dan ada hapus untuk menghapus seluruh data latihan
+6. Jika user ingin melakukan latihan mandiri (tidak di lokasi gym), dan tidak tahu langkah untuk melakukan latihan tersebut, maka bisa memutar video tutorial yang di sediakan.
 
-```txt
-backend/.env.example
-backend/.env.example.patch
-frontend/.env.example
+Fitur notifikasi:
+1. Halaman Member: Setiap ada informasi langsung seperti (menambahkan jadwal latihan, meal plan, sewa trainer, dan konfirmasi baik dari trainer dan admin), maka akan masuk ke log informasi. Dan reminder jadwal latihan akan di ingatkan lewat notifikasi
+2. Halaman Trainer: Setiap ada informasi langsung seperti (pembayaran sewa masuk, jadwal kelas, dan trainer di sewa), maka akan masuk ke log informasi
+3. Halaman Admin: Setiap ada informasi langsung (orang yang mendaftarkan akun sebagai member, pembayaran member, pengajuan daftar trainer, jumlah akun yang aktif pada hari itu), maka akan masuk ke log informasi
 ```
 
-File `.env` berisi konfigurasi local dan bisa berbeda antar laptop anggota. Kalau file `.env` salah, error yang paling sering muncul adalah database tidak terhubung, API gagal dipanggil, atau OTP tidak muncul di log.
+Fitur trainer-admin-monitoring
+```
+a. Fitur 1:
+- Member harus sudah melakukan booking trainer.
+- Di workstation trainer, terdapat halaman Members yang trainer bisa melihat data-data dari Member yang membooking nya. Data yang dimaksud adalah: Workout Plans, Nutrition & Meals, dan Progress dari Latihan yang sudah dilakukan selama ini.
+- Trainer bisa memilih salah satu member untuk melihat datanya, jika memang trainer tersebut memiliki banyak bookingan dari berbagai member.
+- Terdapat ringkasan total members, Active Plans, Completed Logs, dan Meal Plans.
 
-## 2026-05-10 hardening pass
+b. Fitur 2:
+- Di workstation trainer, terdapat halaman Trainer Reports, yang berfungsi sebagai melacak riwayat komisi, status pencairan, dan catatan transaksi klien.
+- Terdapat ringkasan Total transaksi, pendapatan, pencairan yang tertunda, dan yang dicairkan.
+- Trainer bisa menfilter Status Pencairan, serta tanggal mulai dan akhir yang mempermudah melacak dalam kurung Waktu tertentu yang di inginkan trainer.
 
-- Removed the visible dummy-account card from the login UI so demo credentials are no longer exposed in the application screen.
-- Replaced stale dashboard labels that described login as OTP-based; login is now shown as direct email/password, with OTP only for forgot-password reset.
-- Removed the frontend registration-OTP page from routing; `/verify-otp` redirects to `/forgot-password`.
-- Added request validation classes for forgot password, reset password, registration status lookup, notification list pagination, public limited lists, and trainer application uploads/reviews.
-- Added Laravel trim/empty-string normalization middleware and stricter email normalization in login/OTP requests.
-- Kept database access through Eloquent ORM models/relationships/scopes and sanitized search terms before applying LIKE/ILIKE filters.
-- Added explicit limits/pagination to public package/payment-method fetches, notification fetches, landing visit summaries, admin tables, and role lists.
-- Changed admin-created trainers to remain `member` role users with trainer profile/access, instead of creating a separate trainer login role.
+c. Fitur 3:
+- Calon member mengisi semua form registrasi dan melakukan pembayaran.
+- Di workstation admin, teradapat halaman Payments Review, yang berfungsi sebagai tempat konfirmasi semua pembayaran apakah pembayaran berhasil atau tidak.
+- Di workstation admin, teradapat halaman Payments, yang berfungsi sebagai pelacak semua pembayaran yang dilakukan member. Baik itu daftar menjadi member, atau perpanjangan membership.
+
+d. Fitur 4:
+- Di dashboard member, terdapat tombol untuk Check-in dan Check-out. Check-in dan Check-out akan tercatat oleh admin.
+- Di workstation admin, terdapat halaman Check-in logs & Reports, yang berfungsi sebagai tempat pemantauan log operasional gym, pembayaran, riwayat kehadiran, dan metrik bisnis Utama.
+- Admin dapat mengecetak laporan bulanan dalam bentuk format .xlsx
+- Admin dapat mencari member, email, maupun invoice dengan pencarian yang tersedia. Serta menfilter Classification, Payment Status, serta kurung Waktu tertentu yang di inginkan.
+- Terdapat ringkasan Total pendapatan, total transaksi, Rasio kehadiran, Total Checkin, dan yang datang hari ini.
+```
+
+Fitur trainer-booking-chat-payment
+```
+Hire Trainer - Halaman untuk mencari dan memilih trainer berdasarkan spesialisasi, lalu membuat booking dengan mengisi start date, sesi per minggu, hari sesi, dan jam sesi. Booking dimulai dari status pending, setelah upload bukti bayar jadi pending_payment, lalu admin konfirmasi jadi confirmed - setelah itu chat baru bisa digunakan.
+
+Schedule - Menampilkan semua jadwal sesi booking yang sudah dikonfirmasi. Sesi di-generate otomatis oleh sistem berdasarkan data booking (hari, jam, tanggal mulai-akhir). Dari sini user bisa melihat jadwal latihan harian mereka lengkap dengan informasi trainer.
+
+Chat - Fitur pesan real-time antara member dan trainer yang hanya aktif setelah booking dikonfirmasi. Menggunakan koneksi WebSocket (Socket.io) dengan fallback polling, mendukung lampiran file (gambar/PDF), dan mengirim notifikasi otomatis ke penerima saat ada pesan baru.
+
+Payments - Riwayat pembayaran yang menampilkan invoice, status, jumlah, dan metode. Setiap booking menghasilkan tagihan total_member_price (perhitungan berdasarkan base_price trainer x sesi per minggu x 4 minggu). Admin bisa mengelola konfirmasi atau penolakan pembayaran dari halaman ini.
+
+Penghasilan (Rent History) - Halaman yang menampilkan total penghasilan trainer, rincian disbursed (sudah dicairkan), pending (belum dicairkan), serta breakdown income dari mentoring dan sesi. Data bersumber dari tabel trainer_earnings yang terisi otomatis saat admin mengkonfirmasi pembayaran booking.
+```
+
+Fitur mealplan-nutritioncalculator-nutritionmonitoring
+```
+FITUR MEALPLAN DAN KALKULATOR GIZI
+1. Hitung daily limit dengan menginput data diri (TB, BB, Umur, dll)
+2. Jadikan hasil kalkulasi daily limit menjadi set daily limit hari ini
+3. User dapat mengetahui kalori limit  hari ini dari set daily limit
+4. User bisa menginput makanan apa saja yang dikonsumsi dan menyertakan kalori dari makanan tersebut
+5. Set daily limit otomatis akan menghitung limit kalori hari ini dengan hasil input makanan yang telah dikonsumsi
+6. User tidak akan bisa menginput makanan yang dikonsumsi hari ini sebelum set daily limit (No 2)
+
+Fitur Monitoring Nutrisi
+1. Progress nutrisi user bisa di perhatikan oleh user sendiri maupun oleh trainernya dengan syarat user sudah booking trainer tersebut.
+```
