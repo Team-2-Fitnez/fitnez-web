@@ -41,9 +41,9 @@ if [ -z "$APP_KEY_VAL" ]; then
 fi
 
 # Wait for database to be ready using TCP check
-echo "Waiting for database at ${DB_HOST_VAL}:${DB_PORT_VAL}..."
+echo "Waiting for database at $${DB_HOST_VAL}:$${DB_PORT_VAL}..."
 RETRIES=30
-until nc -z "$DB_HOST_VAL" "$DB_PORT_VAL" 2>/dev/null; do
+until nc -z "$${DB_HOST_VAL}" "$${DB_PORT_VAL}" 2>/dev/null; do
   RETRIES=$((RETRIES - 1))
   if [ $RETRIES -le 0 ]; then
     echo "Database connection timed out. Proceeding anyway..."
