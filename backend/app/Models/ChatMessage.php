@@ -15,10 +15,14 @@ class ChatMessage extends Model
         'receiver_id',
         'message',
         'is_read',
+        'file_url',
+        'file_name',
+        'file_size',
     ];
 
     protected $casts = [
         'is_read' => 'boolean',
+        'file_size' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

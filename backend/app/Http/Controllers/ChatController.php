@@ -108,6 +108,9 @@ class ChatController extends Controller
                 'sender_id'   => $m->sender_id,
                 'receiver_id' => $m->receiver_id,
                 'message'     => $m->message,
+                'file_url'    => $m->file_url,
+                'file_name'   => $m->file_name,
+                'file_size'   => $m->file_size,
                 'created_at'  => $m->created_at?->toISOString(),
                 'sender_name' => $m->sender?->full_name ?? '',
                 'is_read'     => $m->is_read,
@@ -134,6 +137,7 @@ class ChatController extends Controller
         $data = $request->validate([
             'receiver_id' => 'required|integer|exists:users,id',
             'message'     => 'required|string|max:2000',
+            'file'        => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,txt|max:10240',
         ]);
 
         $uid = $request->user()->id;
@@ -164,10 +168,25 @@ class ChatController extends Controller
             }
         }
 
+        $fileUrl = null;
+        $fileName = null;
+        $fileSize = null;
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $path = $file->store('chat-files', 'public');
+            $fileUrl = Storage::url($path);
+            $fileName = $file->getClientOriginalName();
+            $fileSize = $file->getSize();
+        }
+
         $msg = ChatMessage::create([
             'sender_id'   => $uid,
             'receiver_id' => $receiverId,
             'message'     => $data['message'],
+            'file_url'    => $fileUrl,
+            'file_name'   => $fileName,
+            'file_size'   => $fileSize,
         ]);
 
         $senderName = $request->user()->full_name ?? 'User';
@@ -176,7 +195,7 @@ class ChatController extends Controller
         $notif = Notification::create([
             'user_id'           => $data['receiver_id'],
             'title'             => 'Pesan baru dari ' . $senderName,
-            'body'              => mb_substr($data['message'], 0, 120),
+            'body'              => $fileUrl ? ' mengirimkan file: ' . ($fileName ?? 'file') : mb_substr($data['message'], 0, 120),
             'notification_type' => 'chat_message',
             'is_read'           => false,
         ]);
@@ -198,6 +217,9 @@ class ChatController extends Controller
             'sender_id'   => $msg->sender_id,
             'receiver_id' => $msg->receiver_id,
             'message'     => $msg->message,
+            'file_url'    => $msg->file_url,
+            'file_name'   => $msg->file_name,
+            'file_size'   => $msg->file_size,
             'created_at'  => $msg->created_at?->toISOString(),
             'is_read'     => false,
             'isMe'        => true,

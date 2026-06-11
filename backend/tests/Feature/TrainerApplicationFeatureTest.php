@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Role;
 use App\Models\TrainerApplication;
+use App\Models\TrainerDetail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -105,5 +106,42 @@ class TrainerApplicationFeatureTest extends TestCase
         $response->assertStatus(200);
         $this->assertNull($response->json('data.application'));
         $this->assertFalse($response->json('data.can_access_trainer_workspace'));
+    }
+
+    public function test_member_can_enter_trainer_workspace_after_approval(): void
+    {
+        $this->authenticateAs($this->member);
+
+        $application = TrainerApplication::factory()->approved()->create([
+            'user_id' => $this->member->id,
+        ]);
+
+        TrainerDetail::factory()->create([
+            'user_id' => $this->member->id,
+        ]);
+
+        $response = $this->postJson('/api/trainer/workspace/enter');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['success', 'message', 'data' => ['token']]);
+    }
+
+    public function test_member_can_leave_trainer_workspace(): void
+    {
+        $this->authenticateAs($this->member);
+
+        TrainerApplication::factory()->approved()->create([
+            'user_id' => $this->member->id,
+        ]);
+
+        TrainerDetail::factory()->create([
+            'user_id' => $this->member->id,
+        ]);
+
+        $this->postJson('/api/trainer/workspace/enter');
+
+        $response = $this->postJson('/api/trainer/workspace/leave');
+
+        $response->assertStatus(200);
     }
 }

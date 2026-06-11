@@ -29,4 +29,13 @@ class ChatMessageFactory extends Factory
     {
         return $this->state(fn() => ['is_read' => false]);
     }
+
+    public function withFile(): static
+    {
+        return $this->state(fn() => [
+            'file_url' => '/storage/chat-files/example.pdf',
+            'file_name' => 'document.pdf',
+            'file_size' => 2048,
+        ]);
+    }
 }

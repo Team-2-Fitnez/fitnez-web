@@ -127,6 +127,7 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::get('/bookings/pending-payments', [BookingController::class, 'pendingPayments']);
         Route::post('/bookings/{booking}/confirm-payment', [BookingController::class, 'confirmPayment']);
         Route::post('/bookings/{booking}/reject-payment', [BookingController::class, 'rejectPayment']);
+        Route::post('/bookings/auto-complete', [BookingController::class, 'autoCompleteExpiredBookings']);
         
         // Membership Renewal Review
         Route::get('/payments/pending-renewals', [MemberMembershipController::class, 'pendingRenewals']);

@@ -8,6 +8,9 @@ type SocketMessage = {
   sender_id: number
   receiver_id: number
   message: string
+  file_url?: string | null
+  file_name?: string | null
+  file_size?: number | null
   created_at: string
   sender_name: string
   is_read: boolean
@@ -89,6 +92,9 @@ export const useChatStore = defineStore('chat', {
         sender_id: event.sender_id,
         receiver_id: event.receiver_id,
         message: event.message,
+        file_url: event.file_url,
+        file_name: event.file_name,
+        file_size: event.file_size,
         created_at: event.created_at,
         sender_name: event.sender_name,
         is_read: event.is_read,
