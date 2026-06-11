@@ -1,14 +1,14 @@
-# Fitnez cleanup and trainer-flow fixes
+# Readme
 
 ## Dummy accounts
 
-All dummy accounts use this password:
+Semua akun dummy:
 
 ```txt
 FitnezTeam2@2026
 ```
 
-Accounts:
+Akun:
 
 ```txt
 admin@fitnez.test
@@ -16,17 +16,9 @@ trainer@fitnez.test
 member@fitnez.test
 ```
 
-`trainer@fitnez.test` is still a member login account, but it already has an approved trainer application and can enter the Trainer Workspace.
+`trainer@fitnez.test` masih tetap akun member namun memiliki trainer workspace.
 
-## Important commands
-
-Docker:
-
-```bash
-docker compose up --build
-```
-
-## Cara jalankan project
+## Cara Install File
 Saran utama: jalankan project ini lewat **WSL Debian/Ubuntu**, bukan langsung dari folder Windows, supaya permission Laravel, storage upload, log, dan volume Docker lebih stabil.
 
 ---
