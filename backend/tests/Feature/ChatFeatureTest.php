@@ -78,6 +78,34 @@ class ChatFeatureTest extends TestCase
         ]);
     }
 
+    public function test_member_can_send_file_only_chat_message(): void
+    {
+        Storage::fake('public');
+        $token = $this->authenticateAs($this->member);
+
+        TrainerBooking::factory()->confirmed()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+        ]);
+
+        $response = $this->postJson('/api/chat/messages', [
+            'receiver_id' => $this->trainer->id,
+            'file' => UploadedFile::fake()->create('plan.pdf', 128, 'application/pdf'),
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.message', '')
+            ->assertJsonPath('data.file_name', 'plan.pdf')
+            ->assertJsonPath('data.file_url', '/api/chat/messages/1/attachment');
+
+        $message = ChatMessage::query()->firstOrFail();
+        Storage::disk('public')->assertExists($message->file_path);
+
+        $this->get($response->json('data.file_url').'?token='.$token)
+            ->assertStatus(200)
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
     public function test_send_message_without_confirmed_booking_is_blocked(): void
     {
         $this->authenticateAs($this->member);

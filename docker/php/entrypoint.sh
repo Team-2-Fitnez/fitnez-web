@@ -56,6 +56,7 @@ echo "Database is ready."
 
 # Run migrations
 php artisan migrate --no-interaction --force 2>/dev/null || true
+php artisan storage:link --no-interaction 2>/dev/null || true
 
 # Clear config cache
 php artisan config:clear 2>/dev/null || true

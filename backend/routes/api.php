@@ -91,6 +91,7 @@ Route::middleware(JwtAuthenticate::class)->group(function(){
         Route::prefix('chat')->group(function(){
             Route::get('/contacts',[ChatController::class,'contacts']);
             Route::get('/messages',[ChatController::class,'messages']);
+            Route::get('/messages/{message}/attachment',[ChatController::class,'attachment']);
             Route::post('/messages',[ChatController::class,'send']);
         });
     });

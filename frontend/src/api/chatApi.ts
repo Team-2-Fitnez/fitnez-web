@@ -50,3 +50,10 @@ export const chatApi = {
     return http.post<ChatMsg>('/chat/messages', { receiver_id: receiverId, message })
   },
 }
+
+export function chatAttachmentUrl(fileUrl: string): string {
+  const token = http.token()
+  const separator = fileUrl.includes('?') ? '&' : '?'
+
+  return token ? `${fileUrl}${separator}token=${encodeURIComponent(token)}` : fileUrl
+}
