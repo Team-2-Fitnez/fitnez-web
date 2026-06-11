@@ -86,9 +86,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = result.user
         cacheUser(result.user)
 
-        const push = usePushNotifications()
-        await push.init()
-        await push.subscribe()
+        await this.registerPushSubscription()
       } finally {
         this.loading = false
       }
@@ -108,12 +106,30 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout() {
-      const push = usePushNotifications()
-      await push.unsubscribe()
+      await this.unregisterPushSubscription()
 
       await authService.logout()
       this.clearSession()
       this.initialized = true
+    },
+
+    async registerPushSubscription() {
+      try {
+        const push = usePushNotifications()
+        await push.init()
+        await push.subscribe()
+      } catch (e) {
+        console.warn('Push registration skipped (non-blocking):', e)
+      }
+    },
+
+    async unregisterPushSubscription() {
+      try {
+        const push = usePushNotifications()
+        await push.unsubscribe()
+      } catch (e) {
+        console.warn('Push unsubscription skipped (non-blocking):', e)
+      }
     },
   },
 })
