@@ -48,13 +48,14 @@ services:
       context: ./docker/socketio
       dockerfile: Dockerfile
     container_name: fitnez-socketio
+    env_file:
+      - ./backend/.env
     ports:
       - '6001:6001'
     networks:
       - fitnez-net
     environment:
       PORT: '6001'
-      JWT_SECRET: 'fitnez-local-jwt-secret'
 
   db:
     image: postgres:16-alpine

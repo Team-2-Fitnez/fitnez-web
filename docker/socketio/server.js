@@ -3,7 +3,16 @@ import { Server } from 'socket.io'
 import jwt from 'jsonwebtoken'
 
 const PORT = process.env.PORT || 6001
-const JWT_SECRET = process.env.JWT_SECRET || 'fitnez-local-jwt-secret'
+
+function jwtSecret() {
+  const secret = process.env.JWT_SECRET || process.env.APP_KEY || 'fitnez-local-jwt-secret'
+
+  if (secret.startsWith('base64:')) {
+    return Buffer.from(secret.slice(7), 'base64')
+  }
+
+  return secret
+}
 
 const httpServer = createServer((req, res) => {
   if (req.method === 'POST') {
@@ -40,7 +49,7 @@ io.use((socket, next) => {
     return next(new Error('Authentication required'))
   }
   try {
-    const decoded = jwt.verify(token, JWT_SECRET)
+    const decoded = jwt.verify(token, jwtSecret())
     socket.data.userId = decoded.sub || decoded.id
     next()
   } catch {

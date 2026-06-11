@@ -10,6 +10,7 @@ use App\Models\TrainerBooking;
 use App\Models\User;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ChatController extends Controller
 {
@@ -103,16 +104,7 @@ class ChatController extends Controller
         $messages = $messages->take($limit)->reverse()->values();
 
         $result = [
-            'data' => $messages->map(fn(ChatMessage $m) => [
-                'id'          => $m->id,
-                'sender_id'   => $m->sender_id,
-                'receiver_id' => $m->receiver_id,
-                'message'     => $m->message,
-                'created_at'  => $m->created_at?->toISOString(),
-                'sender_name' => $m->sender?->full_name ?? '',
-                'is_read'     => $m->is_read,
-                'isMe'        => $m->sender_id === $uid,
-            ]),
+            'data' => $messages->map(fn(ChatMessage $m) => $this->formatMessage($m, $uid)),
             'has_more' => $hasMore,
             'oldest_id' => $messages->first()?->id,
         ];
@@ -133,11 +125,13 @@ class ChatController extends Controller
     {
         $data = $request->validate([
             'receiver_id' => 'required|integer|exists:users,id',
-            'message'     => 'required|string|max:2000',
+            'message'     => 'nullable|required_without:file|string|max:2000',
+            'file'        => 'nullable|file|max:10240',
         ]);
 
         $uid = $request->user()->id;
         $receiverId = $data['receiver_id'];
+        $file = $request->file('file');
 
         // Check if there is an existing chat history
         $hasHistory = ChatMessage::where(function ($q) use ($uid, $receiverId) {
@@ -164,19 +158,29 @@ class ChatController extends Controller
             }
         }
 
+        $attachment = [];
+        if ($file) {
+            $attachment = [
+                'file_path' => $file->store('chat-attachments', 'public'),
+                'file_name' => $file->getClientOriginalName(),
+                'file_size' => $file->getSize(),
+            ];
+        }
+
         $msg = ChatMessage::create([
             'sender_id'   => $uid,
             'receiver_id' => $receiverId,
-            'message'     => $data['message'],
-        ]);
+            'message'     => $data['message'] ?? '',
+        ] + $attachment);
 
         $senderName = $request->user()->full_name ?? 'User';
+        $notificationBody = $data['message'] ?? ('Attachment: ' . ($attachment['file_name'] ?? 'file'));
 
         // Also dispatch a notification to the receiver so they get a push/toast
         $notif = Notification::create([
             'user_id'           => $data['receiver_id'],
             'title'             => 'Pesan baru dari ' . $senderName,
-            'body'              => mb_substr($data['message'], 0, 120),
+            'body'              => mb_substr($notificationBody, 0, 120),
             'notification_type' => 'chat_message',
             'is_read'           => false,
         ]);
@@ -193,14 +197,33 @@ class ChatController extends Controller
             logger()->warning('Broadcast NewNotification for chat failed: ' . $e->getMessage());
         }
 
-        return ApiResponse::success('Message sent.', [
-            'id'          => $msg->id,
-            'sender_id'   => $msg->sender_id,
-            'receiver_id' => $msg->receiver_id,
-            'message'     => $msg->message,
-            'created_at'  => $msg->created_at?->toISOString(),
-            'is_read'     => false,
-            'isMe'        => true,
-        ], 201);
+        return ApiResponse::success('Message sent.', $this->formatMessage($msg, $uid), 201);
+    }
+
+    public function attachment(Request $request, ChatMessage $message)
+    {
+        $uid = $request->user()->id;
+
+        abort_unless($message->sender_id === $uid || $message->receiver_id === $uid, 403);
+        abort_unless($message->file_path && Storage::disk('public')->exists($message->file_path), 404);
+
+        return Storage::disk('public')->response($message->file_path, $message->file_name);
+    }
+
+    private function formatMessage(ChatMessage $message, int $currentUserId): array
+    {
+        return [
+            'id'          => $message->id,
+            'sender_id'   => $message->sender_id,
+            'receiver_id' => $message->receiver_id,
+            'message'     => $message->message ?? '',
+            'created_at'  => $message->created_at?->toISOString(),
+            'sender_name' => $message->sender?->full_name ?? '',
+            'is_read'     => $message->is_read,
+            'isMe'        => $message->sender_id === $currentUserId,
+            'file_url'    => $message->file_path ? "/api/chat/messages/{$message->id}/attachment" : null,
+            'file_name'   => $message->file_name,
+            'file_size'   => $message->file_size,
+        ];
     }
 }

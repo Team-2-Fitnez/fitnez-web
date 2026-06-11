@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, nextTick, watch } from 'vue'
 import WorkspaceLayout from '../../components/layout/WorkspaceLayout.vue'
 import { trainerSidebarItems } from '../../components/layout/sidebarItems'
+import { chatAttachmentUrl } from '../../api/chatApi'
 import FitnezCard from '../../components/ui/FitnezCard.vue'
 import { useChatStore } from '../../stores/chatStore'
 
@@ -182,7 +183,7 @@ onUnmounted(() => chat.resetChat())
               >
                 <p v-if="msg.message">{{ msg.message }}</p>
                 <div v-if="msg.file_url" style="margin-top: 0.25rem;">
-                  <a :href="msg.file_url" target="_blank" rel="noopener noreferrer"
+                  <a :href="chatAttachmentUrl(msg.file_url)" target="_blank" rel="noopener noreferrer"
                      :style="{ color: msg.isMe ? 'white' : 'var(--color-blue)', textDecoration: 'underline', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }">
                     <span class="material-symbols-outlined" style="font-size: 1rem;">attach_file</span>
                     {{ msg.file_name || 'Attachment' }}
