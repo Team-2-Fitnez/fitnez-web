@@ -1,25 +1,5 @@
 # Fitnez cleanup and trainer-flow fixes
 
-Silahkan nanti kalian pull, lalu setelah kalian buka atau tes hasil kodingan, silahkan di gabung, inget ambil projectnya dari branch develop.
-
-## Main fixes
-
-1. Removed shareable-package dependency on local runtime files. The final ZIP excludes `.env`, `node_modules`, `vendor`, logs, sessions, cache, local SQLite databases, frontend `dist`, and uploaded payment proof files.
-2. Fixed the frontend production build TypeScript errors by completing the landing-visit types and guarding browser UUID generation.
-3. Changed login behavior so users login directly with email and password. OTP is now exposed for password reset through `/auth/password/forgot` and `/auth/password/reset`.
-4. Added a member-to-trainer application flow:
-   - Member opens Profile.
-   - Member uploads CV PDF and certificate PDF.
-   - Admin reviews the trainer application.
-   - If approved, the member gets access to the Trainer Workspace without needing a separate trainer login.
-   - Trainer can switch back to Member Workspace from Trainer Profile.
-5. Added admin trainer-application review routes and frontend page.
-6. Exposed existing admin pages in the router/sidebar: users, trainers, schedules, trainer applications, payment review, and landing visitors.
-7. Changed sidebar logout buttons so they call the real logout API action before redirecting.
-8. Hardened `NotificationController::markAsRead` so a user can only mark their own notification or a global notification as read.
-9. Added `Payment.php` model and updated dashboard logic so payment counts no longer depend on a missing model class.
-10. Added dummy accounts for group testing.
-
 ## Dummy accounts
 
 All dummy accounts use this password:
@@ -39,15 +19,6 @@ member@fitnez.test
 `trainer@fitnez.test` is still a member login account, but it already has an approved trainer application and can enter the Trainer Workspace.
 
 ## Important commands
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run build
-npm run dev
-```
 
 Backend:
 
@@ -143,29 +114,7 @@ Catatan penting: file `.env` asli jangan di-push ke GitHub. File ini dipakai unt
 
 ---
 
-## 4. Siapkan `.env` Frontend
-Kalau di folder `frontend/` belum ada file `.env`, buat dari file contoh:
-
-```bash
-cp frontend/.env.example frontend/.env
-```
-
-Kalau file `frontend/.env.example` belum ada, buat manual:
-
-```bash
-cat > frontend/.env <<'EOF'
-VITE_APP_NAME=FitNez
-VITE_APP_URL=http://localhost:5173
-VITE_API_BASE_URL=/api
-VITE_STORAGE_URL=/storage
-EOF
-```
-
-Kenapa `VITE_API_BASE_URL` cukup `/api`? Karena di `vite.config.js`, request `/api` sudah diproxy ke service Nginx Docker.
-
----
-
-## 5. Jalankan Docker
+## 4. Jalankan Docker
 Setelah file `.env` siap, jalankan Docker dari root project:
 
 ```bash
@@ -179,20 +128,9 @@ Setelah itu cek status container:
 docker compose ps
 ```
 
-Pastikan container berikut statusnya `Up`:
-
-```txt
-fitnez-app
-fitnez-nginx
-fitnez-frontend
-fitnez-db
-```
-
-Kalau nama yang tampil sedikit berbeda, tidak masalah selama service `app`, `nginx`, `frontend`, dan `db` berjalan.
-
 ---
 
-## 6. Install Dependency Laravel
+## 5. Install Dependency Laravel
 Setelah container hidup, install dependency backend Laravel:
 
 ```bash
@@ -203,7 +141,7 @@ Kalau `composer install` sudah pernah dijalankan dan tidak ada perubahan depende
 
 ---
 
-## 7. Generate Laravel Key
+## 6. Generate Laravel Key
 Jalankan:
 
 ```bash
@@ -215,7 +153,7 @@ Kalau `APP_KEY` kosong, aplikasi bisa error.
 
 ---
 
-## 8. Bersihkan Cache Laravel
+## 7. Bersihkan Cache Laravel
 Setelah ada perubahan file route, controller, `.env`, migration, atau config, jalankan:
 
 ```bash
@@ -226,7 +164,7 @@ Ini penting supaya Laravel membaca konfigurasi terbaru.
 
 ---
 
-## 9. Jalankan Migration Database
+## 8. Jalankan Migration Database
 Jalankan migration:
 
 ```bash
@@ -254,7 +192,7 @@ APP_ENV=local
 
 ---
 
-## 10. Masukkan Data Dummy untuk Testing
+## 9. Masukkan Data Dummy untuk Testing
 Untuk memasukkan akun dummy dan data awal:
 
 ```bash
@@ -277,7 +215,7 @@ Akun dummy yang ada di seeder dipakai untuk testing login admin, trainer, dan me
 
 ---
 
-## 11. Jika Project Memakai JWT
+## 10. Jika Project Memakai JWT
 Kalau project memakai JWT dan muncul error terkait `JWT_SECRET`, jalankan:
 
 ```bash
@@ -288,7 +226,7 @@ Kalau command tersebut tidak dikenali, berarti package JWT tidak memakai command
 
 ---
 
-## 12. Cek Permission Laravel Storage dan Log
+## 11. Cek Permission Laravel Storage dan Log
 Karena project ini memakai upload file seperti CV/Sertifikat trainer dan Laravel log, cek permission terlebih dahulu:
 
 ```bash
@@ -315,7 +253,7 @@ Setelah itu ulangi lagi command pengecekan permission.
 
 ---
 
-## 13. Jalankan Storage Link Jika Dibutuhkan
+## 12. Jalankan Storage Link Jika Dibutuhkan
 Kalau project memakai file yang perlu diakses lewat `/storage`, jalankan:
 
 ```bash
@@ -325,45 +263,7 @@ docker compose exec app php artisan storage:link
 Kalau muncul pesan link sudah ada, itu tidak masalah.
 
 ---
-
-## 14. Cek Route Backend
-Cek route Laravel:
-
-```bash
-docker compose exec app php artisan route:list
-```
-
-Untuk mengecek fitur cookie consent, gunakan:
-
-```bash
-docker compose exec app php artisan route:list | grep cookie
-```
-
-Targetnya harus ada route seperti ini:
-
-```txt
-POST api/cookie-consents
-```
-
-Kalau route cookie tidak muncul, cek file:
-
-```txt
-backend/routes/api.php
-```
-
-Pastikan ada kode ini:
-
-```php
-use App\Http\Controllers\Api\CookieConsentController;
-
-Route::post('/cookie-consents', [CookieConsentController::class, 'store']);
-```
-
-Route cookie consent harus bisa diakses tanpa login, jadi jangan dimasukkan ke middleware admin/member/trainer.
-
----
-
-## 15. Cek Build Frontend
+## 13. Cek Build Frontend
 Jalankan build frontend:
 
 ```bash
@@ -383,7 +283,7 @@ Kalau build gagal setelah menambahkan cookie consent, cek beberapa hal ini:
 
 ---
 
-## 16. Buka Website Local
+## 14. Buka Website Local
 Frontend Vue dibuka dari:
 
 ```txt
@@ -428,7 +328,7 @@ target: 'http://nginx'
 
 ---
 
-## 17. Melihat Log
+## 15. Melihat Log
 Untuk melihat log frontend:
 
 ```bash
@@ -449,12 +349,12 @@ docker compose exec app sh -lc "tail -n 100 storage/logs/laravel.log"
 
 ---
 
-## 18. Cara Cek OTP Local
+## 16. Cara Cek OTP Local
 Untuk development local, OTP sebaiknya tidak dikirim ke email asli. OTP akan ditulis ke Laravel log jika `MAIL_MAILER=log`.
 Cek OTP dengan:
 
 ```bash
-docker compose exec app sh -lc "tail -n 100 storage/logs/laravel.log"
+docker compose exec app tail -n 80 storage/logs/laravel.log
 ```
 
 Kalau OTP tidak muncul, cek `backend/.env` dan pastikan:
@@ -464,29 +364,7 @@ MAIL_MAILER=log
 ```
 
 ---
-
-## 19. Cara Testing Ulang Cookie Consent
-Cookie popup tidak akan muncul lagi kalau user sudah pernah klik Terima Semua, Tolak Semua, atau Simpan Pilihan.
-Untuk testing ulang, buka DevTools browser, masuk ke Application, lalu hapus Local Storage berikut:
-
-```txt
-fitnez_cookie_consent
-fitnez_cookie_anon_id
-```
-
-Atau jalankan dari Console browser:
-
-```js
-localStorage.removeItem('fitnez_cookie_consent')
-localStorage.removeItem('fitnez_cookie_anon_id')
-location.reload()
-```
-
-Setelah reload, popup cookie harus muncul lagi.
-
----
-
-## 20. Masalah yang Paling Sering Terjadi
+## 17. Masalah yang Paling Sering Terjadi
 ### Database tidak terhubung
 
 Cek `backend/.env`.
@@ -541,7 +419,7 @@ docker compose up -d --build
 
 ---
 
-## 21. Command Ringkas dari Awal
+## 18. Command Ringkas dari Awal
 Kalau mau setup dari awal, jalankan urutan ini:
 
 ```bash
@@ -574,7 +452,7 @@ http://localhost:5173
 
 ---
 
-## 22. Catatan untuk Kalian.
+## 19. Catatan untuk Kalian.
 Jangan commit file:
 
 ```txt
