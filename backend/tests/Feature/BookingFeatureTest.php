@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Notification;
 use App\Models\TrainerBooking;
 use App\Models\TrainerDetail;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Helpers\WithJwtAuth;
 use Tests\TestCase;
 
@@ -223,5 +226,81 @@ class BookingFeatureTest extends TestCase
         ]);
 
         $response->assertStatus(422);
+    }
+
+    public function test_member_can_upload_payment_proof(): void
+    {
+        Storage::fake('public');
+        $this->authenticateAs($this->member);
+
+        $booking = TrainerBooking::factory()->pending()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+        ]);
+
+        $file = UploadedFile::fake()->image('proof.jpg', 300, 400);
+
+        $response = $this->postJson("/api/bookings/{$booking->id}/upload-proof", [
+            'payment_proof' => $file,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['success', 'message', 'data']);
+
+        $this->assertDatabaseHas('trainer_bookings', [
+            'id' => $booking->id,
+            'status' => TrainerBooking::STATUS_PENDING_PAYMENT,
+        ]);
+    }
+
+    public function test_admin_can_reject_payment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->authenticateAs($admin);
+
+        $booking = TrainerBooking::factory()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+            'status' => TrainerBooking::STATUS_PENDING_PAYMENT,
+        ]);
+
+        $response = $this->postJson("/api/admin/bookings/{$booking->id}/reject-payment", [
+            'reason' => 'Bukti transfer tidak jelas.',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('trainer_bookings', [
+            'id' => $booking->id,
+            'status' => TrainerBooking::STATUS_CANCELLED,
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $this->member->id,
+            'notification_type' => 'payment_rejected',
+        ]);
+    }
+
+    public function test_auto_complete_expired_bookings(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->authenticateAs($admin);
+
+        $oldDate = now()->subDays(2)->format('Y-m-d');
+        $olderDate = now()->subDays(35)->format('Y-m-d');
+
+        TrainerBooking::factory()->confirmed()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+            'start_date' => $olderDate,
+            'end_date' => $oldDate,
+        ]);
+
+        $response = $this->postJson('/api/bookings/auto-complete');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['success', 'message', 'data' => ['processed']]);
+
+        $this->assertGreaterThan(0, $response->json('data.processed'));
     }
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\Payment;
+use App\Models\TrainerBooking;
 use App\Models\TrainerEarning;
 use App\Models\User;
 use App\Models\Role;
@@ -206,6 +207,45 @@ class PaymentAttendanceReportFeatureTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data']);
+    }
+
+    // ─── Trainer Rent Breakdown ──────────────────────────────────────
+
+    public function test_trainer_can_view_rent_breakdown(): void
+    {
+        $this->authenticateAs($this->trainer);
+
+        TrainerEarning::factory()->disbursed()->create([
+            'trainer_id' => $this->trainer->id,
+            'trainer_amount' => 200000,
+            'status' => 'paid',
+        ]);
+
+        TrainerEarning::factory()->pending()->create([
+            'trainer_id' => $this->trainer->id,
+            'trainer_amount' => 150000,
+            'status' => 'pending',
+        ]);
+
+        $response = $this->getJson('/api/trainer/incoming-rent-history/breakdown');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure(['success', 'data']);
+    }
+
+    // ─── Admin Export ─────────────────────────────────────────────────
+
+    public function test_admin_can_export_member_reports(): void
+    {
+        $this->authenticateAs($this->admin);
+
+        Attendance::factory()->count(2)->create();
+        Payment::factory()->confirmed()->count(2)->create();
+
+        $response = $this->get('/api/admin/export/member-reports');
+
+        $response->assertStatus(200)
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 
     // ─── Unauthenticated ──────────────────────────────────────────────

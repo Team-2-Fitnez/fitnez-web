@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { authApi } from '../api/authApi'
 import { authService } from '../services/authService'
 import type { FitnezUser } from '../types/auth'
+import { usePushNotifications } from '../composables/usePushNotifications'
 
 const AUTH_USER_KEY = 'fitnez_auth_user'
 const AUTH_TOKEN_KEY = 'fitnez_access_token'
@@ -84,6 +85,8 @@ export const useAuthStore = defineStore('auth', {
         const result = await authService.memberLogin(email, password)
         this.user = result.user
         cacheUser(result.user)
+
+        await this.registerPushSubscription()
       } finally {
         this.loading = false
       }
@@ -103,9 +106,30 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout() {
+      await this.unregisterPushSubscription()
+
       await authService.logout()
       this.clearSession()
       this.initialized = true
+    },
+
+    async registerPushSubscription() {
+      try {
+        const push = usePushNotifications()
+        await push.init()
+        await push.subscribe()
+      } catch (e) {
+        console.warn('Push registration skipped (non-blocking):', e)
+      }
+    },
+
+    async unregisterPushSubscription() {
+      try {
+        const push = usePushNotifications()
+        await push.unsubscribe()
+      } catch (e) {
+        console.warn('Push unsubscription skipped (non-blocking):', e)
+      }
     },
   },
 })
