@@ -161,7 +161,7 @@ async function enterTrainerWorkspace() {
   try {
     const response = await trainerApplicationApi.enterWorkspace()
     if (auth.user) auth.user = response.data.user
-    window.location.href = '/trainer.html'
+    window.location.href = '/entries/trainer.html'
   } catch (e: any) {
     error.value = e?.message || 'Trainer workspace is not available yet.'
   } finally {

@@ -95,7 +95,7 @@ async function switchToMember() {
     const response = await trainerApplicationApi.leaveWorkspace()
     if (auth.user) auth.user = response.data.user
     window.showFitnezToast('Successfully switched to Member Workspace', 'success');
-    window.location.href = '/member.html'
+    window.location.href = '/entries/member.html'
   } catch (error) {
     window.showFitnezToast('Failed to switch workspace', 'error');
   }

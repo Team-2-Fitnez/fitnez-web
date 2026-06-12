@@ -2,9 +2,9 @@ import type { Router } from 'vue-router'
 import { useAuthStore } from './stores/authStore'
 
 function workspaceEntry(user: { role?: string; can_access_trainer_workspace?: boolean } | null | undefined): string {
-  if (user?.role === 'admin') return '/admin.html'
-  if (user?.role === 'trainer' || user?.can_access_trainer_workspace) return '/trainer.html'
-  return '/member.html'
+  if (user?.role === 'admin') return '/entries/admin.html'
+  if (user?.role === 'trainer' || user?.can_access_trainer_workspace) return '/entries/trainer.html'
+  return '/entries/member.html'
 }
 
 export function installGuard(router: Router, allowedRoles?: string[]): void {
@@ -36,7 +36,7 @@ export function installGuard(router: Router, allowedRoles?: string[]): void {
     if (!auth.isAuthenticated) return true
 
     if (to.meta.requiresTrainerAccess && auth.user?.role !== 'trainer' && !auth.user?.can_access_trainer_workspace) {
-      window.location.href = '/member.html'
+      window.location.href = '/entries/member.html'
       return false
     }
 
@@ -58,7 +58,7 @@ export function installGuard(router: Router, allowedRoles?: string[]): void {
     }
 
     if (to.meta.role === 'member' && auth.user?.role === 'admin') {
-      window.location.href = '/admin.html'
+      window.location.href = '/entries/admin.html'
       return false
     }
 

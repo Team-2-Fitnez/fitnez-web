@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { installGuard } from './router-guard'
 
 const router = createRouter({
-  history: createWebHashHistory('/trainer.html'),
+  history: createWebHashHistory('/entries/trainer.html'),
   routes: [
     { path: '/', redirect: '/trainer/dashboard' },
     { path: '/trainer/dashboard', name: 'trainer-dashboard', component: () => import('./pages/trainer/TrainerDashboardPage.vue'), meta: { requiresAuth: true, requiresTrainerAccess: true } },

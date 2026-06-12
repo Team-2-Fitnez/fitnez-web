@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { installGuard } from './router-guard'
 
 const router = createRouter({
-  history: createWebHashHistory('/member.html'),
+  history: createWebHashHistory('/entries/member.html'),
   routes: [
     { path: '/', redirect: '/member/attendance' },
     { path: '/member/dashboard', redirect: '/member/attendance' },

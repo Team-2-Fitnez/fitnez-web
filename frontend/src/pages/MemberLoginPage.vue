@@ -21,11 +21,11 @@ async function submit() {
     auth.initialized = true
 
     if (auth.user?.role === 'admin') {
-      window.location.href = '/admin.html'
+      window.location.href = '/entries/admin.html'
     } else if (auth.user?.role === 'trainer' || auth.user?.can_access_trainer_workspace) {
-      window.location.href = '/trainer.html'
+      window.location.href = '/entries/trainer.html'
     } else {
-      window.location.href = '/member.html'
+      window.location.href = '/entries/member.html'
     }
   } catch (e: any) {
     error.value = e?.message || 'Login failed. Please check your email and password.'

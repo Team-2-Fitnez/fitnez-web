@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { installGuard } from './router-guard'
 
 const router = createRouter({
-  history: createWebHashHistory('/admin.html'),
+  history: createWebHashHistory('/entries/admin.html'),
   routes: [
     { path: '/', redirect: '/admin/dashboard' },
     { path: '/admin/dashboard', name: 'admin-dashboard', component: () => import('./pages/admin/AdminDashboardPage.vue'), meta: { requiresAuth: true, role: 'admin' } },

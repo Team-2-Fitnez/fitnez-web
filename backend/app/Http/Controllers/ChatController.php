@@ -8,6 +8,7 @@ use App\Models\ChatMessage;
 use App\Models\Notification;
 use App\Models\TrainerBooking;
 use App\Models\User;
+use App\Services\Chat\FileUploadService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -131,6 +132,7 @@ class ChatController extends Controller
 
         $uid = $request->user()->id;
         $receiverId = $data['receiver_id'];
+        $fileUploadService = app(FileUploadService::class);
         $file = $request->file('file');
 
         // Check if there is an existing chat history
@@ -158,14 +160,7 @@ class ChatController extends Controller
             }
         }
 
-        $attachment = [];
-        if ($file) {
-            $attachment = [
-                'file_path' => $file->store('chat-attachments', 'public'),
-                'file_name' => $file->getClientOriginalName(),
-                'file_size' => $file->getSize(),
-            ];
-        }
+        $attachment = $file ? $fileUploadService->handle($file) : [];
 
         $msg = ChatMessage::create([
             'sender_id'   => $uid,
