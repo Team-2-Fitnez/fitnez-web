@@ -2,15 +2,15 @@
 
 namespace Tests\Unit;
 
-use App\Services\Booking\OnlinePriceCalculator;
-use App\Services\Booking\OfflinePriceCalculator;
-use App\Services\Booking\PromoPriceCalculator;
-use App\Services\Booking\PriceCalculator;
-use App\Services\Booking\PriceCalculatorFactory;
-use App\Services\Chat\MessageFormatterFactory;
-use App\Services\Chat\NotificationMessageFormatter;
-use App\Services\Chat\RegularMessageFormatter;
-use App\Services\Chat\SystemMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\OnlinePriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\OfflinePriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PromoPriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PriceCalculatorFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\MessageFormatterFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\NotificationMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\RegularMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\SystemMessageFormatter;
 use App\Models\TrainerBooking;
 use PHPUnit\Framework\TestCase;
 
@@ -129,9 +129,9 @@ class DesignPatternComparisonTest extends TestCase
         $booking = new TrainerBooking();
         $booking->status = TrainerBooking::STATUS_PENDING;
 
-        $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
+        $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_PENDING_PAYMENT));
         $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_CANCELLED));
-        $this->assertTrue($booking->canTransitionTo(TrainerBooking::STATUS_REJECTED));
+        $this->assertFalse($booking->canTransitionTo(TrainerBooking::STATUS_CONFIRMED));
         $this->assertFalse($booking->canTransitionTo(TrainerBooking::STATUS_COMPLETED));
     }
 

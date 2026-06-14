@@ -7,6 +7,8 @@ use App\Models\Role;
 use App\Models\TrainerBooking;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Helpers\WithJwtAuth;
 use Tests\TestCase;
 
@@ -32,6 +34,11 @@ class ChatFeatureTest extends TestCase
     {
         $this->authenticateAs($this->member);
 
+        TrainerBooking::factory()->confirmed()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+        ]);
+
         $response = $this->postJson('/api/chat/messages', [
             'receiver_id' => $this->trainer->id,
             'message' => 'Hello, I would like to discuss my training plan.',
@@ -55,6 +62,11 @@ class ChatFeatureTest extends TestCase
     {
         $this->authenticateAs($this->member);
 
+        TrainerBooking::factory()->confirmed()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+        ]);
+
         $this->postJson('/api/chat/messages', [
             'receiver_id' => $this->trainer->id,
             'message' => 'Test notification.',
@@ -66,11 +78,51 @@ class ChatFeatureTest extends TestCase
         ]);
     }
 
-    public function test_contacts_includes_active_booking_partners(): void
+    public function test_member_can_send_file_only_chat_message(): void
+    {
+        Storage::fake('public');
+        $token = $this->authenticateAs($this->member);
+
+        TrainerBooking::factory()->confirmed()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+        ]);
+
+        $response = $this->postJson('/api/chat/messages', [
+            'receiver_id' => $this->trainer->id,
+            'file' => UploadedFile::fake()->create('plan.pdf', 128, 'application/pdf'),
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.message', '')
+            ->assertJsonPath('data.file_name', 'plan.pdf')
+            ->assertJsonPath('data.file_url', '/api/chat/messages/1/attachment');
+
+        $message = ChatMessage::query()->firstOrFail();
+        Storage::disk('public')->assertExists($message->file_path);
+
+        $this->get($response->json('data.file_url').'?token='.$token)
+            ->assertStatus(200)
+            ->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_send_message_without_confirmed_booking_is_blocked(): void
     {
         $this->authenticateAs($this->member);
 
-        TrainerBooking::factory()->pending()->create([
+        $response = $this->postJson('/api/chat/messages', [
+            'receiver_id' => $this->trainer->id,
+            'message' => 'Hello, I want to chat.',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_contacts_includes_confirmed_booking_partners(): void
+    {
+        $this->authenticateAs($this->member);
+
+        TrainerBooking::factory()->confirmed()->create([
             'member_id' => $this->member->id,
             'trainer_id' => $this->trainer->id,
         ]);
@@ -125,5 +177,75 @@ class ChatFeatureTest extends TestCase
 
         $this->assertTrue($response->json('data.has_more'));
         $this->assertCount(5, $response->json('data.data'));
+    }
+
+    public function test_chat_marks_messages_as_read(): void
+    {
+        $this->authenticateAs($this->member);
+
+        ChatMessage::factory()->unread()->count(3)->create([
+            'sender_id' => $this->trainer->id,
+            'receiver_id' => $this->member->id,
+        ]);
+
+        $this->json('GET', '/api/chat/messages', [
+            'contact_id' => $this->trainer->id,
+        ]);
+
+        $this->assertDatabaseMissing('chat_messages', [
+            'sender_id' => $this->trainer->id,
+            'receiver_id' => $this->member->id,
+            'is_read' => false,
+        ]);
+    }
+
+    public function test_send_message_with_file_attachment(): void
+    {
+        Storage::fake('public');
+        $this->authenticateAs($this->member);
+
+        TrainerBooking::factory()->confirmed()->create([
+            'member_id' => $this->member->id,
+            'trainer_id' => $this->trainer->id,
+        ]);
+
+        $file = UploadedFile::fake()->create('workout.pdf', 500, 'application/pdf');
+
+        $response = $this->postJson('/api/chat/messages', [
+            'receiver_id' => $this->trainer->id,
+            'message' => 'Here is my workout plan.',
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'success', 'message', 'data' => [
+                    'id', 'message', 'file_url', 'file_name', 'file_size',
+                ],
+            ]);
+
+        $this->assertNotNull($response->json('data.file_url'));
+        $this->assertEquals('workout.pdf', $response->json('data.file_name'));
+    }
+
+    public function test_messages_response_includes_file_fields(): void
+    {
+        $this->authenticateAs($this->member);
+
+        ChatMessage::factory()->withFile()->create([
+            'sender_id' => $this->trainer->id,
+            'receiver_id' => $this->member->id,
+        ]);
+
+        $response = $this->json('GET', '/api/chat/messages', [
+            'contact_id' => $this->trainer->id,
+        ]);
+
+        $response->assertStatus(200);
+
+        $firstMessage = $response->json('data.data')[0] ?? [];
+        $this->assertArrayHasKey('file_url', $firstMessage);
+        $this->assertArrayHasKey('file_name', $firstMessage);
+        $this->assertArrayHasKey('file_size', $firstMessage);
     }
 }

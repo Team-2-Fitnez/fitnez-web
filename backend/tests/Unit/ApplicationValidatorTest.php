@@ -2,9 +2,9 @@
 
 namespace Tests\Unit;
 
-use App\Services\Trainer\StandardApplicationValidator;
-use App\Services\Trainer\StrictApplicationValidator;
-use App\Services\Trainer\ApplicationValidatorFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Trainer\StandardApplicationValidator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Trainer\StrictApplicationValidator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Trainer\ApplicationValidatorFactory;
 use PHPUnit\Framework\TestCase;
 
 class ApplicationValidatorTest extends TestCase

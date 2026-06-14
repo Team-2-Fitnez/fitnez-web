@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (! Schema::hasTable('landing_page_visits')) {
+        if (DB::getDriverName() === 'sqlite' || ! Schema::hasTable('landing_page_visits')) {
             return;
         }
 

@@ -18,6 +18,7 @@ class TrainerDetailFactory extends Factory
             'biography' => fake()->paragraph(),
             'experience_years' => fake()->numberBetween(1, 20),
             'hourly_rate' => fake()->randomFloat(2, 50000, 300000),
+            'base_price' => fake()->randomFloat(2, 50000, 300000),
             'avg_rating' => fake()->randomFloat(2, 3.0, 5.0),
         ];
     }

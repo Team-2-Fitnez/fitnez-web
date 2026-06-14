@@ -2,8 +2,8 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\Auth\AuthCookie;
-use App\Services\Auth\JwtService;
+use App\Features\Auth\Services\Auth\AuthCookie;
+use App\Features\Auth\Services\Auth\JwtService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

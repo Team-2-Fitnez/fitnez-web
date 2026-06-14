@@ -26,9 +26,15 @@ class NewChatMessage
             'sender_id'   => $this->message->sender_id,
             'receiver_id' => $this->message->receiver_id,
             'message'     => $this->message->message,
+            'file_url'    => $this->message->file_url,
+            'file_name'   => $this->message->file_name,
+            'file_size'   => $this->message->file_size,
             'created_at'  => $this->message->created_at?->toISOString(),
             'is_read'     => $this->message->is_read,
             'sender_name' => $this->message->sender?->full_name ?? '',
+            'file_url'    => $this->message->file_path ? "/api/chat/messages/{$this->message->id}/attachment" : null,
+            'file_name'   => $this->message->file_name,
+            'file_size'   => $this->message->file_size,
         ];
 
         SocketioBroadcast::send("chat.{$this->message->receiver_id}", 'new-message', $payload);
