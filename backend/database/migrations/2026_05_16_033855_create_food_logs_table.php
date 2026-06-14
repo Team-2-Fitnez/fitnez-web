@@ -8,13 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('food_logs')) {
+            return;
+        }
+
         Schema::create('food_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('food_name');
-            $table->integer('calories');
-            $table->date('logged_date')->default(now());
+            $table->unsignedInteger('calories');
+            $table->date('logged_date')->index();
             $table->timestamps();
+
+            $table->index(['user_id', 'logged_date', 'id']);
         });
     }
 

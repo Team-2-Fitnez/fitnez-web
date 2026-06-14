@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Admin\TrainerManagementController;
+use App\Features\HireTrainer\Controllers\Admin\TrainerManagementController;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__ . '/api/public.php';

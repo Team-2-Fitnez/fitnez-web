@@ -51,14 +51,6 @@ Sebelum menjalankan ulang project, matikan dulu container lama supaya gak bentro
 docker compose down --remove-orphans
 ```
 
-Kalau sebelumnya pernah muncul error konflik nama container seperti `fitnez-frontend already in use`, jalankan command ini:
-
-```bash
-docker rm -f fitnez-app fitnez-nginx fitnez-frontend fitnez-db
-```
-
-Kalau muncul pesan bahwa container tidak ditemukan, itu tidak masalah. Artinya container lama memang sudah tidak ada.
-
 ---
 
 ## 3. Siapkan File `.env`
@@ -294,29 +286,8 @@ target: 'http://nginx'
 
 ---
 
-## 15. Melihat Log
-Untuk melihat log frontend:
-
-```bash
-docker compose logs -f frontend
-```
-
-Untuk melihat log backend Laravel container:
-
-```bash
-docker compose logs -f app
-```
-
-Untuk melihat log Laravel langsung dari file log:
-
-```bash
-docker compose exec app sh -lc "tail -n 100 storage/logs/laravel.log"
-```
-
----
-
-## 16. Cara Cek OTP Local
-Untuk development local, OTP sebaiknya tidak dikirim ke email asli. OTP akan ditulis ke Laravel log jika `MAIL_MAILER=log`.
+## 15. Cara Cek OTP Local
+Untuk development local, OTP sebaiknya tidak dikirim ke email asli. OTP akan ditulis ke Laravel log 
 Cek OTP dengan:
 
 ```bash
@@ -329,28 +300,12 @@ Kalau OTP tidak muncul, cek `backend/.env` dan pastikan:
 MAIL_MAILER=log
 ```
 
-### Laravel tidak bisa menulis log atau upload file
-Cek permission:
-
-```bash
-docker compose exec app mkdir -p storage/logs bootstrap/cache
-docker compose exec app chmod -R 775 storage bootstrap/cache
-docker compose exec app chown -R www-data:www-data storage bootstrap/cache
-```
-
 ---
 
 ## 18. Command Ringkas dari Awal
 Kalau mau setup dari awal, jalankan urutan ini:
 
 ```bash
-cd ~/Fitnez/fitnez-web
-
-docker compose down --remove-orphans
-docker rm -f fitnez-app fitnez-nginx fitnez-frontend fitnez-db
-
-cp .env backend/.env
-
 docker compose up -d --build
 docker compose ps
 
@@ -359,8 +314,6 @@ docker compose exec app php artisan key:generate
 docker compose exec app php artisan optimize:clear
 docker compose exec app php artisan migrate
 docker compose exec app php artisan db:seed
-
-docker compose exec -u www-data app sh -lc "echo test >> storage/logs/laravel.log && mkdir -p storage/app/private/trainer-applications/test && rmdir storage/app/private/trainer-applications/test"
 
 docker compose exec frontend npm run build
 ```

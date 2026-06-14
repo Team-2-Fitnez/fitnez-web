@@ -1,5 +1,5 @@
 import type { Router } from 'vue-router'
-import { useAuthStore } from './stores/authStore'
+import { useAuthStore } from '@/features/Auth/stores/authStore'
 
 function workspaceEntry(user: { role?: string; can_access_trainer_workspace?: boolean } | null | undefined): string {
   if (user?.role === 'admin') return '/entries/admin.html'

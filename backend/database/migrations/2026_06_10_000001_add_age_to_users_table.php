@@ -8,19 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('users') && ! Schema::hasColumn('users', 'age')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->unsignedTinyInteger('age')->nullable()->after('birth_date');
-            });
+        if (! Schema::hasTable('users') || Schema::hasColumn('users', 'age')) {
+            return;
         }
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->unsignedTinyInteger('age')->nullable()->after(Schema::hasColumn('users', 'birth_date') ? 'birth_date' : 'phone');
+        });
     }
 
     public function down(): void
     {
-        if (Schema::hasTable('users') && Schema::hasColumn('users', 'age')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->dropColumn('age');
-            });
+        if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'age')) {
+            return;
         }
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('age');
+        });
     }
 };

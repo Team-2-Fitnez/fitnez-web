@@ -2,12 +2,12 @@
 
 namespace App\Providers;
 
-use App\Services\Booking\PriceCalculator;
-use App\Services\Booking\PriceCalculatorFactory;
-use App\Services\Chat\MessageFormatter;
-use App\Services\Chat\MessageFormatterFactory;
-use App\Services\Trainer\ApplicationValidator;
-use App\Services\Trainer\ApplicationValidatorFactory;
+use App\Features\HireTrainer\Services\Booking\PriceCalculator;
+use App\Features\HireTrainer\Services\Booking\PriceCalculatorFactory;
+use App\Features\Chat\Services\Chat\MessageFormatter;
+use App\Features\Chat\Services\Chat\MessageFormatterFactory;
+use App\Features\HireTrainer\Services\Trainer\ApplicationValidator;
+use App\Features\HireTrainer\Services\Trainer\ApplicationValidatorFactory;
 use Illuminate\Support\ServiceProvider;
 
 class FitnezServiceProvider extends ServiceProvider
