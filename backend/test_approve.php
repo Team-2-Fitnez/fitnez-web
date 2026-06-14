@@ -8,7 +8,7 @@ $reg = App\Models\ProspectiveMemberRegistration::latest('id')->first();
 if(!$reg) { echo "no reg"; exit; }
 echo "Reg status: " . $reg->status . "\n";
 try {
-    $action = app(App\Actions\Auth\CreateMemberFromApprovedRegistrationAction::class);
+    $action = app(App\Features\Anggota1AuthDashboardProfile\Actions\Auth\CreateMemberFromApprovedRegistrationAction::class);
     $user = $action->handle($reg);
     echo "Success. User id: " . $user->id;
 } catch(\Throwable $e) {

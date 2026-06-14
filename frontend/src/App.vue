@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted } from 'vue'
-import CookieConsent from './components/CookieConsent.vue'
+import CookieConsent from '@/shared/components/privacy/CookieConsent.vue'
 
 let tableObserver: MutationObserver | null = null
 let scheduledFrame = 0

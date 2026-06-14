@@ -8,14 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('notifications')) {
+            return;
+        }
+
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->constrained('users')->cascadeOnDelete();
             $table->string('title');
-            $table->text('body');
-            $table->string('notification_type')->nullable();
-            $table->boolean('is_read')->default(false);
-            $table->timestamp('created_at')->useCurrent();
+            $table->text('body')->nullable();
+            $table->string('notification_type')->nullable()->index();
+            $table->boolean('is_read')->default(false)->index();
+            $table->timestamps();
+
+            $table->index(['user_id', 'is_read', 'id']);
         });
     }
 

@@ -3,7 +3,7 @@
 namespace Tests\Helpers;
 
 use App\Models\User;
-use App\Services\Auth\JwtService;
+use App\Features\Anggota1AuthDashboardProfile\Services\Auth\JwtService;
 
 trait WithJwtAuth
 {

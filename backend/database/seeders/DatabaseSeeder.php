@@ -2,9 +2,16 @@
 
 namespace Database\Seeders;
 
+use App\Features\Payments\Services\Membership\MembershipPackageFactory;
 use App\Models\Attendance;
+use App\Models\Faq;
+use App\Models\FoodLog;
+use App\Models\ManualPaymentMethod;
+use App\Models\MealPlan;
+use App\Models\MembershipPackage;
 use App\Models\Notification;
 use App\Models\Payment;
+use App\Models\ProspectiveMemberRegistration;
 use App\Models\Role;
 use App\Models\TrainerApplication;
 use App\Models\TrainerBooking;
@@ -13,563 +20,349 @@ use App\Models\TrainerEarning;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
+    private const PASSWORD = 'FitnezTeam2@2026';
+
     public function run(): void
     {
-        // 1. Core Roles
-        $adminRole = Role::query()->firstOrCreate(
-            ['name' => 'admin'],
-            ['description' => 'Fitnez administrator']
-        );
+        DB::transaction(function () {
+            $roles = $this->seedRoles();
+            $packages = $this->seedMembershipPackages();
+            $paymentMethods = $this->seedPaymentMethods();
+            $admin = $this->seedAdmin($roles['admin']);
 
-        $memberRole = Role::query()->firstOrCreate(
-            ['name' => 'member'],
-            ['description' => 'Fitnez member/user']
-        );
+            $this->clearSeedData($admin->id);
+            $this->seedFaqs();
 
-        $trainerRole = Role::query()->firstOrCreate(
-            ['name' => 'trainer'],
-            ['description' => 'Fitnez personal trainer']
-        );
+            $members = $this->seedMembers($roles['member'], $packages, $paymentMethods, $admin);
+            $trainers = $this->seedTrainers($roles['trainer'], $packages, $paymentMethods, $admin);
 
-        // 2. Clear previous transaction data to ensure exact count of 100 dummy records
-        DB::table('chat_messages')->delete();
-        DB::table('food_logs')->delete();
-        DB::table('class_members')->delete();
-        DB::table('classes')->delete();
-        DB::table('attendance')->delete();
-        DB::table('trainer_earnings')->delete();
-        DB::table('payments')->delete();
-        DB::table('trainer_bookings')->delete();
-        DB::table('trainer_details')->delete();
-        DB::table('trainer_applications')->delete();
-        DB::table('workout_trackings')->delete();
-        DB::table('workout_exercises')->delete();
-        DB::table('workout_plans')->delete();
-        DB::table('meal_plans')->delete();
-        DB::table('meals')->delete();
-        DB::table('nutrition_calculator')->delete();
-        DB::table('prospective_member_registrations')->delete();
-        DB::table('notifications')->delete();
-        DB::table('user_devices')->delete();
-        DB::table('browser_tabs')->delete();
-        DB::table('jwt_sessions')->delete();
-        DB::table('otp_codes')->delete();
-        
-        // Delete all users EXCEPT the admin@fitnez.test if it exists, otherwise delete all
-        User::query()->where('email', '!=', 'admin@fitnez.test')->delete();
+            $this->seedOperationalData($members, $trainers, $packages, $paymentMethods, $admin);
+        });
+    }
 
-        // 3. Create/Update Admin Account
-        $admin = User::query()->updateOrCreate(
+    private function seedRoles(): array
+    {
+        return [
+            'admin' => Role::query()->firstOrCreate(['name' => 'admin'], ['description' => 'Fitnez administrator']),
+            'member' => Role::query()->firstOrCreate(['name' => 'member'], ['description' => 'Fitnez member/user']),
+            'trainer' => Role::query()->firstOrCreate(['name' => 'trainer'], ['description' => 'Fitnez personal trainer']),
+        ];
+    }
+
+    private function seedAdmin(Role $adminRole): User
+    {
+        return User::query()->updateOrCreate(
             ['email' => 'admin@fitnez.test'],
             [
                 'full_name' => 'Fitnez Admin',
                 'phone' => '080000000001',
                 'role_id' => $adminRole->id,
-                'password_hash' => Hash::make('FitnezTeam2@2026'),
+                'password_hash' => Hash::make(self::PASSWORD),
                 'is_active' => true,
                 'email_verified_at' => now(),
             ]
         );
+    }
 
-        if (DB::getSchemaBuilder()->hasTable('authentications')) {
-            DB::table('authentications')->updateOrInsert(
-                ['email' => 'admin@fitnez.test'],
+    private function seedMembershipPackages()
+    {
+        foreach (MembershipPackageFactory::defaultPackages() as $package) {
+            MembershipPackage::query()->updateOrCreate(
+                ['code' => $package['code']],
                 [
-                    'user_id' => $admin->id,
-                    'password_hash' => $admin->password_hash,
-                    'provider' => 'local',
+                    'name' => $package['name'],
+                    'duration_months' => $package['duration_months'],
+                    'price' => $package['price'],
+                    'free_class_access' => $package['free_class_access'],
+                    'benefits' => $package['benefits'],
                     'is_active' => true,
-                    'failed_login_attempts' => 0,
-                    'password_updated_at' => now()
                 ]
             );
         }
 
-        // 4. Retrieve Packages and Payment Methods
-        $packages = \App\Models\MembershipPackage::all();
-        if ($packages->isEmpty()) {
-            foreach (\App\Services\Membership\MembershipPackageFactory::defaultPackages() as $p) {
-                \App\Models\MembershipPackage::query()->updateOrCreate(['code' => $p['code']], [
-                    'name' => $p['name'],
-                    'duration_months' => $p['duration_months'],
-                    'price' => $p['price'],
-                    'free_class_access' => $p['free_class_access'],
-                    'benefits' => $p['benefits'],
-                    'is_active' => true
-                ]);
+        return MembershipPackage::query()->where('is_active', true)->orderBy('duration_months')->get()->values();
+    }
+
+    private function seedPaymentMethods()
+    {
+        ManualPaymentMethod::query()->updateOrCreate(['code' => 'QRIS_FITNEZ'], [
+            'type' => 'qris',
+            'display_name' => 'QRIS Fitnez',
+            'account_name' => 'FITNEZ GYM',
+            'qris_image_url' => '/images/payment/qris-fitnez-placeholder.svg',
+            'instructions' => 'Scan QRIS, input the package price manually, then upload proof.',
+            'is_active' => true,
+        ]);
+
+        ManualPaymentMethod::query()->updateOrCreate(['code' => 'BANK_TRANSFER_BCA'], [
+            'type' => 'bank_transfer',
+            'display_name' => 'Bank Transfer BCA',
+            'bank_name' => 'BCA',
+            'account_number' => '1234567890',
+            'account_name' => 'FITNEZ GYM',
+            'instructions' => 'Transfer the package price to this account, then upload proof.',
+            'is_active' => true,
+        ]);
+
+        return ManualPaymentMethod::query()->where('is_active', true)->orderBy('id')->get()->values();
+    }
+
+    private function clearSeedData(int $adminId): void
+    {
+        foreach ([
+            'chat_messages', 'food_logs', 'class_members', 'classes', 'attendance', 'trainer_earnings',
+            'payments', 'trainer_bookings', 'trainer_details', 'trainer_applications', 'workout_trackings',
+            'workout_exercises', 'workout_plans', 'meal_plans', 'meals', 'nutrition_calculator',
+            'prospective_member_registrations', 'notifications', 'user_devices', 'browser_tabs',
+            'jwt_sessions', 'otp_codes', 'landing_page_visits',
+        ] as $table) {
+            if (DB::getSchemaBuilder()->hasTable($table)) {
+                DB::table($table)->delete();
             }
-            $packages = \App\Models\MembershipPackage::all();
         }
 
-        $paymentMethods = \App\Models\ManualPaymentMethod::all();
-        if ($paymentMethods->isEmpty()) {
-            \App\Models\ManualPaymentMethod::query()->updateOrCreate(['code' => 'QRIS_FITNEZ'], [
-                'type' => 'qris',
-                'display_name' => 'QRIS Fitnez',
-                'account_name' => 'FITNEZ GYM',
-                'qris_image_url' => '/images/payment/qris-fitnez-placeholder.svg',
-                'instructions' => 'Scan QRIS, input the package price manually, then upload proof.',
-                'is_active' => true
-            ]);
-            \App\Models\ManualPaymentMethod::query()->updateOrCreate(['code' => 'BANK_TRANSFER_BCA'], [
-                'type' => 'bank_transfer',
-                'display_name' => 'Bank Transfer BCA',
-                'bank_name' => 'BCA',
-                'account_number' => '1234567890',
-                'account_name' => 'FITNEZ GYM',
-                'instructions' => 'Transfer the package price to this account, then upload proof.',
-                'is_active' => true
-            ]);
-            $paymentMethods = \App\Models\ManualPaymentMethod::all();
-        }
+        User::query()->where('id', '!=', $adminId)->delete();
+    }
 
-        $qrisMethod = $paymentMethods->where('code', 'QRIS_FITNEZ')->first();
-        $bankMethod = $paymentMethods->where('code', 'BANK_TRANSFER_BCA')->first();
-
-        // 5. Seed FAQs
+    private function seedFaqs(): void
+    {
         $faqs = [
-            [
-                'question' => 'How do I register as a Fitnez Gym member?',
-                'answer' => 'You can register directly through this website on the registration page. Simply fill in your personal data, choose a membership package (1 Month, 3 Months, 6 Months, or 12 Months), choose a payment method, perform the transfer, and upload your payment proof. Our admin will verify and activate your account within a maximum of 24 hours.',
-                'category' => 'General',
-                'sort_order' => 1,
-            ],
-            [
-                'question' => 'Can I cancel my membership after registering?',
-                'answer' => 'Purchased memberships cannot be cancelled or refunded. However, you can choose not to renew your membership at the end of your package validity period.',
-                'category' => 'General',
-                'sort_order' => 2,
-            ],
-            [
-                'question' => 'What is the difference between membership packages?',
-                'answer' => '1-Month & 3-Month packages provide full access to the gym. 6-Month & 12-Month packages provide full access to the gym plus free access to special classes like Yoga and Aerobics without additional fees.',
-                'category' => 'Package',
-                'sort_order' => 3,
-            ],
-            [
-                'question' => 'Is there an initial registration fee (admin fee)?',
-                'answer' => 'There are no hidden additional fees. You only pay the price of the package you choose for the active duration of that package.',
-                'category' => 'Package',
-                'sort_order' => 4,
-            ],
-            [
-                'question' => 'What payment methods are supported?',
-                'answer' => 'We support easy manual payment methods via QRIS (scan the barcode from your e-wallet/mobile banking) or direct bank transfer to the official Fitnez Gym BCA account.',
-                'category' => 'Payment',
-                'sort_order' => 5,
-            ],
-            [
-                'question' => 'How long does the payment verification process take after the transfer proof is uploaded?',
-                'answer' => 'The verification process usually takes less than 1 hour during operational hours (08:00 - 21:00 WIB), with a maximum limit of 24 hours.',
-                'category' => 'Payment',
-                'sort_order' => 6,
-            ],
-            [
-                'question' => 'How do I hire a Personal Trainer (PT)?',
-                'answer' => 'Once your registration is approved, please log in to your Member Area. There, select the "Hire a Trainer" menu to see our list of certified trainers, their profiles, specializations, hourly rates, and apply for a hire online.',
-                'category' => 'Trainer',
-                'sort_order' => 7,
-            ],
-            [
-                'question' => 'Are there locker and shower facilities at Fitnez Gym?',
-                'answer' => 'Yes, we provide high-security free lockers, separate changing rooms, and clean showers equipped with hot water for all active members.',
-                'category' => 'General',
-                'sort_order' => 8,
-            ],
-            [
-                'question' => 'Can I freeze my membership if I am sick or traveling?',
-                'answer' => 'Yes, specifically for holders of 6-Month (Plus) and 12-Month (Premium) packages, you get free membership freezing facilities for a maximum of 14 days (for the 6-month package) or 30 days (for the 12-month package) by submitting supporting evidence to the admin.',
-                'category' => 'Package',
-                'sort_order' => 9,
-            ],
-            [
-                'question' => 'Are training programs and diet plans (workout & meal plan) individually customized?',
-                'answer' => 'Of course! Your Personal Trainer will create a training program and nutrition guide exclusively customized based on your body shape, fitness goals (weight loss, bulking, etc.), health history, and food preferences.',
-                'category' => 'Trainer',
-                'sort_order' => 10,
-            ],
-            [
-                'question' => 'How do I extend my membership validity period?',
-                'answer' => 'Before your package expires, you will receive a notification in your Member Area. You simply select the Extend Package menu, transfer the fee corresponding to your new package choice, and upload the payment proof on that extension page.',
-                'category' => 'Payment',
-                'sort_order' => 11,
-            ],
-            [
-                'question' => 'What are the operational hours of Fitnez Gym?',
-                'answer' => 'We are open daily from 06:00 to 22:00 WIB on Mondays to Fridays, and 07:00 to 20:00 WIB on Saturdays, Sundays, and National Holidays.',
-                'category' => 'General',
-                'sort_order' => 12,
-            ],
+            ['How do I register as a Fitnez Gym member?', 'Register through the website, choose a package, upload payment proof, and wait for admin verification.', 'General', 1],
+            ['What payment methods are supported?', 'Fitnez supports QRIS and BCA bank transfer for manual verification.', 'Payment', 2],
+            ['How do I hire a Personal Trainer?', 'Log in as an active member, open Hire Trainer, choose a trainer, then upload payment proof.', 'Trainer', 3],
+            ['Can I track meal and workout data?', 'Yes. Use the Mealplan, Nutrition Calculator, Nutrition Monitoring, and Workoutplan features.', 'Feature', 4],
         ];
 
-        foreach ($faqs as $faq) {
-            \App\Models\Faq::query()->updateOrCreate(
-                ['question' => $faq['question']],
-                [
-                    'answer' => $faq['answer'],
-                    'category' => $faq['category'],
-                    'sort_order' => $faq['sort_order'],
-                    'is_active' => true,
-                ]
-            );
-        }
-
-        // 6. User Creation Helper
-        $createUserWithRegistration = function(
-            string $email,
-            string $fullName,
-            string $phone,
-            string $statusType, // 'active', 'expiring', 'expired'
-            $package,
-            $paymentMethod,
-            $role
-        ) use ($admin) {
-            $now = now();
-            
-            // Calculate starting & ending dates based on condition
-            if ($statusType === 'expiring') {
-                // Started 28 days ago, expires in 2 days (for 1 month package)
-                $startedAt = $now->copy()->subDays(28);
-                $expiresAt = $now->copy()->addDays(2);
-            } elseif ($statusType === 'expired') {
-                // Started 45 days ago, expired 15 days ago
-                $startedAt = $now->copy()->subDays(45);
-                $expiresAt = $now->copy()->subDays(15);
-            } else {
-                // Active: started randomly between 5 and 20 days ago
-                $daysAgo = rand(5, 20);
-                $startedAt = $now->copy()->subDays($daysAgo);
-                $expiresAt = $startedAt->copy()->addMonths($package->duration_months);
-            }
-
-            $passwordHash = Hash::make('FitnezTeam2@2026');
-
-            // User record
-            $user = User::query()->create([
-                'full_name' => $fullName,
-                'email' => $email,
-                'phone' => $phone,
-                'role_id' => $role->id,
-                'password_hash' => $passwordHash,
+        foreach ($faqs as [$question, $answer, $category, $sortOrder]) {
+            Faq::query()->updateOrCreate(['question' => $question], [
+                'answer' => $answer,
+                'category' => $category,
+                'sort_order' => $sortOrder,
                 'is_active' => true,
-                'email_verified_at' => $startedAt,
-                'membership_package_id' => $package->id,
-                'membership_started_at' => $startedAt,
-                'membership_expires_at' => $expiresAt,
-                'free_class_access' => $package->free_class_access,
             ]);
+        }
+    }
 
-            // Authentication record (local login support)
-            if (DB::getSchemaBuilder()->hasTable('authentications')) {
-                DB::table('authentications')->insert([
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                    'password_hash' => $user->password_hash,
-                    'provider' => 'local',
-                    'is_active' => true,
-                    'failed_login_attempts' => 0,
-                    'password_updated_at' => $startedAt,
-                    'last_login' => null
-                ]);
-            }
+    private function seedMembers(Role $memberRole, $packages, $paymentMethods, User $admin)
+    {
+        $members = collect();
+        $hash = Hash::make(self::PASSWORD);
 
-            // Prospective Member Registration record
-            \App\Models\ProspectiveMemberRegistration::query()->create([
-                'membership_package_id' => $package->id,
-                'manual_payment_method_id' => $paymentMethod->id,
-                'user_id' => $user->id,
-                'admin_id' => $admin->id,
-                'registration_code' => 'REG-' . strtoupper(bin2hex(random_bytes(4))),
-                'full_name' => $fullName,
-                'email' => $email,
-                'phone' => $phone,
-                'password_hash' => $passwordHash,
-                'amount' => $package->price,
-                'status' => 'approved',
-                'payment_proof_path' => 'payment_proofs/dummy_proof.png',
-                'payment_submitted_at' => $startedAt->copy()->subHours(2),
-                'approved_at' => $startedAt,
-                'account_created_at' => $startedAt,
-            ]);
+        for ($i = 1; $i <= 750; $i++) {
+            $package = $packages[($i - 1) % $packages->count()];
+            $paymentMethod = $paymentMethods[($i - 1) % $paymentMethods->count()];
+            $statusType = $i % 15 === 0 ? 'expired' : ($i % 10 === 0 ? 'expiring' : 'active');
+            $email = $i === 1 ? 'member@fitnez.test' : sprintf('member.%03d@fitnez.test', $i);
+            $user = $this->createSeedUser($email, sprintf('Member Seed %03d', $i), sprintf('0812000%04d', $i), $memberRole, $package, $statusType, $hash);
 
-            // Payment record (membership registration fee paid)
-            \App\Models\Payment::query()->create([
-                'invoice_number' => 'INV-' . $startedAt->format('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3))),
-                'user_id' => $user->id,
-                'payment_type' => 'membership',
-                'amount' => $package->price,
-                'payment_method' => $paymentMethod->type,
-                'payment_status' => 'paid',
-                'payment_date' => $startedAt,
-            ]);
-
-            return $user;
-        };
-
-        // 7. Generate 60 Members
-        // 7.1. Seed default member@fitnez.test (Active, 12 Months Premium)
-        $p12m = $packages->where('code', 'PKG_12_MONTHS_PREMIUM')->first();
-        $createUserWithRegistration('member@fitnez.test', 'Fitnez Member', '080000000003', 'active', $p12m, $qrisMethod, $memberRole);
-
-        // 7.2. Seed remaining 29 Active members
-        for ($i = 1; $i <= 29; $i++) {
-            $pkg = $packages->random();
-            $pm = $paymentMethods->random();
-            $createUserWithRegistration(
-                "member.active.{$i}@fitnez.test",
-                "Active Member {$i}",
-                "081234567" . sprintf('%03d', $i),
-                'active',
-                $pkg,
-                $pm,
-                $memberRole
-            );
+            $this->createRegistrationAndPayment($user, $package, $paymentMethod, $admin, $hash, $i, 'member');
+            $members->push($user);
         }
 
-        // 7.3. Seed 15 Expiring Soon members (expires in 2 days)
-        $p1m = $packages->where('code', 'PKG_1_MONTH')->first();
-        for ($i = 1; $i <= 15; $i++) {
-            $pm = $paymentMethods->random();
-            $createUserWithRegistration(
-                "member.expiring.{$i}@fitnez.test",
-                "Expiring Member {$i}",
-                "082234567" . sprintf('%03d', $i),
-                'expiring',
-                $p1m,
-                $pm,
-                $memberRole
-            );
-        }
+        return $members;
+    }
 
-        // 7.4. Seed 15 Expired members (expired 15 days ago)
-        for ($i = 1; $i <= 15; $i++) {
-            $pm = $paymentMethods->random();
-            $createUserWithRegistration(
-                "member.expired.{$i}@fitnez.test",
-                "Expired Member {$i}",
-                "083234567" . sprintf('%03d', $i),
-                'expired',
-                $p1m,
-                $pm,
-                $memberRole
-            );
-        }
+    private function seedTrainers(Role $trainerRole, $packages, $paymentMethods, User $admin)
+    {
+        $trainers = collect();
+        $hash = Hash::make(self::PASSWORD);
+        $specializations = ['Strength Training', 'Weight Loss', 'Yoga', 'Cardio Fitness', 'Bodybuilding', 'Functional Training'];
 
-        // 8. Generate 20 Trainers (Approved Applications)
-        // 8.1. Seed default trainer@fitnez.test (Active, 6 Months Plus)
-        $p6m = $packages->where('code', 'PKG_6_MONTHS_PLUS')->first();
-        $defaultTrainer = $createUserWithRegistration(
-            'trainer@fitnez.test',
-            'Fitnez Approved Trainer',
-            '080000000002',
-            'active',
-            $p6m,
-            $bankMethod,
-            $trainerRole
-        );
+        for ($i = 1; $i <= 250; $i++) {
+            $package = $packages[($i - 1) % $packages->count()];
+            $paymentMethod = $paymentMethods[($i - 1) % $paymentMethods->count()];
+            $email = $i === 1 ? 'trainer@fitnez.test' : sprintf('trainer.%03d@fitnez.test', $i);
+            $user = $this->createSeedUser($email, sprintf('Trainer Seed %03d', $i), sprintf('0822000%04d', $i), $trainerRole, $package, 'active', $hash);
 
-        TrainerApplication::query()->create([
-            'user_id' => $defaultTrainer->id,
-            'status' => 'approved',
-            'cv_document_url' => 'dummy/approved-trainer-cv.pdf',
-            'certificate_document_url' => 'dummy/approved-trainer-certificate.pdf',
-            'submitted_at' => $defaultTrainer->membership_started_at,
-            'reviewed_at' => $defaultTrainer->membership_started_at->copy()->addDay(),
-            'reviewed_by_admin_id' => $admin->id,
-            'admin_notes' => 'Dummy trainer account approved by seeder.',
-        ]);
-
-        TrainerDetail::query()->create([
-            'user_id' => $defaultTrainer->id,
-            'specialization' => 'Strength Training',
-            'biography' => 'Dummy approved trainer account for Fitnez testing.',
-            'experience_years' => 3,
-            'hourly_rate' => 150000,
-            'avg_rating' => 4.8,
-        ]);
-
-        // 8.2. Seed remaining 19 Trainers
-        for ($i = 1; $i <= 19; $i++) {
-            $pkg = $packages->random();
-            $pm = $paymentMethods->random();
-            $trainerUser = $createUserWithRegistration(
-                "trainer.active.{$i}@fitnez.test",
-                "Trainer Coach {$i}",
-                "084234567" . sprintf('%03d', $i),
-                'active',
-                $pkg,
-                $pm,
-                $trainerRole
-            );
+            $this->createRegistrationAndPayment($user, $package, $paymentMethod, $admin, $hash, $i, 'trainer');
 
             TrainerApplication::query()->create([
-                'user_id' => $trainerUser->id,
+                'user_id' => $user->id,
                 'status' => 'approved',
-                'cv_document_url' => "cvs/trainer_{$i}.pdf",
-                'certificate_document_url' => "certificates/trainer_{$i}.pdf",
-                'submitted_at' => $trainerUser->membership_started_at,
-                'reviewed_at' => $trainerUser->membership_started_at->copy()->addDay(),
+                'cv_document_url' => sprintf('seed/cv/trainer_%03d.pdf', $i),
+                'certificate_document_url' => sprintf('seed/certificates/trainer_%03d.pdf', $i),
+                'submitted_at' => $user->membership_started_at,
+                'reviewed_at' => $user->membership_started_at?->copy()->addDay(),
                 'reviewed_by_admin_id' => $admin->id,
-                'admin_notes' => 'Approved automatically by seeder.',
+                'admin_notes' => 'Approved automatically by database seeder.',
             ]);
 
-            $specs = ['Strength Training', 'Weight Loss', 'Yoga', 'Cardio Fitness', 'Bodybuilding'];
             TrainerDetail::query()->create([
-                'user_id' => $trainerUser->id,
-                'specialization' => $specs[array_rand($specs)],
-                'biography' => "Certified gym trainer with years of coaching experience.",
-                'experience_years' => rand(2, 8),
-                'hourly_rate' => rand(120, 250) * 1000,
-                'avg_rating' => rand(43, 50) / 10.0,
+                'user_id' => $user->id,
+                'specialization' => $specializations[($i - 1) % count($specializations)],
+                'biography' => 'Certified Fitnez trainer account generated for load testing and demo data.',
+                'experience_years' => 1 + ($i % 10),
+                'hourly_rate' => 100000 + (($i % 10) * 15000),
+                'base_price' => 100000 + (($i % 10) * 15000),
+                'avg_rating' => 4 + (($i % 10) / 10),
+            ]);
+
+            $trainers->push($user);
+        }
+
+        return $trainers;
+    }
+
+    private function createSeedUser(string $email, string $name, string $phone, Role $role, MembershipPackage $package, string $statusType, string $hash): User
+    {
+        [$startedAt, $expiresAt] = $this->membershipDates($package, $statusType);
+
+        return User::query()->create([
+            'full_name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'role_id' => $role->id,
+            'password_hash' => $hash,
+            'is_active' => $statusType !== 'expired',
+            'email_verified_at' => $startedAt,
+            'membership_package_id' => $package->id,
+            'membership_started_at' => $startedAt,
+            'membership_expires_at' => $expiresAt,
+            'free_class_access' => (bool) $package->free_class_access,
+            'created_at' => $startedAt,
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function membershipDates(MembershipPackage $package, string $statusType): array
+    {
+        $now = now();
+
+        if ($statusType === 'expired') {
+            $startedAt = $now->copy()->subMonths(max(1, $package->duration_months))->subDays(10);
+            return [$startedAt, $now->copy()->subDays(10)];
+        }
+
+        if ($statusType === 'expiring') {
+            $expiresAt = $now->copy()->addDays(3);
+            return [$expiresAt->copy()->subMonths(max(1, $package->duration_months)), $expiresAt];
+        }
+
+        $startedAt = $now->copy()->subDays(random_int(1, 25));
+        return [$startedAt, $startedAt->copy()->addMonths($package->duration_months)];
+    }
+
+    private function createRegistrationAndPayment(User $user, MembershipPackage $package, ManualPaymentMethod $paymentMethod, User $admin, string $hash, int $sequence, string $prefix): void
+    {
+        ProspectiveMemberRegistration::query()->create([
+            'membership_package_id' => $package->id,
+            'manual_payment_method_id' => $paymentMethod->id,
+            'user_id' => $user->id,
+            'admin_id' => $admin->id,
+            'registration_code' => sprintf('REG-%s-%04d', strtoupper($prefix), $sequence),
+            'full_name' => $user->full_name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'password_hash' => $hash,
+            'amount' => $package->price,
+            'status' => 'approved',
+            'payment_proof_path' => 'seed/payment_proofs/dummy_proof.png',
+            'payment_submitted_at' => $user->membership_started_at?->copy()->subHours(2),
+            'approved_at' => $user->membership_started_at,
+            'account_created_at' => $user->membership_started_at,
+        ]);
+
+        Payment::query()->create([
+            'invoice_number' => sprintf('INV-%s-%04d', strtoupper($prefix), $sequence),
+            'user_id' => $user->id,
+            'membership_package_id' => $package->id,
+            'payment_type' => 'membership',
+            'amount' => $package->price,
+            'payment_method' => $paymentMethod->type,
+            'payment_status' => 'paid',
+            'payment_date' => $user->membership_started_at,
+            'external_reference' => 'SEED-' . Str::upper(Str::random(10)),
+        ]);
+    }
+
+    private function seedOperationalData($members, $trainers, $packages, $paymentMethods, User $admin): void
+    {
+        $now = now();
+
+        foreach ($members->take(250) as $index => $member) {
+            MealPlan::query()->create([
+                'user_id' => $member->id,
+                'daily_limit' => 2000 + ($index % 400),
+                'bmr' => 1500 + ($index % 300),
+                'tdee' => 2100 + ($index % 500),
+                'target_kal' => 1900 + ($index % 450),
+            ]);
+
+            FoodLog::query()->create([
+                'user_id' => $member->id,
+                'food_name' => 'Seed Meal ' . ($index + 1),
+                'calories' => 300 + ($index % 500),
+                'logged_date' => $now->toDateString(),
             ]);
         }
 
-        // 9. Generate 20 Members Ready to Become Trainers (Pending Trainer Applications)
-        // 9.1. Seed 10 Active applicant members
-        for ($i = 1; $i <= 10; $i++) {
-            $pkg = $packages->random();
-            $pm = $paymentMethods->random();
-            $applicant = $createUserWithRegistration(
-                "applicant.active.{$i}@fitnez.test",
-                "Applicant Active {$i}",
-                "085234567" . sprintf('%03d', $i),
-                'active',
-                $pkg,
-                $pm,
-                $memberRole
-            );
-
-            TrainerApplication::query()->create([
-                'user_id' => $applicant->id,
-                'status' => 'pending',
-                'cv_document_url' => "cvs/applicant_active_{$i}.pdf",
-                'certificate_document_url' => "certificates/applicant_active_{$i}.pdf",
-                'submitted_at' => now()->subDays(rand(1, 4)),
+        foreach ($members->take(200) as $index => $member) {
+            Attendance::query()->create([
+                'user_id' => $member->id,
+                'attendance_type' => 'member_check_in',
+                'check_in_time' => $now->copy()->subDays($index % 30)->setTime(8 + ($index % 8), 0),
+                'check_out_time' => $now->copy()->subDays($index % 30)->setTime(10 + ($index % 8), 0),
             ]);
         }
 
-        // 9.2. Seed 5 Expiring applicant members
-        for ($i = 1; $i <= 5; $i++) {
-            $pm = $paymentMethods->random();
-            $applicant = $createUserWithRegistration(
-                "applicant.expiring.{$i}@fitnez.test",
-                "Applicant Expiring {$i}",
-                "086234567" . sprintf('%03d', $i),
-                'expiring',
-                $p1m,
-                $pm,
-                $memberRole
-            );
-
-            TrainerApplication::query()->create([
-                'user_id' => $applicant->id,
-                'status' => 'pending',
-                'cv_document_url' => "cvs/applicant_expiring_{$i}.pdf",
-                'certificate_document_url' => "certificates/applicant_expiring_{$i}.pdf",
-                'submitted_at' => now()->subDays(rand(1, 2)),
+        foreach ($trainers->take(100) as $index => $trainer) {
+            Attendance::query()->create([
+                'user_id' => $trainer->id,
+                'attendance_type' => 'trainer_check_in',
+                'check_in_time' => $now->copy()->subDays($index % 30)->setTime(7 + ($index % 8), 30),
+                'check_out_time' => $now->copy()->subDays($index % 30)->setTime(11 + ($index % 8), 30),
             ]);
         }
 
-        // 9.3. Seed 5 Expired applicant members
-        for ($i = 1; $i <= 5; $i++) {
-            $pm = $paymentMethods->random();
-            $applicant = $createUserWithRegistration(
-                "applicant.expired.{$i}@fitnez.test",
-                "Applicant Expired {$i}",
-                "087234567" . sprintf('%03d', $i),
-                'expired',
-                $p1m,
-                $pm,
-                $memberRole
-            );
+        foreach ($members->take(80) as $index => $member) {
+            $trainer = $trainers[$index % $trainers->count()];
+            $start = $now->copy()->addDays(($index % 20) + 1)->toDateString();
+            $end = $now->copy()->addDays(($index % 20) + 28)->toDateString();
 
-            TrainerApplication::query()->create([
-                'user_id' => $applicant->id,
-                'status' => 'pending',
-                'cv_document_url' => "cvs/applicant_expired_{$i}.pdf",
-                'certificate_document_url' => "certificates/applicant_expired_{$i}.pdf",
-                'submitted_at' => now()->subDays(rand(1, 5)),
+            $booking = TrainerBooking::query()->create([
+                'member_id' => $member->id,
+                'trainer_id' => $trainer->id,
+                'start_date' => $start,
+                'end_date' => $end,
+                'sessions_per_week' => 3,
+                'session_days' => ['monday', 'wednesday', 'friday'],
+                'session_time' => sprintf('%02d:00', 8 + ($index % 8)),
+                'member_notes' => 'Seed booking data for admin review.',
+                'base_price_per_session' => 100000,
+                'member_price_per_session' => 150000,
+                'total_member_price' => 1800000,
+                'total_trainer_price' => 1200000,
+                'total_sessions' => 12,
+                'status' => $index % 3 === 0 ? TrainerBooking::STATUS_PENDING_PAYMENT : TrainerBooking::STATUS_CONFIRMED,
+                'payment_proof_path' => $index % 3 === 0 ? 'seed/payment_proofs/booking.png' : null,
+                'paid_at' => $index % 3 === 0 ? null : $now,
             ]);
-        }
 
-        // 10. Generate Attendance History and Live Logs
-        $allUsers = User::query()->where('role_id', '!=', $adminRole->id)->get();
-        
-        // 10.1. Generate historical check-ins over the last 15 days
-        foreach ($allUsers as $user) {
-            $entriesCount = rand(1, 6);
-            for ($j = 0; $j < $entriesCount; $j++) {
-                $daysAgo = rand(1, 15);
-                $checkInTime = now()->subDays($daysAgo)->subHours(rand(1, 12))->subMinutes(rand(1, 59));
-                $checkOutTime = $checkInTime->copy()->addMinutes(rand(45, 180));
-                
-                Attendance::query()->create([
-                    'user_id' => $user->id,
-                    'attendance_type' => $user->isTrainer() ? 'trainer_check_in' : 'member_check_in',
-                    'check_in_time' => $checkInTime,
-                    'check_out_time' => $checkOutTime,
+            if ($booking->status === TrainerBooking::STATUS_CONFIRMED) {
+                TrainerEarning::query()->create([
+                    'trainer_id' => $trainer->id,
+                    'booking_id' => $booking->id,
+                    'trainer_amount' => $booking->total_trainer_price,
+                    'status' => 'pending',
                 ]);
             }
         }
 
-        // 10.2. Generate 8 entries for TODAY to make the live metrics functional
-        for ($j = 1; $j <= 8; $j++) {
-            $user = $allUsers->random();
-            $checkInTime = now()->subHours(rand(1, 6));
-            // Keep some active in-progress check-ins (check_out_time is null)
-            $checkOutTime = ($j % 3 === 0) ? null : $checkInTime->copy()->addMinutes(rand(45, 120));
-
-            Attendance::query()->create([
-                'user_id' => $user->id,
-                'attendance_type' => $user->isTrainer() ? 'trainer_check_in' : 'member_check_in',
-                'check_in_time' => $checkInTime,
-                'check_out_time' => $checkOutTime,
-            ]);
-        }
-
-        // 11. Seed landing page visits for visitor analytics
-        DB::table('landing_page_visits')->delete();
-        $countriesIPs = [
-            '182.253.0.1', // ID
-            '8.8.8.8', // US
-            '202.130.96.1', // ID
-            '111.95.0.1', // ID
-            '45.32.0.1', // SG
-            '118.189.0.1', // SG
-            '210.140.0.1', // JP
-            '195.154.0.1', // FR
-            '82.165.0.1', // DE
-            '1.1.1.1' // AU
-        ];
-        
-        for ($i = 0; $i < 60; $i++) {
-            $daysAgo = rand(0, 8);
-            $visitedAt = now()->subDays($daysAgo)->subHours(rand(0, 23))->subMinutes(rand(0, 59));
-            $visitorUuid = \Illuminate\Support\Str::uuid()->toString();
-            $sessionUuid = \Illuminate\Support\Str::uuid()->toString();
-            
-            DB::table('landing_page_visits')->insert([
-                'visitor_uuid' => $visitorUuid,
-                'session_uuid' => $sessionUuid,
-                'visit_date' => $visitedAt->toDateString(),
-                'ip_address' => $countriesIPs[array_rand($countriesIPs)],
-                'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                'browser_name' => rand(0, 1) === 0 ? 'Chrome' : 'Safari',
-                'os_name' => 'Windows',
-                'device_type' => 'desktop',
-                'route_path' => '/',
-                'page_view_count' => rand(1, 5),
-                'visited_at' => $visitedAt,
-                'last_seen_at' => $visitedAt->copy()->addMinutes(rand(1, 10)),
-                'created_at' => $visitedAt,
-                'updated_at' => $visitedAt,
+        foreach ($members->take(120) as $index => $member) {
+            Notification::query()->create([
+                'user_id' => $member->id,
+                'title' => 'Welcome to Fitnez',
+                'body' => 'Your seed account is ready for testing.',
+                'notification_type' => 'system',
+                'is_read' => $index % 2 === 0,
             ]);
         }
     }

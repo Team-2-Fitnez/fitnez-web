@@ -14,6 +14,14 @@ dist-ssr
 coverage
 *.local
 
+# Unit tests
+src/__tests__/
+**/__tests__/
+*.spec.*
+*.test.*
+vitest.config.*
+tsconfig.vitest.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -8,19 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('users') && ! Schema::hasColumn('users', 'birth_date')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->date('birth_date')->nullable()->after('phone');
-            });
+        if (! Schema::hasTable('users') || Schema::hasColumn('users', 'birth_date')) {
+            return;
         }
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->date('birth_date')->nullable()->after('phone');
+        });
     }
 
     public function down(): void
     {
-        if (Schema::hasTable('users') && Schema::hasColumn('users', 'birth_date')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->dropColumn('birth_date');
-            });
+        if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'birth_date')) {
+            return;
         }
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('birth_date');
+        });
     }
 };
