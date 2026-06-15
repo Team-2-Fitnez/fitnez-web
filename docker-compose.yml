@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: infra/docker/php/Dockerfile
+      dockerfile: backend/docker/php/Dockerfile
     container_name: fitnez-app
     working_dir: /var/www/html
     env_file:
@@ -31,7 +31,7 @@ services:
     volumes:
       - ./backend/public:/var/www/html/public:ro
       - fitnez_storage:/var/www/html/storage:ro
-      - ./infra/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./backend/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - app
     networks:
@@ -53,11 +53,11 @@ services:
   socketio:
     build:
       context: .
-      dockerfile: infra/docker/socketio/Dockerfile
+      dockerfile: backend/realtime/Dockerfile
     container_name: fitnez-socketio
     working_dir: /app
     volumes:
-      - ./socketio:/app
+      - ./backend/realtime:/app
       - /app/node_modules
     ports:
       - '6001:6001'

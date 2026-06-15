@@ -10,4 +10,4 @@ backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 backend/bootstrap/cache/*
 frontend/dist
-socketio/coverage
+backend/realtime/coverage

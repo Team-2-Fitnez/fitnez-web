@@ -8,19 +8,20 @@ backend/.env.*
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
-socketio/.env
-socketio/.env.*
-!socketio/.env.example
+!frontend/.env.development
+backend/realtime/.env
+backend/realtime/.env.*
+!backend/realtime/.env.example
 
 # Dependencies
 node_modules/
 **/node_modules/
 vendor/
 backend/vendor/
-socketio/node_modules/
+backend/realtime/node_modules/
 
-# Docker / infra local-only files
-# Keep source infra files tracked: docker-compose.yml, nginx.conf, Dockerfile, and reusable docker configs.
+# Docker local-only files
+# Keep source Docker files tracked under backend/docker and backend/realtime.
 docker-compose.override.yml
 docker-compose.*.local.yml
 .docker/
@@ -30,25 +31,12 @@ docker-compose.*.local.yml
 frontend/dist/
 backend/public/build/
 backend/public/hot
-socketio/dist/
-socketio/coverage/
+backend/realtime/dist/
+backend/realtime/coverage/
 
-# Unit tests
-frontend/src/__tests__/
-frontend/**/__tests__/
-frontend/**/*.spec.*
-frontend/**/*.test.*
-frontend/vitest.config.*
-frontend/tsconfig.vitest.json
+# Test outputs
 frontend/coverage/
-backend/tests/
-backend/**/tests/
-backend/**/*Test.php
-backend/**/*.spec.*
-backend/**/*.test.*
-backend/test_*.php
-backend/phpunit.xml
-backend/phpunit.xml.dist
+backend/coverage/
 
 # Laravel runtime data
 backend/storage/logs/*.log

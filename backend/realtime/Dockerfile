@@ -2,10 +2,10 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-COPY socketio/package*.json ./
+COPY backend/realtime/package*.json ./
 RUN npm install
 
-COPY socketio/server.js ./server.js
+COPY backend/realtime/server.js ./server.js
 
 EXPOSE 6001
 

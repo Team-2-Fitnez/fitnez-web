@@ -12,13 +12,22 @@
 !composer.json
 !composer.lock
 !artisan
+!docker/
+!docker/**/
+!docker/**/*
+!realtime/
+!realtime/**/
+!realtime/Dockerfile
+!realtime/package.json
+!realtime/package-lock.json
+!realtime/server.js
+!tests/
+!tests/**/
+!tests/**/*.php
 
-# Unit tests are intentionally ignored if backend allowlist rules are expanded later.
-tests/
-**/tests/
+# Local ad-hoc scratch files are ignored.
 *Test.php
 *.spec.*
 *.test.*
 test_*.php
-phpunit.xml
-phpunit.xml.dist
+!tests/**/*.php

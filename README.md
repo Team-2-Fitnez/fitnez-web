@@ -11,6 +11,18 @@ Aplikasi manajemen gym berbasis web dengan 3 workspace role: **Admin**, **Member
 | Real-time | Socket.io (Node 22, port 6001) |
 | Infra | Docker Compose (app, nginx, frontend, socketio, db) |
 
+## Struktur Folder Utama
+
+Folder aplikasi utama hanya dipisah menjadi backend dan frontend:
+
+```txt
+backend/
+frontend/
+docker-compose.yml
+```
+
+Konfigurasi Docker backend berada di `backend/docker/`, sedangkan service realtime Socket.io berada di `backend/realtime/`. Unit test dibuat terpisah di dalam aplikasi masing-masing: `backend/tests/Unit`, `backend/tests/Feature`, dan `frontend/tests/unit` atau `frontend/tests/e2e`.
+
 ## Workspace Access
 
 Setiap role memiliki entrypoint SPA terpisah:
@@ -252,14 +264,8 @@ Setelah itu ulangi lagi command pengecekan permission.
 
 ---
 
-## 12. Jalankan Storage Link Jika Dibutuhkan
-Kalau project memakai file yang perlu diakses lewat `/storage`, jalankan:
-
-```bash
-docker compose exec app php artisan storage:link
-```
-
-Kalau muncul pesan link sudah ada, itu tidak masalah.
+## 12. Akses File Upload
+File upload publik seperti bukti pembayaran diakses lewat URL `/storage/...`. Pada Docker, Nginx sudah mengarah langsung ke volume Laravel storage, jadi `php artisan storage:link` tidak wajib untuk setup Docker ini.
 
 ---
 ## 13. Cek Build Frontend
@@ -289,14 +295,19 @@ Frontend Vue dibuka dari:
 http://localhost:5173
 ```
 
-Backend Laravel lewat Nginx biasanya bisa dicek dari:
+Backend Laravel lewat Nginx bisa dicek dari:
 
 ```txt
 http://localhost:8080
 ```
 
-Kalau frontend berjalan tapi API gagal, cek `vite.config.js`.
-Untuk Docker, bagian proxy harus mengarah ke service Nginx:
+Untuk development Docker, frontend memakai `frontend/.env.development`:
+
+```env
+VITE_API_BASE_URL=http://localhost:8080/api
+```
+
+Konfigurasi ini membuat browser langsung memanggil Nginx Laravel dan lebih cepat daripada lewat Vite proxy. Kalau ingin memakai proxy Vite, cek `vite.config.ts` dan arahkan `/api` ke service Nginx:
 
 ```js
 proxy: {
