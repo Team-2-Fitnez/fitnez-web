@@ -1,14 +1,12 @@
 # Environment / secrets
 .env
 .env.*
-!.env.example
 backend/.env
 backend/.env.*
 !backend/.env.example
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
-!frontend/.env.development
 backend/realtime/.env
 backend/realtime/.env.*
 !backend/realtime/.env.example
