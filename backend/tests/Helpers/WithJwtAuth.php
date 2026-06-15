@@ -3,7 +3,7 @@
 namespace Tests\Helpers;
 
 use App\Models\User;
-use App\Features\Anggota1AuthDashboardProfile\Services\Auth\JwtService;
+use App\Features\Auth\Services\Auth\JwtService;
 
 trait WithJwtAuth
 {
@@ -11,7 +11,7 @@ trait WithJwtAuth
     {
         $jwtService = $this->app->make(JwtService::class);
 
-        $token = $jwtService->issue($user, request(), 60);
+        $token = $jwtService->tokenFor($user);
 
         $this->withToken($token);
 

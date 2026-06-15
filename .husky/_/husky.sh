@@ -1,6 +1,9 @@
-#!/bin/sh
-# husky
+echo "husky - DEPRECATED
 
-# Created by husky
-command -v git >/dev/null 2>&1 || { echo "git is required"; exit 1; }
-cd "$(dirname "$0")/.."
+Please remove the following two lines from $0:
+
+#!/usr/bin/env sh
+. \"\$(dirname -- \"\$0\")/_/husky.sh\"
+
+They WILL FAIL in v10.0.0
+"

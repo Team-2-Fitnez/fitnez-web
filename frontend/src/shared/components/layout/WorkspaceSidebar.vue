@@ -39,7 +39,7 @@ const workspaceSubtitle = computed(() => {
 })
 
 const openSubmenu = computed(() => {
-  const parent = props.items.find(item => item.submenu?.some(sub => route.path === sub.to))
+  const parent = props.items.find((item) => item.submenu?.some((sub) => route.path === sub.to))
   return parent?.label ?? manualToggle.value
 })
 
@@ -54,7 +54,7 @@ function toggleSubmenu(label: string) {
 function handleSubmenuClick(item: MenuItem) {
   if (!item.submenu?.length) return
 
-  const isActive = item.submenu.some(sub => route.path === sub.to)
+  const isActive = item.submenu.some((sub) => route.path === sub.to)
   if (isActive) {
     toggleSubmenu(item.label)
     return
@@ -73,7 +73,9 @@ function logout() {
 watch(
   () => route.path,
   () => {
-    const activeParent = props.items.find(item => item.submenu?.some(sub => route.path === sub.to))
+    const activeParent = props.items.find((item) =>
+      item.submenu?.some((sub) => route.path === sub.to),
+    )
     if (activeParent) manualToggle.value = activeParent.label
   },
   { immediate: true },
@@ -93,7 +95,6 @@ function getAdminIcon(label: string, fallback = '.') {
     case 'users':
     case 'pengguna':
     case 'members':
-    case 'anggota':
       return `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2m11-10a4 4 0 10-8 0 4 4 0 008 0zm7 10v-2a4 4 0 00-3-3.87m-2-8.26a4 4 0 010 7.75" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>`
     case 'payments':
     case 'pembayaran':
@@ -149,7 +150,6 @@ function getAdminIcon(label: string, fallback = '.') {
     case 'obrolan':
       return `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`
     case 'memberships':
-    case 'keanggotaan':
       return `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8h18M7 15h1m4 0h1M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>`
     case 'profile':
     case 'profil':
@@ -164,14 +164,22 @@ function getAdminIcon(label: string, fallback = '.') {
 </script>
 
 <template>
-  <div class="h-full bg-[#0B1120] text-gray-300 flex flex-col justify-between rounded-2xl border border-gray-800">
+  <div
+    class="h-full bg-[#0B1120] text-gray-300 flex flex-col justify-between rounded-2xl border border-gray-800"
+  >
     <div class="p-6 overflow-y-auto scrollbar-hide flex-1">
-      <div class="flex items-center gap-4 bg-[#1F2937] p-4 rounded-xl mb-8 border border-gray-700 shadow-sm">
-        <div class="w-12 h-12 bg-[#fdf4e3] rounded-full flex items-center justify-center text-black font-extrabold text-xl flex-shrink-0 capitalize">
+      <div
+        class="flex items-center gap-4 bg-[#1F2937] p-4 rounded-xl mb-8 border border-gray-700 shadow-sm"
+      >
+        <div
+          class="w-12 h-12 bg-[#fdf4e3] rounded-full flex items-center justify-center text-black font-extrabold text-xl flex-shrink-0 capitalize"
+        >
           {{ auth.user?.full_name ? auth.user.full_name.charAt(0) : role.charAt(0) }}
         </div>
         <div v-if="!collapsed" class="flex flex-col justify-center overflow-hidden">
-          <div class="text-[10px] font-bold tracking-[0.15em] text-gray-400 uppercase mb-0.5">FITNEZ</div>
+          <div class="text-[10px] font-bold tracking-[0.15em] text-gray-400 uppercase mb-0.5">
+            FITNEZ
+          </div>
           <div class="font-extrabold text-white text-base truncate leading-none mb-1 capitalize">
             {{ auth.user?.full_name || role }}
           </div>
@@ -188,7 +196,9 @@ function getAdminIcon(label: string, fallback = '.') {
               type="button"
               :class="[
                 'w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-[#1F2937] hover:text-white rounded-xl transition-colors font-medium text-sm',
-                item.submenu.some(sub => route.path === sub.to) ? 'text-white bg-[#1F2937]' : 'text-gray-400',
+                item.submenu.some((sub) => route.path === sub.to)
+                  ? 'text-white bg-[#1F2937]'
+                  : 'text-gray-400',
               ]"
               @click="handleSubmenuClick(item)"
             >
@@ -196,7 +206,12 @@ function getAdminIcon(label: string, fallback = '.') {
                 <span v-html="getAdminIcon(item.label, item.icon)" />
                 <span v-if="!collapsed">{{ item.label }}</span>
               </span>
-              <span v-if="!collapsed" class="text-[10px] transition-transform" :class="{ 'rotate-180': openSubmenu === item.label }">v</span>
+              <span
+                v-if="!collapsed"
+                class="text-[10px] transition-transform"
+                :class="{ 'rotate-180': openSubmenu === item.label }"
+                >v</span
+              >
             </button>
             <div v-if="openSubmenu === item.label && !collapsed" class="pl-4 mt-1 space-y-1">
               <RouterLink
@@ -249,8 +264,18 @@ function getAdminIcon(label: string, fallback = '.') {
         :title="collapsed ? 'Logout' : undefined"
         @click="logout"
       >
-        <svg class="w-5 h-5 text-red-500/70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+        <svg
+          class="w-5 h-5 text-red-500/70 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+          />
         </svg>
         <span v-if="!collapsed">Logout</span>
       </button>
