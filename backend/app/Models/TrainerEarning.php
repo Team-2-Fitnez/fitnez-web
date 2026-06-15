@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TrainerEarning extends Model
 {
+    use HasFactory;
     protected $table = 'trainer_earnings';
+
+    public $timestamps = false;
 
     protected $fillable = [
         'trainer_id',
@@ -16,19 +20,17 @@ class TrainerEarning extends Model
         'trainer_amount',
         'status',
         'disbursed_at',
-        'created_at',
-        'updated_at'
     ];
 
     protected $casts = [
         'commission_rate' => 'decimal:2',
         'trainer_amount' => 'decimal:2',
-        'disbursed_at' => 'datetime'
+        'disbursed_at' => 'datetime',
     ];
 
     public function trainer()
     {
-        return $this->belongsTo(TrainerDetail::class, 'trainer_id');
+        return $this->belongsTo(User::class, 'trainer_id');
     }
 
     public function payment()
@@ -38,6 +40,6 @@ class TrainerEarning extends Model
 
     public function booking()
     {
-        return $this->belongsTo(TrainerBooking::class);
+        return $this->belongsTo(TrainerBooking::class, 'booking_id');
     }
 }

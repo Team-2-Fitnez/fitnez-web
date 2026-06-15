@@ -2,44 +2,60 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
  * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+    protected static ?string $passwordHash;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
+        $role = Role::query()->firstOrCreate(
+            ['name' => 'member'],
+            ['description' => 'Fitnez member/user']
+        );
+
         return [
-            'name' => fake()->name(),
+            'full_name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            'phone' => fake()->phoneNumber(),
+            'role_id' => $role->id,
+            'password_hash' => static::$passwordHash ??= Hash::make('password'),
+            'is_active' => true,
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    public function withRole(string $roleName): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        return $this->state(function () use ($roleName) {
+            $role = Role::query()->firstOrCreate(
+                ['name' => $roleName],
+                ['description' => ucfirst($roleName) . ' role']
+            );
+
+            return ['role_id' => $role->id];
+        });
+    }
+
+    public function admin(): static
+    {
+        return $this->withRole('admin');
+    }
+
+    public function member(): static
+    {
+        return $this->withRole('member');
+    }
+
+    public function trainer(): static
+    {
+        return $this->withRole('trainer');
     }
 }

@@ -1,13 +1,74 @@
-# Laravel
-backend/vendor/
-backend/.env
-backend/storage/logs/*.log
-backend/bootstrap/cache/*.php
+# Dependencies
+node_modules/
+**/node_modules/
+vendor/
+**/vendor/
 
-# Vue.js
-frontend/node_modules/
-frontend/dist/
+# Environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
-# Docker
+# Docker folders/files should not be pushed
+/docker/
+docker/
+**/docker/
+**/docker-compose.override.yml
+
+# Build output
+/dist/
+**/dist/
+/public/build/
+**/public/build/
+**/.vite/
+
+# Runtime/cache/logs
+/storage/logs/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/storage/app/public/
+/storage/app/private/
+/bootstrap/cache/*.php
+**/*.log
+*.log
+
+# Local databases
+/database/*.sqlite
+**/database/*.sqlite
+
+# Test/testing folders and files are excluded from this project submission
+/test/
+/tests/
+/testing/
+/__test__/
+/__tests__/
+/__test_*/
+**/test/
+**/tests/
+**/testing/
+**/__test__/
+**/__tests__/
+**/__test_*/
+*test*
+*Test*
+phpunit.xml
+phpunit.*
+vitest.*
+tsconfig.vitest.json
+.phpunit.cache/
+.phpunit.result.cache
+coverage/
+**/coverage/
+
+# IDE / OS
 .DS_Store
-*.local
+Thumbs.db
+.idea/
+.vscode/
+.cursor/
+.codex/
+.agent/

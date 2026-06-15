@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'vapid' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+    ],
+
+    'socketio' => [
+        'internal_token' => env('SOCKETIO_INTERNAL_TOKEN'),
+    ],
+
 ];

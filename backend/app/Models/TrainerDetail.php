@@ -2,40 +2,36 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class TrainerDetail extends Model
 {
+    use HasFactory;
     protected $table = 'trainer_details';
 
+    public $timestamps = false;
+
     protected $fillable = [
-        'user_id',
-        'specialization',
-        'biography',
-        'experience_years',
-        'hourly_rate',
-        'avg_rating',
-        'created_at',
-        'updated_at'
+        'user_id', 'specialization', 'biography',
+        'experience_years', 'hourly_rate', 'avg_rating',
+        'base_price',
     ];
 
     protected $casts = [
+        'experience_years' => 'integer',
         'hourly_rate' => 'decimal:2',
-        'avg_rating' => 'decimal:2'
+        'avg_rating' => 'float',
+        'base_price' => 'decimal:2',
     ];
+
+    public function getMemberPriceAttribute(): float
+    {
+        return round((float) ($this->base_price ?? 0) * 1.5, 2);
+    }
 
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function bookings()
-    {
-        return $this->hasMany(TrainerBooking::class, 'trainer_id');
-    }
-
-    public function earnings()
-    {
-        return $this->hasMany(TrainerEarning::class, 'trainer_id');
     }
 }

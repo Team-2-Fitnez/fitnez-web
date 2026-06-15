@@ -8,17 +8,55 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.DS_Store
 dist
 dist-ssr
+coverage
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+*.tsbuildinfo
+
+.eslintcache
+
+# Cypress
+/cypress/videos/
+/cypress/screenshots/
+
+# Vitest
+__screenshots__/
+
+# Vite
+*.timestamp-*-*.mjs
+
+.env
+.env.*
+!.env.example
+# Submission cleanup: block all test artifacts
+/test/
+/tests/
+/testing/
+/__test__/
+/__tests__/
+/__test_*/
+**/test/
+**/tests/
+**/testing/
+**/__test__/
+**/__tests__/
+**/__test_*/
+*test*
+*Test*
+vitest.*
+tsconfig.vitest.json
+coverage/
+**/coverage/

@@ -2,34 +2,35 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
+    use HasFactory;
     protected $table = 'payments';
+
+    public $timestamps = false;
 
     protected $fillable = [
         'invoice_number',
         'user_id',
         'booking_id',
+        'membership_package_id',
         'payment_type',
         'amount',
         'payment_method',
         'payment_status',
         'payment_date',
         'external_reference',
-        'qris_url',
-        'bank_name',
-        'bank_account_number',
-        'bank_account_name',
-        'transfer_proof_url',
-        'created_at',
-        'updated_at'
+        'payment_proof_path',
     ];
+
+    protected $appends = ['payment_proof_url'];
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'payment_date' => 'datetime'
+        'payment_date' => 'datetime',
     ];
 
     public function user()
@@ -42,8 +43,13 @@ class Payment extends Model
         return $this->belongsTo(TrainerBooking::class, 'booking_id');
     }
 
-    public function isPaid()
+    public function membershipPackage()
     {
-        return $this->payment_status === 'paid';
+        return $this->belongsTo(MembershipPackage::class, 'membership_package_id');
+    }
+
+    public function getPaymentProofUrlAttribute()
+    {
+        return $this->payment_proof_path ? asset('storage/' . $this->payment_proof_path) : null;
     }
 }
