@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\PushSubscriptionController;
+use App\Features\Push\Controllers\PushSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/push/subscribe', [PushSubscriptionController::class, 'store']);

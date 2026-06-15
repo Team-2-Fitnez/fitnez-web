@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\DashboardController;
+use App\Features\Dashboard\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/dashboard/summary', [DashboardController::class, 'summary']);

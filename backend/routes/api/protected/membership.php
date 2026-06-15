@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\MemberMembershipController;
+use App\Features\Payments\Controllers\MemberMembershipController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/member/membership/status', [MemberMembershipController::class, 'status']);

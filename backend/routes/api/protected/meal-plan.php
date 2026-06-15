@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\MealPlanController;
+use App\Features\Mealplan\Controllers\MealPlanController;
 use App\Http\Middleware\EnsureActiveMembership;
 use Illuminate\Support\Facades\Route;
 

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\BookingController;
+use App\Features\Booking\Controllers\BookingController;
 use App\Http\Middleware\EnsureActiveMembership;
 use Illuminate\Support\Facades\Route;
 

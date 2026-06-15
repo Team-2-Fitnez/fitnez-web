@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\WorkoutPlanController;
+use App\Features\Workoutplan\Controllers\WorkoutPlanController;
 use App\Http\Middleware\EnsureActiveMembership;
 use Illuminate\Support\Facades\Route;
 

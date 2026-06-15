@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\ChatController;
+use App\Features\Chat\Controllers\ChatController;
 use App\Http\Middleware\EnsureActiveMembership;
 use Illuminate\Support\Facades\Route;
 

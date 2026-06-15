@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ManualProspectiveRegistrationController;
-use App\Http\Controllers\OtpController;
+use App\Features\Auth\Controllers\AuthController;
+use App\Features\Auth\Controllers\ManualProspectiveRegistrationController;
+use App\Features\Auth\Controllers\OtpController;
 use App\Http\Middleware\JwtAuthenticate;
 use Illuminate\Support\Facades\Route;
 

@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\FaqController;
-use App\Http\Controllers\LandingController;
-use App\Http\Controllers\ManualPaymentMethodController;
-use App\Http\Controllers\MembershipPackageController;
-use App\Http\Controllers\Api\CookieConsentController;
+use App\Features\Landing\Controllers\FaqController;
+use App\Features\Landing\Controllers\LandingController;
+use App\Features\Landing\Controllers\ManualPaymentMethodController;
+use App\Features\Landing\Controllers\MembershipPackageController;
+use App\Features\Landing\Controllers\CookieConsentController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/cookie-consents', [CookieConsentController::class, 'store']);

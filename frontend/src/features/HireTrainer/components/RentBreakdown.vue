@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TrainerIncomeBreakdown } from '../../types/trainerRentHistory'
+import type { TrainerIncomeBreakdown } from '@/features/RentHistory/types/trainerRentHistory'
 
 defineProps<{
   breakdown: TrainerIncomeBreakdown

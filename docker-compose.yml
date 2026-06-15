@@ -1,17 +1,13 @@
 services:
   app:
     build:
-      dockerfile_inline: |
-        FROM php:8.4-fpm
-        RUN apt-get update && apt-get install -y git unzip zip libpq-dev libzip-dev libpng-dev libjpeg-dev libwebp-dev \
-            && docker-php-ext-configure gd --with-jpeg --with-webp \
-            && docker-php-ext-install pdo pdo_pgsql zip gd
-        COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-        WORKDIR /var/www/html
+      context: .
+      dockerfile: infra/docker/php/Dockerfile
     container_name: fitnez-app
     working_dir: /var/www/html
+    env_file:
+      - ./backend/.env
     volumes:
-      - ./backend:/var/www/html
       - fitnez_storage:/var/www/html/storage
       - fitnez_bootstrap_cache:/var/www/html/bootstrap/cache
     depends_on:
@@ -33,9 +29,9 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./backend:/var/www/html
+      - ./backend/public:/var/www/html/public:ro
       - fitnez_storage:/var/www/html/storage:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./infra/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - app
     networks:
@@ -50,16 +46,19 @@ services:
       - /app/node_modules
     ports:
       - "5173:5173"
-    command: sh -lc "npm install && chmod -R a+x node_modules/.bin || true && npm run dev -- --host 0.0.0.0"
+    command: sh -lc "if [ ! -d node_modules/.bin ]; then npm install --ignore-scripts; fi && chmod -R a+x node_modules/.bin || true && npm run dev -- --host 0.0.0.0"
     networks:
       - fitnez-net
 
   socketio:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: infra/docker/socketio/Dockerfile
     container_name: fitnez-socketio
     working_dir: /app
     volumes:
       - ./socketio:/app
+      - /app/node_modules
     ports:
       - '6001:6001'
     networks:
@@ -67,7 +66,6 @@ services:
     environment:
       PORT: '6001'
       JWT_SECRET: 'fitnez-local-jwt-secret'
-    command: sh -c "npm install && node server.js"
 
   db:
     image: postgres:16-alpine

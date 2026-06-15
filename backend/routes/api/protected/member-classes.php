@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\MemberClassesController;
+use App\Features\Schedule\Controllers\MemberClassesController;
 use App\Http\Middleware\EnsureActiveMembership;
 use Illuminate\Support\Facades\Route;
 

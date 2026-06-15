@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\TrainerApplicationController;
+use App\Features\HireTrainer\Controllers\TrainerApplicationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/trainer/application', [TrainerApplicationController::class, 'status']);

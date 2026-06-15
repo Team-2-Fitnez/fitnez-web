@@ -1,5 +1,17 @@
 *
 !.gitignore
+!app/
+!app/**/
+!app/**/*.php
+!routes/
+!routes/**/
+!routes/**/*.php
+!database/
+!database/**/
+!database/**/*.php
+!composer.json
+!composer.lock
+!artisan
 
 # Unit tests are intentionally ignored if backend allowlist rules are expanded later.
 tests/

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\BrowserTrackingController;
+use App\Features\BrowserTracking\Controllers\BrowserTrackingController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('browser')->group(function () {

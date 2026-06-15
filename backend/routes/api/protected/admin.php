@@ -1,17 +1,17 @@
 <?php
 
-use App\Http\Controllers\Admin\AdminNotificationController;
-use App\Http\Controllers\Admin\AuthActivityReportController;
-use App\Http\Controllers\Admin\LandingVisitReportController;
-use App\Http\Controllers\Admin\MemberPaymentAttendanceReportController;
-use App\Http\Controllers\Admin\ProspectiveMemberReviewController;
-use App\Http\Controllers\Admin\ScheduleManagementController;
-use App\Http\Controllers\Admin\TrainerApplicationReviewController;
-use App\Http\Controllers\Admin\TrainerManagementController;
-use App\Http\Controllers\Admin\UserManagementController;
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\ExcelExportController;
-use App\Http\Controllers\MemberMembershipController;
+use App\Features\Notifications\Controllers\Admin\AdminNotificationController;
+use App\Features\Reports\Controllers\Admin\AuthActivityReportController;
+use App\Features\Reports\Controllers\Admin\LandingVisitReportController;
+use App\Features\Reports\Controllers\Admin\MemberPaymentAttendanceReportController;
+use App\Features\HireTrainer\Controllers\Admin\ProspectiveMemberReviewController;
+use App\Features\Schedule\Controllers\Admin\ScheduleManagementController;
+use App\Features\HireTrainer\Controllers\Admin\TrainerApplicationReviewController;
+use App\Features\HireTrainer\Controllers\Admin\TrainerManagementController;
+use App\Features\Admin\Controllers\UserManagementController;
+use App\Features\Booking\Controllers\BookingController;
+use App\Features\Excel\Controllers\ExcelExportController;
+use App\Features\Payments\Controllers\MemberMembershipController;
 use App\Http\Middleware\EnsureRole;
 use Illuminate\Support\Facades\Route;
 

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Analytics\LandingVisitController;
+use App\Features\Analytics\Controllers\LandingVisitController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('analytics')->group(function () {

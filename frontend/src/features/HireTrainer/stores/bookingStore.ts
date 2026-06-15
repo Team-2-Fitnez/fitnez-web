@@ -30,7 +30,7 @@ export const useBookingStore = defineStore('bookings', () => {
   }
 
   async function loadBookings() {
-    loading.value = true
+    loading.value = bookings.value.length === 0
     try {
       const response = await bookingsApi.list(page.value)
       bookings.value = response.data.data

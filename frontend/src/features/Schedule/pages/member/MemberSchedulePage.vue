@@ -54,6 +54,21 @@ const pendingUploadBookingId = ref<number | null>(null)
 const uploadFile = ref<File | null>(null)
 const uploading = ref(false)
 const uploadError = ref('')
+const selectedUploadBooking = computed(() =>
+  store.bookings.find((booking) => booking.id === pendingUploadBookingId.value) || null,
+)
+
+function openUploadModal(bookingId: number) {
+  pendingUploadBookingId.value = bookingId
+  uploadFile.value = null
+  uploadError.value = ''
+}
+
+function closeUploadModal() {
+  pendingUploadBookingId.value = null
+  uploadFile.value = null
+  uploadError.value = ''
+}
 
 async function submitPaymentProof() {
   if (!uploadFile.value || !pendingUploadBookingId.value) return
@@ -61,9 +76,11 @@ async function submitPaymentProof() {
   uploadError.value = ''
   try {
     await store.uploadPaymentProof(pendingUploadBookingId.value, uploadFile.value)
-    pendingUploadBookingId.value = null
-    uploadFile.value = null
-    window.showFitnezToast('Payment proof submitted. Admin will verify within 2x24 hours.', 'success')
+    const message = selectedUploadBooking.value?.payment_proof_url
+      ? 'Payment proof replaced. Admin will verify the newest proof.'
+      : 'Payment proof submitted. Admin will verify within 2x24 hours.'
+    closeUploadModal()
+    window.showFitnezToast(message, 'success')
   } catch (e: any) {
     uploadError.value = e?.message || 'Upload failed.'
   } finally {
@@ -419,12 +436,12 @@ useAutoRefresh(() => store.loadBookings(), 8000)
 
                   <div v-if="booking.status !== 'completed' && booking.status !== 'cancelled'" class="session-actions" style="flex-wrap: wrap;">
                     <button
-                      v-if="booking.status === 'pending'"
+                      v-if="booking.status === 'pending' || booking.status === 'pending_payment'"
                       class="button button-primary button-small"
                       type="button"
-                      @click="pendingUploadBookingId = booking.id"
+                      @click="openUploadModal(booking.id)"
                     >
-                      Upload Payment Proof
+                      {{ booking.status === 'pending_payment' ? 'Replace Payment Proof' : 'Upload Payment Proof' }}
                     </button>
                     <router-link v-if="booking.status === 'confirmed'" :to="`/member/chat?contact=${booking.trainer_id}`" class="button button-primary button-small">
                       Chat Trainer
@@ -443,7 +460,7 @@ useAutoRefresh(() => store.loadBookings(), 8000)
 
     <!-- Upload Payment Proof Modal -->
     <Teleport to="body">
-      <div v-if="pendingUploadBookingId" class="modal-backdrop" @click.self="pendingUploadBookingId = null">
+      <div v-if="pendingUploadBookingId" class="modal-backdrop" @click.self="closeUploadModal">
         <div class="modal-card">
           <div class="modal-header">
             <div class="modal-icon">
@@ -451,18 +468,25 @@ useAutoRefresh(() => store.loadBookings(), 8000)
             </div>
             <div>
               <p class="eyebrow" style="margin: 0; font-size: 0.7rem;">Payment Proof</p>
-              <h2 class="title-md" style="margin: 0; font-size: 1.15rem;">Upload Transfer Receipt</h2>
+              <h2 class="title-md" style="margin: 0; font-size: 1.15rem;">{{ selectedUploadBooking?.payment_proof_url ? 'Replace Transfer Receipt' : 'Upload Transfer Receipt' }}</h2>
             </div>
           </div>
 
           <div class="upload-section">
+            <div v-if="selectedUploadBooking?.payment_proof_url" class="current-proof-note">
+              <span class="material-symbols-outlined">receipt_long</span>
+              <div>
+                <strong>Current proof already uploaded.</strong>
+                <a :href="selectedUploadBooking.payment_proof_url" target="_blank" rel="noopener">Open current proof</a>
+              </div>
+            </div>
             <label class="form-label">Screenshot / Photo of Payment</label>
             <div class="upload-zone" :class="{ 'has-file': uploadFile }" @click="($refs.uf as HTMLInputElement)?.click()">
-              <input ref="uf" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="(e: any) => { const f = e.target?.files?.[0]; if (f) { uploadFile = f; uploadError = '' } }" />
+              <input ref="uf" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" hidden @change="(e: any) => { const f = e.target?.files?.[0]; if (f) { uploadFile = f; uploadError = '' } }" />
               <template v-if="!uploadFile">
                 <span class="material-symbols-outlined upload-icon">cloud_upload</span>
                 <p>Tap to select screenshot</p>
-                <small>JPG, PNG, or WebP. Max 4MB.</small>
+                <small>JPG, PNG, WebP, or PDF. Max 5MB.</small>
               </template>
               <template v-else>
                 <span class="material-symbols-outlined upload-icon success">check_circle</span>
@@ -474,11 +498,11 @@ useAutoRefresh(() => store.loadBookings(), 8000)
           </div>
 
           <div class="form-actions">
-            <button type="button" class="button button-ghost" @click="pendingUploadBookingId = null; uploadFile = null; uploadError = ''">
+            <button type="button" class="button button-ghost" @click="closeUploadModal">
               Cancel
             </button>
             <button type="button" class="button button-primary" :disabled="!uploadFile || uploading" @click="submitPaymentProof">
-              {{ uploading ? 'Uploading...' : 'Submit Proof' }}
+              {{ uploading ? 'Uploading...' : selectedUploadBooking?.payment_proof_url ? 'Replace Proof' : 'Submit Proof' }}
             </button>
           </div>
         </div>
@@ -903,6 +927,30 @@ useAutoRefresh(() => store.loadBookings(), 8000)
 .upload-section {
   display: flex;
   flex-direction: column;
+}
+
+.current-proof-note {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.75rem;
+  color: var(--color-blue-dark);
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem;
+}
+
+.current-proof-note strong {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.current-proof-note a {
+  color: var(--color-blue);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-decoration: underline;
 }
 
 .upload-zone {

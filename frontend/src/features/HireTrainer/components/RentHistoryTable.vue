@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import SkeletonTable from '../ui/SkeletonTable.vue'
-import { useTrainerRentHistoryStore } from '../../stores/trainerRentHistoryStore'
+import { useTrainerRentHistoryStore } from '@/features/RentHistory/stores/trainerRentHistoryStore'
 
 const store = useTrainerRentHistoryStore()
 

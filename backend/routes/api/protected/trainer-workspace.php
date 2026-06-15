@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Trainer\IncomingRentHistoryController;
-use App\Http\Controllers\Trainer\MemberFitnessMonitoringController;
+use App\Features\Trainer\Controllers\IncomingRentHistoryController;
+use App\Features\Trainer\Controllers\MemberFitnessMonitoringController;
 use App\Http\Middleware\EnsureTrainerWorkspaceAccess;
 use Illuminate\Support\Facades\Route;
 

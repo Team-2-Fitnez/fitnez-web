@@ -17,16 +17,21 @@ node_modules/
 **/node_modules/
 vendor/
 backend/vendor/
+socketio/node_modules/
 
-# Local Docker folder generated/kept outside repository
-/docker/
-**/docker/
+# Docker / infra local-only files
+# Keep source infra files tracked: docker-compose.yml, nginx.conf, Dockerfile, and reusable docker configs.
+docker-compose.override.yml
+docker-compose.*.local.yml
+.docker/
+**/.docker/
 
 # Build outputs
 frontend/dist/
 backend/public/build/
 backend/public/hot
 socketio/dist/
+socketio/coverage/
 
 # Unit tests
 frontend/src/__tests__/

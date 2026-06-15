@@ -13,7 +13,18 @@
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "prepare": "cd .. && husky"
+  },
+  "lint-staged": {
+    "*.{vue,ts,js,mts,cts,jsx,tsx}": [
+      "oxlint --fix",
+      "eslint --fix --cache",
+      "prettier --write"
+    ],
+    "*.{css,scss,json,md}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@vee-validate/zod": "^4.15.1",
@@ -41,8 +52,10 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.60.0",
     "eslint-plugin-vue": "~10.8.0",
+    "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "jsdom": "^29.0.2",
+    "lint-staged": "^16.4.0",
     "npm-run-all2": "^8.0.4",
     "oxlint": "~1.60.0",
     "postcss": "^8.5.14",
