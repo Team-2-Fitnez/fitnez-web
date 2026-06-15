@@ -2,15 +2,15 @@
 
 namespace Tests\Unit;
 
-use App\Services\Booking\OnlinePriceCalculator;
-use App\Services\Booking\OfflinePriceCalculator;
-use App\Services\Booking\PromoPriceCalculator;
-use App\Services\Booking\PriceCalculator;
-use App\Services\Booking\PriceCalculatorFactory;
-use App\Services\Chat\MessageFormatterFactory;
-use App\Services\Chat\NotificationMessageFormatter;
-use App\Services\Chat\RegularMessageFormatter;
-use App\Services\Chat\SystemMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\OnlinePriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\OfflinePriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PromoPriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PriceCalculatorFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\MessageFormatterFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\NotificationMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\RegularMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\SystemMessageFormatter;
 use App\Models\TrainerBooking;
 use PHPUnit\Framework\TestCase;
 

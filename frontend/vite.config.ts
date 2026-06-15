@@ -16,9 +16,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        admin: resolve(__dirname, 'admin.html'),
-        member: resolve(__dirname, 'member.html'),
-        trainer: resolve(__dirname, 'trainer.html'),
+        admin: resolve(__dirname, 'entries/admin.html'),
+        member: resolve(__dirname, 'entries/member.html'),
+        trainer: resolve(__dirname, 'entries/trainer.html'),
       },
       output: {
         manualChunks(id: string) {

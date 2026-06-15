@@ -1,36 +1,81 @@
 # Environment / secrets
 .env
-.env.example
+.env.*
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+backend/realtime/.env
+backend/realtime/.env.*
+!backend/realtime/.env.example
 
 # Dependencies
 node_modules/
+**/node_modules/
 vendor/
+backend/vendor/
+backend/realtime/node_modules/
 
-# Builds
-docker
+# Docker local-only files
+# Keep source Docker files tracked under backend/docker and backend/realtime.
+docker-compose.override.yml
+docker-compose.*.local.yml
+.docker/
+**/.docker/
+
+# Build outputs
 frontend/dist/
 backend/public/build/
 backend/public/hot
+backend/realtime/dist/
+backend/realtime/coverage/
 
-# Runtime data
+# Test outputs
+frontend/coverage/
+backend/coverage/
+
+# Laravel runtime data
 backend/storage/logs/*.log
 backend/storage/framework/cache/*
+backend/storage/framework/cache/data/*
 backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 backend/storage/app/public/*
 backend/storage/app/private/*
 backend/bootstrap/cache/*.php
+!backend/storage/app/.gitignore
+!backend/storage/app/public/.gitignore
+!backend/storage/app/private/.gitignore
+!backend/storage/framework/.gitignore
+!backend/storage/framework/cache/.gitignore
+!backend/storage/framework/sessions/.gitignore
+!backend/storage/framework/views/.gitignore
+!backend/storage/logs/.gitignore
+!backend/bootstrap/cache/.gitignore
 
 # Databases / generated files
 backend/database/*.sqlite
 *.sqlite
 *.db
 
-# OS / editor
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 .DS_Store
 Thumbs.db
+*.tmp
+*.temp
+
+# IDE / editor
 .idea/
 .vscode/
+*.swp
+*.swo
 
 # Windows Mark of the Web metadata copied into WSL/Linux
 *:Zone.Identifier

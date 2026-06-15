@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Services\Chat\RegularMessageFormatter;
-use App\Services\Chat\SystemMessageFormatter;
-use App\Services\Chat\NotificationMessageFormatter;
-use App\Services\Chat\MessageFormatterFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\RegularMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\SystemMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\NotificationMessageFormatter;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Chat\MessageFormatterFactory;
 use PHPUnit\Framework\TestCase;
 
 class MessageFormatterTest extends TestCase

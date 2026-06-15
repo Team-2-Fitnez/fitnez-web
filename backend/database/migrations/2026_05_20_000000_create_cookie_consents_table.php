@@ -8,20 +8,26 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('cookie_consents')) {
+            return;
+        }
+
         Schema::create('cookie_consents', function (Blueprint $table) {
             $table->id();
-            $table->uuid('anonymous_id')->index();
-            $table->string('consent_version', 40);
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('anonymous_id')->nullable()->index();
+            $table->string('consent_version')->default('1.0');
             $table->boolean('essential')->default(true);
             $table->boolean('analytics')->default(false);
             $table->boolean('marketing')->default(false);
             $table->boolean('preferences')->default(false);
+            $table->string('ip_address', 64)->nullable();
+            $table->text('user_agent')->nullable();
             $table->timestamp('consented_at')->nullable();
-            $table->timestamp('last_updated_at')->nullable();
-            $table->string('ip_hash', 64)->nullable();
-            $table->text('user_agent_hash')->nullable();
+            $table->timestamp('withdrawn_at')->nullable();
             $table->timestamps();
 
+            $table->index(['user_id', 'consent_version']);
             $table->index(['anonymous_id', 'consent_version']);
         });
     }

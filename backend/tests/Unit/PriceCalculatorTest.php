@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Services\Booking\OnlinePriceCalculator;
-use App\Services\Booking\OfflinePriceCalculator;
-use App\Services\Booking\PromoPriceCalculator;
-use App\Services\Booking\PriceCalculatorFactory;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\OnlinePriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\OfflinePriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PromoPriceCalculator;
+use App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PriceCalculatorFactory;
 use PHPUnit\Framework\TestCase;
 
 class PriceCalculatorTest extends TestCase
@@ -131,7 +131,7 @@ class PriceCalculatorTest extends TestCase
         foreach ($types as $type) {
             $instance = PriceCalculatorFactory::create($type);
             $this->assertInstanceOf(
-                \App\Services\Booking\PriceCalculator::class,
+                \App\Features\Anggota4TrainerBookingScheduleChatPaymentsRent\Services\Booking\PriceCalculator::class,
                 $instance
             );
         }
