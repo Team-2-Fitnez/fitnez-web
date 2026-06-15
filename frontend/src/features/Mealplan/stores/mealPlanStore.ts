@@ -60,6 +60,12 @@ export const useMealPlanStore = defineStore('mealPlan', {
             this.mealPlan = payload
         },
 
+        async deleteMealPlan() {
+            await mealPlanApi.deleteMealPlan()
+            this.mealPlan = null
+            this.foods = []
+        },
+
         async addFood(name: string, calories: number) {
             await mealPlanApi.addFood({ food_name: name, calories })
             const foodRes = await mealPlanApi.getFoodLog()

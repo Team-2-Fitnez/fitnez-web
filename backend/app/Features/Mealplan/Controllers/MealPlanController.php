@@ -95,4 +95,19 @@ class MealPlanController extends Controller
 
         return response()->json(['message' => 'Deleted']);
     }
+
+    // DELETE /api/user/meal_plan
+    public function deleteMealPlan()
+    {
+        $plan = MealPlan::where('user_id', Auth::id())->first();
+        if ($plan) {
+            $plan->delete();
+        }
+
+        FoodLog::where('user_id', Auth::id())
+            ->whereDate('logged_date', today())
+            ->delete();
+
+        return response()->json(['message' => 'Deleted']);
+    }
 }

@@ -91,11 +91,25 @@ async function addFood() {
     foodError.value = 'Please fill in all fields correctly.'
     return
   }
+  if (store.totalCalories + Number(newFood.value.calories) > store.dailyLimit) {
+    foodError.value = 'You have exceeded your daily calorie limit'
+    return
+  }
   try {
     await store.addFood(newFood.value.name, Number(newFood.value.calories))
     newFood.value = { name: '', calories: '' }
   } catch {
     foodError.value = 'Failed to add food.'
+  }
+}
+
+async function deleteLimit() {
+  try {
+    await store.deleteMealPlan()
+    result.value = null
+    saveSuccess.value = 'Daily limit successfully deleted.'
+  } catch (err: any) {
+    calculatorError.value = err?.message || 'Failed to delete limit.'
   }
 }
 
@@ -121,7 +135,10 @@ async function deleteFood(id: number) {
         <article class="calorie-card surface-card">
           <div class="section-title-row">
             <h2>Daily Calories</h2>
-            <span>Daily Limit</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span>Daily Limit</span>
+              <button v-if="store.dailyLimit > 0" @click="deleteLimit" type="button" class="delete-limit-btn">Delete Limit</button>
+            </div>
           </div>
 
           <div class="calorie-content">
@@ -356,6 +373,21 @@ async function deleteFood(id: number) {
   font-size: 0.66rem;
   font-weight: 900;
   padding: 0.28rem 0.65rem;
+}
+
+.delete-limit-btn {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 0.28rem 0.65rem;
+}
+
+.delete-limit-btn:hover {
+  background: #fee2e2;
 }
 
 .calorie-ring-wrap {

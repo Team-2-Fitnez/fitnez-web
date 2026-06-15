@@ -21,6 +21,10 @@ export const mealPlanApi = {
         return http.put('/user/meal_plan', payload)
     },
 
+    deleteMealPlan() {
+        return http.delete('/user/meal_plan')
+    },
+
     getFoodLog() {
         return http.get<{
             foods: { id: number; food_name: string; calories: number }[]
